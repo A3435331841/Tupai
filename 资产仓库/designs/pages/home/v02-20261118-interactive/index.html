@@ -209,7 +209,7 @@ footer{border-top:1px solid var(--line);padding:24px 0;color:var(--ink-soft);fon
 
 <header class="nav" id="nav">
   <div class="wrap nav-in">
-    <a class="brand" href="#top" aria-label="图派首页"><img src="assets/logo-horizontal.svg" alt="图派 TuPai" /></a>
+    <a class="brand" href="#top" aria-label="图派首页"><img src="assets/标志-横版.svg" alt="图派 TuPai" /></a>
     <nav class="nav-links" id="navLinks" aria-label="主导航">
       <a class="active" href="#top">首页</a>
       <a href="/studio" data-route="/studio">创作台</a>
@@ -242,12 +242,12 @@ footer{border-top:1px solid var(--line);padding:24px 0;color:var(--ink-soft);fon
 
       <div class="hero-visual reveal">
         <div class="compare-hero" id="heroCmp" style="--pos:75%" role="slider" tabindex="0" aria-label="左右拖动，看废片变作品">
-          <img class="ch-photo" id="chPhoto" src="assets/tpl-1-film.jpg" alt="拖动查看：废片变作品" draggable="false" />
+          <img class="ch-photo" id="chPhoto" src="assets/模板-胶片日常.jpg" alt="拖动查看：废片变作品" draggable="false" />
           <div class="ch-beam"></div>
           <!-- 相纸组：原图（灰）/ 作品（暖），错叠白边 + 手写箭头 -->
           <div class="papers" id="papers">
-            <div class="paper before"><img src="assets/tpl-1-film.jpg" alt="原图" /><b>原图</b></div>
-            <div class="paper after"><img src="assets/tpl-1-film.jpg" alt="作品" /><b>作品</b></div>
+            <div class="paper before"><img src="assets/模板-胶片日常.jpg" alt="原图" /><b>原图</b></div>
+            <div class="paper after"><img src="assets/模板-胶片日常.jpg" alt="作品" /><b>作品</b></div>
             <svg class="scribble" viewBox="0 0 60 40" aria-hidden="true">
               <path d="M6 34 C18 6, 40 2, 52 14" fill="none" stroke="#fffdf8" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="1 0"/>
               <path d="M46 9 L53 14 L47 20" fill="none" stroke="#fffdf8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -349,26 +349,26 @@ setTimeout(()=>document.querySelectorAll('.reveal:not(.in)').forEach(el=>el.clas
 
 /* ===== 无限循环画廊（选中交互，逻辑保持不变） ===== */
 const IMGS=[
-  ['assets/tpl-1-film.jpg','胶片日常','普通街拍变 Portra 胶片，暖光与颗粒感。','film-daily'],
-  ['assets/tpl-2-night.jpg','夜景提亮','暗光聚餐照救星，含雨夜霓虹变体。','night-bright'],
-  ['assets/tpl-3-portrait.jpg','清透人像','柔和自然光，干净通透的肤色。','clean-portrait'],
-  ['assets/tpl-4-travel.jpg','旅行明信片','随手拍变通透度假大片。','travel-postcard'],
-  ['assets/tpl-5-magazine.jpg','杂志封面','黑白高对比，编辑级人像。','magazine-cover'],
-  ['assets/gallery/g06-coffee.jpg','咖啡午后','窗边咖啡与绿植的温柔午后。',''],
-  ['assets/gallery/g07-food.jpg','餐桌日记','一桌好饭的暖色记录。',''],
-  ['assets/gallery/g09-street.jpg','城市夜色','暮色里的城市轮廓。',''],
-  ['assets/gallery/g10-pet.jpg','猫咪日常','毛孩子的慵懒时刻。',''],
-  ['assets/gallery/g12-beach.jpg','海边黄昏','金色海边与细浪。',''],
-  ['assets/gallery/g13-city.jpg','都市天际','黄昏时分的城市天际线。',''],
-  ['assets/gallery/g14-book.jpg','旧书时光','书架前的安静光斑。',''],
-  ['assets/gallery/g15-plant.jpg','绿植静物','窗台上的一抹绿意。',''],
-  ['assets/gallery/g16-market.png','周末市集','花摊前的笑容与鲜花。',''],
-  ['assets/gallery/g17-reading.png','窗边阅读','阳光里的阅读时光。',''],
-  ['assets/gallery/g18-bakery.png','暖光美食','刚出炉的面包与咖啡。',''],
-  ['assets/gallery/g19-street.png','黄昏街道','老城街道的暖色黄昏。',''],
-  ['assets/gallery/g20-flowers.png','干花静物','瓶中的干花与光影。',''],
-  ['assets/gallery/g21-seaside.png','海边漫步','面朝大海的背影。',''],
-  ['assets/gallery/g22-cat.png','猫与午后','沙发上打盹的橘猫。','']
+  ['assets/模板-胶片日常.jpg','胶片日常','普通街拍变 Portra 胶片，暖光与颗粒感。','film-daily'],
+  ['assets/模板-夜景提亮.jpg','夜景提亮','暗光聚餐照救星，含雨夜霓虹变体。','night-bright'],
+  ['assets/模板-清透人像.jpg','清透人像','柔和自然光，干净通透的肤色。','clean-portrait'],
+  ['assets/模板-旅行明信片.jpg','旅行明信片','随手拍变通透度假大片。','travel-postcard'],
+  ['assets/模板-杂志封面.jpg','杂志封面','黑白高对比，编辑级人像。','magazine-cover'],
+  ['assets/gallery/咖啡午后.jpg','咖啡午后','窗边咖啡与绿植的温柔午后。',''],
+  ['assets/gallery/餐桌日记.jpg','餐桌日记','一桌好饭的暖色记录。',''],
+  ['assets/gallery/城市夜色.jpg','城市夜色','暮色里的城市轮廓。',''],
+  ['assets/gallery/猫咪日常.jpg','猫咪日常','毛孩子的慵懒时刻。',''],
+  ['assets/gallery/海边黄昏.jpg','海边黄昏','金色海边与细浪。',''],
+  ['assets/gallery/都市天际.jpg','都市天际','黄昏时分的城市天际线。',''],
+  ['assets/gallery/旧书时光.jpg','旧书时光','书架前的安静光斑。',''],
+  ['assets/gallery/绿植静物.jpg','绿植静物','窗台上的一抹绿意。',''],
+  ['assets/gallery/周末市集.png','周末市集','花摊前的笑容与鲜花。',''],
+  ['assets/gallery/窗边阅读.png','窗边阅读','阳光里的阅读时光。',''],
+  ['assets/gallery/暖光美食.png','暖光美食','刚出炉的面包与咖啡。',''],
+  ['assets/gallery/黄昏街道.png','黄昏街道','老城街道的暖色黄昏。',''],
+  ['assets/gallery/干花静物.png','干花静物','瓶中的干花与光影。',''],
+  ['assets/gallery/海边漫步.png','海边漫步','面朝大海的背影。',''],
+  ['assets/gallery/猫与午后.png','猫与午后','沙发上打盹的橘猫。','']
 ];
 const rail=document.getElementById('rail'),bar=document.getElementById('bar'),tip=document.getElementById('tip');
 const N=IMGS.length,nodes=[];
