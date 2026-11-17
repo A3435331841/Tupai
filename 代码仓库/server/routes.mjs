@@ -845,11 +845,21 @@ export function application({ db, storage, env, fetchImpl }) {
     if (path === '/api/v1/feed' && method === 'GET') {
       const url = new URL(request.url);
       const tag = url.searchParams.get('tag') || '';
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const sort = url.searchParams.get('sort') || 'new';
       const limit = Math.min(48, Math.max(1, Number(url.searchParams.get('limit')) || 24));
       const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
       const all = rows(await db.from('works').select('*').eq('status', 'published').order('created_at', { ascending: false }).range(0, 499)) || [];
       let filtered = all;
       if (tag) filtered = filtered.filter((w) => jsonArr(w.tags).includes(tag));
+      if (q) filtered = filtered.filter((w) => w.title.toLowerCase().includes(q)
+        || (w.author_credit || '').toLowerCase().includes(q)
+        || jsonArr(w.tags).some((t) => String(t).toLowerCase().includes(q)));
+      if (sort === 'hot') {
+        const counted = await Promise.all(filtered.map(async (w) => ({ w, c: (await workCounts(w)).like_count })));
+        counted.sort((a, b) => b.c - a.c);
+        filtered = counted.map((x) => x.w);
+      }
       const page = filtered.slice(offset, offset + limit);
       const works = await Promise.all(page.map(async (w) => workMeta(w, await workCounts(w))));
       return Response.json({ works, total: filtered.length, next_offset: offset + limit < filtered.length ? offset + limit : null });

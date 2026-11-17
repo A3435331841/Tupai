@@ -89,9 +89,11 @@ export const api = {
   deleteAlbum: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/albums/${id}`),
   shareAlbum: (id: string, expires_hours?: number) => request<{ share_token: string; share_page: string; expires_at: string }>('POST', `/api/v1/albums/${id}/share`, { expires_hours }),
   revokeAlbumShare: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/albums/${id}/share`),
-  feed: (params: { tag?: string; limit?: number; offset?: number } = {}) => {
+  feed: (params: { tag?: string; q?: string; sort?: string; limit?: number; offset?: number } = {}) => {
     const qs = new URLSearchParams();
     if (params.tag) qs.set('tag', params.tag);
+    if (params.q) qs.set('q', params.q);
+    if (params.sort) qs.set('sort', params.sort);
     if (params.limit) qs.set('limit', String(params.limit));
     if (params.offset) qs.set('offset', String(params.offset));
     const suffix = qs.toString() ? '?' + qs.toString() : '';

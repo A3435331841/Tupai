@@ -38,6 +38,9 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   const [tab, setTab] = useState<Tab>('feed');
   const [works, setWorks] = useState<WorkMeta[] | null>(null);
   const [tag, setTag] = useState('');
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<'new' | 'hot'>('new');
+  const [profile, setProfile] = useState<{ authorId: string; name: string; works: WorkMeta[] } | null>(null);
   const [active, setActive] = useState<WorkMeta | null>(null);
   const [comments, setComments] = useState<{ id: string; body: string; author_id: string }[]>([]);
   const [commentText, setCommentText] = useState('');
@@ -48,9 +51,9 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   const [mine, setMine] = useState<WorkMeta[] | null>(null);
 
   const loadFeed = useCallback(async () => {
-    try { const r = await api.feed({ tag: tag || undefined }); setWorks(r.works); }
+    try { const r = await api.feed({ tag: tag || undefined, q: q || undefined, sort }); setWorks(r.works); }
     catch { setWorks([]); }
-  }, [tag]);
+  }, [tag, q, sort]);
   useEffect(() => { if (tab === 'feed') void loadFeed(); }, [tab, loadFeed]);
   useEffect(() => {
     if (tab === 'tasks') api.tasks().then((r) => setTasks(r.tasks)).catch(() => setTasks([]));
@@ -118,9 +121,12 @@ export default function Community({ navigate }: { navigate: (to: string) => void
 
       {tab === 'feed' && (
         <>
-          <div className="mb-4 flex gap-2">
-            <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="按标签筛选，如 夜景" className="h-9 w-48" />
-            <Button size="sm" variant="outline" onClick={() => void loadFeed()}>筛选</Button>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="按标签筛选，如 夜景" className="h-9 w-40" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜作品 / 作者 / 标签" className="h-9 w-48" onKeyDown={(e) => { if (e.key === 'Enter') void loadFeed(); }} />
+            <Button size="sm" variant={sort === 'new' ? 'secondary' : 'outline'} onClick={() => setSort('new')}>最新</Button>
+            <Button size="sm" variant={sort === 'hot' ? 'secondary' : 'outline'} onClick={() => setSort('hot')}>热门</Button>
+            <Button size="sm" variant="outline" onClick={() => void loadFeed()}>搜索</Button>
           </div>
           {works === null ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="aspect-[3/4] rounded-xl" />)}</div>
             : works.length === 0 ? <Card className="p-10 text-center text-sm text-muted-foreground">还没有公开作品。去创作台生成并发布第一张。</Card>
@@ -193,7 +199,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
               <div className="grid gap-4 sm:grid-cols-[1fr_240px]">
                 <img src={apiUrl(active.image_url)} alt={active.title} className="w-full rounded-lg border border-border object-contain" />
                 <div className="space-y-3 text-sm">
-                  <p className="text-xs text-muted-foreground">作者：{active.author_credit || '匿名'} {active.depth > 0 && <>· fork 自 <button className="text-primary underline" onClick={() => active.parent_work_id && openWorkById(active.parent_work_id)}>上游作品</button>（{active.depth} 层）</>}</p>
+                  <p className="text-xs text-muted-foreground">作者：<button className="text-primary underline" onClick={() => void openProfile(active.author_id, active.author_credit || '匿名')}>{active.author_credit || '匿名'}</button> {active.depth > 0 && <>· fork 自 <button className="text-primary underline" onClick={() => active.parent_work_id && openWorkById(active.parent_work_id)}>上游作品</button>（{active.depth} 层）</>}</p>
                   <div className="flex flex-wrap gap-1">{active.tags.map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}</div>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => void doLike(active)}>♥ 点赞</Button>
@@ -251,8 +257,27 @@ export default function Community({ navigate }: { navigate: (to: string) => void
           )}
         </DialogContent>
       </Dialog>
+      <Dialog open={Boolean(profile)} onOpenChange={(v) => { if (!v) setProfile(null); }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          {profile && (
+            <>
+              <DialogHeader><DialogTitle>{profile.name} 的公开作品</DialogTitle></DialogHeader>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {profile.works.map((w) => <WorkCard key={w.id} w={w} onOpen={(x) => { setProfile(null); openWork(x); }} />)}
+                {profile.works.length === 0 && <p className="col-span-full text-sm text-muted-foreground">暂无公开作品。</p>}
+              </div>
+              <DialogFooter />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
+  async function openProfile(authorId: string, name: string) {
+    try { const r = await api.userWorks(authorId); setProfile({ authorId, name, works: r.works }); }
+    catch { toast.error('加载作者作品失败'); }
+  }
 
   async function openWorkById(id: string) {
     try { const r = await api.work(id); openWork(r.work); } catch { toast.error('上游作品不可见'); }
