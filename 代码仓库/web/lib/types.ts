@@ -83,3 +83,18 @@ export interface Quota {
 }
 
 export interface ApiError { code: string; message: string }
+
+export interface AssetMeta {
+  id: string;
+  kind: 'original' | 'result' | 'reference';
+  visibility: string;
+  width: number;
+  height: number;
+  content_type: string;
+  bytes: number;
+  created_at: string;
+  tags: string[];
+  source: string | null;
+  deleted_at: string | null;
+  content_url: string;
+}

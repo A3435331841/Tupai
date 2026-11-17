@@ -7,7 +7,7 @@ export function fakeDb() {
   };
   function query(name) {
     const filters = [];
-    let orderCol = null, orderAsc = true, limitN = null, wantCount = false;
+    let orderCol = null, orderAsc = true, limitN = null, offsetN = 0, wantCount = false;
     const api = {
       select(_cols, opts) { if (opts?.count === 'exact') wantCount = true; return api; },
       eq(col, val) { filters.push((r) => r[col] === val); return api; },
@@ -15,6 +15,7 @@ export function fakeDb() {
       gte(col, val) { filters.push((r) => r[col] != null && r[col] >= val); return api; },
       order(col, opts) { orderCol = col; orderAsc = opts?.ascending !== false; return api; },
       limit(n) { limitN = n; return api; },
+      range(from, to) { offsetN = from; limitN = to - from + 1; return api; },
       insert(row) {
         const rowsIn = Array.isArray(row) ? row : [row];
         const inserted = rowsIn.map((r) => ({ created_at: new Date().toISOString(), ...r }));
@@ -55,6 +56,7 @@ export function fakeDb() {
         let matched = table(name).filter((r) => filters.every((f) => f(r)));
         const count = matched.length;
         if (orderCol) matched = [...matched].sort((a, b) => (a[orderCol] > b[orderCol] ? 1 : -1) * (orderAsc ? 1 : -1));
+        if (offsetN) matched = matched.slice(offsetN);
         if (limitN != null) matched = matched.slice(0, limitN);
         resolve({ data: matched, error: null, count: wantCount ? count : null });
       },

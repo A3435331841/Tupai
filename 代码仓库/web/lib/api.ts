@@ -67,6 +67,21 @@ export const api = {
   skillMd: (id: string) => request<string>('GET', `/api/v1/skills/${id}/skill.md`),
   me: () => request<{ logged_in: boolean; user: { user_id: string; name: string; picture: string } | null; owner_key: string | null }>('GET', '/api/v1/me'),
   bind: () => request<{ migrated: number; owner_key: string }>('POST', '/api/v1/auth/bind', {}),
+  assets: (params: { kind?: string; q?: string; tag?: string; include_deleted?: boolean; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.kind) qs.set('kind', params.kind);
+    if (params.q) qs.set('q', params.q);
+    if (params.tag) qs.set('tag', params.tag);
+    if (params.include_deleted) qs.set('include_deleted', '1');
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.offset) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? '?' + qs.toString() : '';
+    return request<{ assets: import('./types').AssetMeta[]; total: number; next_offset: number | null }>('GET', '/api/v1/assets' + suffix);
+  },
+  asset: (id: string) => request<{ asset: import('./types').AssetMeta }>('GET', `/api/v1/assets/${id}`),
+  updateAssetTags: (id: string, tags: string[]) => request<{ asset: import('./types').AssetMeta }>('PATCH', `/api/v1/assets/${id}`, { tags }),
+  deleteAsset: (id: string) => request<{ ok: boolean; deleted_at: string }>('DELETE', `/api/v1/assets/${id}`),
+  restoreAsset: (id: string) => request<{ asset: import('./types').AssetMeta }>('POST', `/api/v1/assets/${id}/restore`, {}),
 };
 
 // Qoder 平台登录入口（公开站不影响登录；登录后网关向云函数注入已验证身份）

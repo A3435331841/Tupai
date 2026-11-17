@@ -38,6 +38,21 @@ function safeCoverUrl(value) {
   return typeof value === 'string' && /^\/api\/v1\/assets\/a_[0-9a-f]{24}\/content$/.test(value) ? value : undefined;
 }
 
+function assetTags(a) {
+  if (Array.isArray(a.tags)) return a.tags;
+  if (typeof a.tags === 'string') { try { const p = JSON.parse(a.tags); return Array.isArray(p) ? p : []; } catch { return []; } }
+  return [];
+}
+
+function assetMeta(a) {
+  return {
+    id: a.id, kind: a.kind, visibility: a.visibility, width: a.width, height: a.height,
+    content_type: a.content_type, bytes: a.bytes, created_at: a.created_at,
+    tags: assetTags(a), source: a.source || null, deleted_at: a.deleted_at || null,
+    content_url: publicAssetUrl(a.id),
+  };
+}
+
 export function application({ db, storage, env, fetchImpl }) {
   const scheduler = createKeyScheduler(db, env);
   const agnes = createAgnesProvider(scheduler, fetchImpl);
@@ -231,6 +246,66 @@ export function application({ db, storage, env, fetchImpl }) {
       });
     }
 
+    if (path === '/api/v1/assets' && method === 'GET') {
+      const sid = ownerOf(request);
+      const url = new URL(request.url);
+      const kind = url.searchParams.get('kind') || '';
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const tag = (url.searchParams.get('tag') || '').trim();
+      const includeDeleted = url.searchParams.get('include_deleted') === '1';
+      const limit = Math.min(60, Math.max(1, Number(url.searchParams.get('limit')) || 24));
+      const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+      let query = db.from('assets').select('*').eq('owner_session', sid).order('created_at', { ascending: false });
+      if (!includeDeleted) query = query.is('deleted_at', null);
+      if (kind) query = query.eq('kind', kind);
+      const all = rows(await query.range(0, 499)) || [];
+      let filtered = all;
+      if (tag) filtered = filtered.filter((a) => assetTags(a).includes(tag));
+      if (q) filtered = filtered.filter((a) => (a.source || '').toLowerCase().includes(q)
+        || assetTags(a).some((t) => String(t).toLowerCase().includes(q)) || a.kind.includes(q));
+      const page = filtered.slice(offset, offset + limit);
+      return Response.json({
+        assets: page.map(assetMeta), total: filtered.length,
+        next_offset: offset + limit < filtered.length ? offset + limit : null,
+      });
+    }
+
+    const assetMetaMatch = path.match(/^\/api\/v1\/assets\/(a_[0-9a-f]{24})$/);
+    if (assetMetaMatch && method === 'GET') {
+      const sid = ownerOf(request);
+      const a = await loadOwnedAsset(assetMetaMatch[1], sid);
+      return Response.json({ asset: assetMeta(a) });
+    }
+
+    if (assetMetaMatch && method === 'PATCH') {
+      const sid = ownerOf(request);
+      const a = await loadOwnedAsset(assetMetaMatch[1], sid);
+      const body = await readJson(request);
+      if (!Array.isArray(body.tags)) fail('invalid_input', 400, 'tags 须为数组');
+      const tags = body.tags.slice(0, 12).map((t) => String(t).slice(0, 40)).filter(Boolean);
+      const r = await db.from('assets').update({ tags }).eq('id', a.id).eq('owner_session', sid).select();
+      if (r.error) fail('internal', 503, '打标失败，请稍后重试');
+      return Response.json({ asset: assetMeta(r.data[0]) });
+    }
+
+    if (assetMetaMatch && method === 'DELETE') {
+      const sid = ownerOf(request);
+      const a = await loadOwnedAsset(assetMetaMatch[1], sid);
+      const deleted_at = new Date().toISOString();
+      const r = await db.from('assets').update({ deleted_at }).eq('id', a.id).eq('owner_session', sid).select();
+      if (r.error) fail('internal', 503, '删除失败，请稍后重试');
+      return Response.json({ ok: true, deleted_at });
+    }
+
+    const restoreMatch = path.match(/^\/api\/v1\/assets\/(a_[0-9a-f]{24})\/restore$/);
+    if (restoreMatch && method === 'POST') {
+      const sid = ownerOf(request);
+      const a = await loadOwnedAsset(restoreMatch[1], sid);
+      const r = await db.from('assets').update({ deleted_at: null }).eq('id', a.id).eq('owner_session', sid).select();
+      if (r.error) fail('internal', 503, '恢复失败，请稍后重试');
+      return Response.json({ asset: assetMeta(r.data[0]) });
+    }
+
     if (path === '/api/v1/assets' && method === 'POST') {
       const sid = ownerOf(request);
       let form;
@@ -293,6 +368,10 @@ export function application({ db, storage, env, fetchImpl }) {
       if (out.busy || out.parseFailed || !out.candidates?.length) {
         out = mockOptimize({ text, count });
         mock = true;
+      }
+      if (assetId && out.candidates?.length) {
+        const autoTags = [...new Set((out.tags || []).concat(out.candidates.flatMap((c) => c.style_tags || [])))].slice(0, 12);
+        if (autoTags.length) await db.from('assets').update({ tags: autoTags }).eq('id', assetId).eq('owner_session', sid).select();
       }
       await ensureSeeded(db);
       const templates = rows(await db.from('templates').select('*').limit(50)) || [];

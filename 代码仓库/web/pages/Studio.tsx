@@ -227,8 +227,19 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     const q = new URLSearchParams(key);
     const demo = q.get('demo');
     const tplId = q.get('template');
-    if (!demo && !tplId) return;
+    const assetParam = q.get('asset');
+    if (!demo && !tplId && !assetParam) return;
     (async () => {
+      if (assetParam && !demo && !tplId) {
+        try {
+          const blob = await fetchAssetBlob(`/api/v1/assets/${assetParam}/content`);
+          const f = new File([blob], 'library-asset.jpg', { type: blob.type || 'image/jpeg' });
+          setTab('image'); setFile(f); setAssetId(assetParam);
+          setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(f); });
+          toast('底图已从资产库就位，点「自动优化提示词」开始');
+        } catch { toast.error('底图加载失败或无权访问'); }
+        return;
+      }
       let tpl: Template | undefined;
       if (tplId) {
         try {
