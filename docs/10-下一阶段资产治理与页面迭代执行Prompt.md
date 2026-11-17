@@ -83,9 +83,9 @@ rg --files
 │  ├─ references/
 │  └─ archive/
 ├─ templates/<template-id>/
-│  ├─ manifest.json
-│  ├─ prompt.md
-│  ├─ cover.webp
+│  ├─ 清单.json
+│  ├─ 提示词.md
+│  ├─ 封面.webp
 │  └─ samples/
 ├─ media/
 │  ├─ generated/
@@ -121,7 +121,7 @@ rg --files
 - 示例：v01-20261117-editorial、v02-20261118-interactive-compare
 - 禁止：最终版、新版、最终最终、copy、old、new-new、无意义时间戳、随机 hash 目录名。
 
-每个版本目录包含 manifest.md，状态只能是 concept、review、approved、superseded、archived。当前版本由页面 INDEX.md 指向，不通过复制成 current 或改名为 final 表达。
+每个版本目录包含 版本说明.md，状态只能是 concept、review、approved、superseded、archived。当前版本由页面 INDEX.md 指向，不通过复制成 current 或改名为 final 表达。
 
 预览文件：preview-desktop@2x.webp、preview-tablet@2x.webp、preview-mobile@2x.webp。
 
@@ -140,7 +140,7 @@ rg --files
   "author": "TuPai",
   "license": "project-owned",
   "source": null,
-  "prompt_path": "prompt.md",
+  "prompt_path": "提示词.md",
   "created_at": "2026-11-18",
   "dimensions": "864x1152",
   "sha256": "...",

@@ -14,14 +14,14 @@ LifeHack·图派/                    # 仓库根（git 根在此，不在 代码
 ├─ README.md                      # 概览 / 快速开始 / 文档索引 / 当前状态
 ├─ docs/                          # 项目文档 01–10
 ├─ 资产仓库/                       # ★ 唯一资产源（source of truth）
-│  ├─ INDEX.md                    # 人类可读总索引
-│  ├─ brand/{logo,explorations,usage.md}
-│  ├─ designs/pages/{home,studio,library,community,legal}/
+│  ├─ 总索引.md                   # 人类可读总索引
+│  ├─ brand/{logo,explorations,品牌规范.md}
+│  ├─ designs/pages/{home,studio,library,community,legal}/   # 每页含 索引.md + 版本目录
 │  ├─ designs/{system,references,archive}/
-│  ├─ templates/<template-id>/{manifest.json,prompt.md,cover.webp,samples/}
+│  ├─ templates/<template-id>/{清单.json,提示词.md,封面.webp,samples/}
 │  ├─ media/{generated,licensed,derived,private}/
 │  ├─ skills/{own,third-party}/
-│  ├─ manifests/{assets.json,runtime-map.json}
+│  ├─ manifests/{资产清单.json,运行时映射.json}
 │  └─ archive/
 ├─ 代码仓库/                       # 可运行产品
 │  ├─ web/                        # React 前端；web/public/ 是运行时派生副本
@@ -40,8 +40,8 @@ LifeHack·图派/                    # 仓库根（git 根在此，不在 代码
 
 - **唯一源**：`资产仓库/`。任何新增图片、Logo、模板封面、设计稿，先落这里。
 - **运行时副本**：`代码仓库/web/public/` 只是构建产物输入，**不是第二份源**。禁止直接在 public 里「改图」而不同步回源。
-- **映射可追溯**：每个 public 文件必须在 `资产仓库/manifests/runtime-map.json` 有 `runtime_path → source_path` 记录。
-- **禁止散复制**：不得凭视觉相似重复复制图片；先查 `manifests/assets.json` 的 sha256，命中则复用。
+- **映射可追溯**：每个 public 文件必须在 `资产仓库/manifests/运行时映射.json` 有 `runtime_path → source_path` 记录。
+- **禁止散复制**：不得凭视觉相似重复复制图片；先查 `manifests/资产清单.json` 的 sha256，命中则复用。
 - **派生图**（裁切、压缩、水印版）放 `media/derived/`，必须记录 `derivative_of`，不覆盖源图。
 
 ---
@@ -89,7 +89,7 @@ LifeHack·图派/                    # 仓库根（git 根在此，不在 代码
 
 ## 5. 资源规则
 
-1. 先查 `资产仓库/manifests/assets.json` 是否已有同类资产（按 sha256 / 用途）。
+1. 先查 `资产仓库/manifests/资产清单.json` 是否已有同类资产（按 sha256 / 用途）。
 2. 再决定：复用 / 派生 / 新生成。**不得凭视觉相似重复复制**。
 3. 新资产落盘必须同时写入 manifest（id/type/path/origin/license/sha256/runtime_path/used_by/status）。
 4. 命名遵循 §6，中文只出现在页面文案和 Markdown 标题。
@@ -98,11 +98,25 @@ LifeHack·图派/                    # 仓库根（git 根在此，不在 代码
 
 ## 6. 命名与版本规范
 
-- 目录、文件名：**ASCII 小写 kebab-case**。
-- 页面设计版本目录：`vNN-YYYYMMDD-<intent>`，如 `v02-20261118-interactive-compare`。
+**命名总则：资产用中文，技术标识用英文。**
+
+| 范围 | 规则 | 示例 |
+|---|---|---|
+| `资产仓库/` 内的**资产与文档文件** | **中文命名**（可读性优先） | `总索引.md`、`封面.webp`、`提示词.md`、`咖啡午后.jpg`、`品牌规范.md` |
+| `资产仓库/` 内的**目录** | 英文 kebab-case（结构稳定） | `media/generated/`、`designs/pages/home/` |
+| `templates/<template-id>/` 目录名 | **必须英文**：是 API id，前端 `?template=film-daily`、后端 seed 依赖 | `film-daily/`、`night-bright/` |
+| 页面设计版本目录 | `vNN-YYYYMMDD-<intent>`（英文），被 `索引.md` 指向 | `v02-20261118-interactive` |
+| `代码仓库/web/public/**` | **必须保持英文**：是代码引用的运行时路径 | `/templates/night-bright.webp` |
+| 第三方 Skills | **原样保留**，不中文化，避免丢失溯源 | `skills/third-party/open-image-prompts/**` |
+| 代码文件 | 遵循框架惯例 | 组件 PascalCase `StudioStepper.tsx`；工具 kebab `api.ts` |
+| 入口 HTML | 保留 `index.html`（浏览器/服务器标准入口） | `designs/pages/home/v02.../index.html` |
+
+**中文化不改变功能**：源文件改名后必须同步 ① HTML 内相对引用 ② `manifests/运行时映射.json` 的 `source_path`；`public/` 路径一律不动。
+
+- 设计版本目录：`vNN-YYYYMMDD-<intent>`，如 `v02-20261118-interactive-compare`。
 - **禁止**：`最终版`、`新版`、`old`、`final`、`copy`、`new-new`、随机 hash 目录名、无意义时间戳。
-- 每个版本目录含 `manifest.md`，`status` 只能是：`concept` / `review` / `approved` / `superseded` / `archived`。
-- 当前版本由页面 `INDEX.md` 指向，**不通过**改名成 `final` 或复制成 `current` 表达。
+- 每个版本目录含 `版本说明.md`，`status` 只能是：`concept` / `review` / `approved` / `superseded` / `archived`。
+- 当前版本由页面 `索引.md` 指向，**不通过**改名成 `final` 或复制成 `current` 表达。
 - 预览文件：`preview-desktop@2x.webp`、`preview-tablet@2x.webp`、`preview-mobile@2x.webp`。
 - 页面素材：`<page>-<slot>-vNN-YYYYMMDD-<variant>.<ext>`，如 `home-hero-v02-20261118-warm-street.webp`。
 
@@ -125,7 +139,7 @@ node api/contract-test.mjs   # 契约测试，必须全绿
 - 交互改动：Playwright 实测拖动/键盘/弹窗/回退
 - 部署前：`node dev/cloud-acceptance.mjs`（仅 Secret 已配置时）
 
-**提交前必须确认**：页面可加载、交互可用、图片无 404、build 通过、暂存区无测试资产/临时截图/含 Key 文件、`git diff --check` 无空白错误、设计版本与 INDEX.md 一致。
+**提交前必须确认**：页面可加载、交互可用、图片无 404、build 通过、暂存区无测试资产/临时截图/含 Key 文件、`git diff --check` 无空白错误、设计版本与 `索引.md` 一致。
 
 ---
 
@@ -181,6 +195,6 @@ node api/contract-test.mjs   # 契约测试，必须全绿
 
 ## 11. 当前状态（2026-11-18）
 
-- 资产治理：源资产已统一到 `资产仓库/`，`designs/` 按页面版本归档，`manifests/` 提供 assets/runtime 双映射。详见 `资产仓库/INDEX.md`。
+- 资产治理：源资产已统一到 `资产仓库/`，`designs/` 按页面版本归档，`manifests/` 提供 assets/runtime 双映射。详见 `资产仓库/总索引.md`。
 - 页面状态：首页（已定稿，图派编辑风 + 显影对比）、创作台/资产库/社区（按设计稿复刻，功能完整）、Legal（静态）。
 - 已知限制：见 `docs/06` 部署记录与 `docs/09` 完成度说明。
