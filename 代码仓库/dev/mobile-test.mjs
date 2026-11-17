@@ -35,6 +35,11 @@ const a = await newMobilePage();
   check('无横向溢出', (await overflow(page)) <= 1, `overflow=${await overflow(page)}`);
   const playBtn = page.getByRole('button', { name: /一键试玩/ });
   check('一键试玩按钮可见', await playBtn.isVisible());
+  check('首页不含模板库（已迁至推荐页）', (await page.getByRole('button', { name: /套用模板/ }).count()) === 0);
+  check('首页画面铺满整屏', await page.evaluate(() => {
+    const f = document.querySelector('main > div');
+    return !!f && f.getBoundingClientRect().top <= 1 && f.getBoundingClientRect().height >= window.innerHeight - 1;
+  }));
   await page.screenshot({ path: 'shot-home-mobile.png', fullPage: false });
 }
 
@@ -154,14 +159,14 @@ const c = await newMobilePage();
   await c.context.close();
 }
 
-console.log('E. 模板库一点即套用 + 开始创作（F1/F6）');
+console.log('E. 推荐页模板库一点即套用 + 首页开始创作（F1/F6）');
 const e = await newMobilePage();
 {
   const { page } = e;
-  await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 60000 });
+  await page.goto(BASE + '/rec', { waitUntil: 'networkidle', timeout: 60000 });
   const tplBtn = page.getByRole('button', { name: /套用模板/ }).first();
   await tplBtn.waitFor({ timeout: 30000 });
-  check('模板库 5 卡渲染', (await page.getByRole('button', { name: /套用模板/ }).count()) === 5);
+  check('推荐页模板库 5 卡渲染', (await page.getByRole('button', { name: /套用模板/ }).count()) === 5);
   check('模板封面示意可见', await page.locator('img[alt*="效果示意"]').first().isVisible());
   await tplBtn.click();
   await page.waitForURL(/\/studio\?template=/, { timeout: 15000 });

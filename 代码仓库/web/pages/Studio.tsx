@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, apiUrl, fetchAssetBlob, downloadBlob, downloadText, ApiRequestError } from '@/lib/api';
+import { takePendingFile } from '@/lib/handoff';
 import type { Candidate, JobResult, ModelInfo, OptimizeResult, Recommendation, Template, TupaiSkill } from '@/lib/types';
 import { AssetImage } from '@/components/AssetImage';
 import { CompareSlider } from '@/components/CompareSlider';
@@ -72,7 +73,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     setPreview(f ? URL.createObjectURL(f) : null);
   }, [preview]);
 
-  // Deep links: ?demo=night | ?demo=text&text=... | ?template=id
+  // Deep links: ?demo=night | ?demo=text&text=... | ?template=id | 首页转场带入的照片
   useEffect(() => {
     if (bootRef.current) return;
     bootRef.current = true;
@@ -105,6 +106,13 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         setStage('ready');
         toast(`已套用「${t.title}」：上传底图后生成，或直接文生图`);
       }).catch(() => {});
+    } else {
+      const handed = takePendingFile();
+      if (handed) {
+        setTab('image');
+        pickFile(handed);
+        toast('照片已从首页带入，点「自动优化提示词」开始');
+      }
     }
   }, [pickFile]);
 

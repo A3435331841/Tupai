@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 
 const DEMO_TEXT = '想要胶片感的旅行照，傍晚暖光，人物不变';
 
-export default function Home({ navigate }: { navigate: (to: string) => void }) {
+export default function Recommend({ navigate }: { navigate: (to: string) => void }) {
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [error, setError] = useState(false);
 

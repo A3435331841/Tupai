@@ -189,3 +189,91 @@ body {
     button, a { transition-duration: 0ms; }
   }
 }
+
+/* ===== 首页 Hero：废片 → 成片 转场 ===== */
+/* --tp-x 是整段转场唯一的时间轴：光带中心位置与成片层擦除边缘由同一个值推导，
+   因此亮部和揭示边界永远重合。动画只落在 clip-path / transform / opacity 三个属性上，
+   不碰 width / left / top，避免逐帧布局。 */
+@property --tp-x {
+  syntax: "<percentage>";
+  initial-value: -20%;
+  inherits: true;
+}
+
+@keyframes tp-progress {
+  from { --tp-x: -20%; }
+  to { --tp-x: 120%; }
+}
+@keyframes tp-char {
+  from { opacity: 0; transform: translate3d(0, 0.45em, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes tp-rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes tp-breathe {
+  0%, 100% { opacity: 0.14; }
+  50% { opacity: 0.4; }
+}
+
+/* 挂在图片框上；JS 到点才加这个类，移除再添加即可重播，无需重挂载 DOM */
+.tp-run { animation: tp-progress var(--tp-dur, 2100ms) cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+.tp-dim { filter: brightness(0.58) saturate(0.34) contrast(0.94); }
+.tp-haze { background: rgba(178, 172, 162, 0.3); }
+.tp-gloss { filter: brightness(1.06) saturate(1.18) contrast(1.06) sepia(0.05); }
+
+/* 上层成片：斜向擦除，上下边缘各偏 12% 形成立体扫光 */
+.tp-reveal {
+  clip-path: polygon(0 0, calc(var(--tp-x) + 12%) 0, calc(var(--tp-x) - 12%) 100%, 0 100%);
+}
+.tp-run.tp-reveal, .tp-run .tp-reveal { will-change: clip-path; }
+
+/* 光带：满幅渐变，亮部中心正好落在 --tp-x 上；进出画面靠自身渐变淡出 */
+.tp-band {
+  background: linear-gradient(105deg, transparent 20%, rgba(255, 244, 224, 0.22) 38%,
+    rgba(255, 251, 242, 0.58) 50%, rgba(255, 244, 224, 0.22) 62%, transparent 80%);
+  transform: translate3d(calc(var(--tp-x) - 50%), 0, 0);
+}
+
+/* 鼠标光轨：JS 只写 --tp-px / --tp-py 两个像素值，元素自身用 -50% 居中 */
+.tp-trail {
+  width: var(--tp-trail, 320px);
+  height: var(--tp-trail, 320px);
+  background: radial-gradient(circle, rgba(255, 250, 238, 0.45), rgba(255, 250, 238, 0) 68%);
+  transform: translate3d(calc(var(--tp-px, -100%) - 50%), calc(var(--tp-py, -100%) - 50%), 0);
+}
+
+.tp-breathe {
+  background: radial-gradient(120% 78% at 50% 42%, rgba(255, 236, 202, 0.55), rgba(255, 236, 202, 0) 70%);
+  animation: tp-breathe 9s ease-in-out infinite;
+}
+/* 鼠标移入暂停呼吸，把注意力让给上传 */
+[data-paused="true"] .tp-breathe { animation-play-state: paused; }
+
+/* 全屏压暗层：等扫光结束、文字入场前才淡入，转场过程中保持画面本色。
+   中间一层径向暗垫专供文字对比度，四周只留轻微渐晕，画面通透度不被吃掉。 */
+.tp-scrim {
+  background:
+    radial-gradient(78% 44% at 50% 47%, rgba(18, 13, 10, 0.62), rgba(18, 13, 10, 0.26) 56%, rgba(18, 13, 10, 0) 80%),
+    linear-gradient(180deg, rgba(20, 15, 11, 0.6) 0%, rgba(20, 15, 11, 0.14) 40%,
+      rgba(20, 15, 11, 0.2) 70%, rgba(20, 15, 11, 0.62) 100%);
+  transition: opacity 1s ease-out;
+}
+.tp-ink { text-shadow: 0 1px 18px rgba(0, 0, 0, 0.5); }
+
+.tp-char {
+  animation: tp-char 0.6s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 38ms);
+}
+.tp-rise { animation: tp-rise 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-run { animation: none; --tp-x: 120%; }
+  .tp-band { opacity: 0; }
+  .tp-trail { display: none; }
+  .tp-breathe { animation: none; opacity: 0.26; }
+  .tp-char, .tp-rise { animation: none; opacity: 1; transform: none; }
+  .tp-scrim { transition: none; }
+}

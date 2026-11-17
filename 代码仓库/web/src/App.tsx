@@ -1,7 +1,8 @@
 import { useRoute } from '@/lib/router';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
-import Home from '@/pages/Home';
+import Landing from '@/pages/Landing';
+import Recommend from '@/pages/Recommend';
 import Studio from '@/pages/Studio';
 import Legal from '@/pages/Legal';
 
@@ -17,13 +18,14 @@ export default function App() {
           </button>
           <nav className="ml-auto flex items-center gap-1">
             <Button variant={path === '/' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/')}>首页</Button>
+            <Button variant={path === '/rec' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/rec')}>推荐页</Button>
             <Button variant={path === '/studio' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/studio')}>创作台</Button>
             <Button variant="ghost" size="sm" className="hidden text-muted-foreground sm:inline-flex" onClick={() => navigate('/legal')}>隐私与 AI 说明</Button>
           </nav>
         </div>
       </header>
       <main className="flex-1">
-        {path === '/studio' ? <Studio navigate={navigate} /> : path === '/legal' ? <Legal /> : <Home navigate={navigate} />}
+        {path === '/studio' ? <Studio navigate={navigate} /> : path === '/legal' ? <Legal /> : path === '/rec' ? <Recommend navigate={navigate} /> : <Landing navigate={navigate} />}
       </main>
       <footer className="border-t border-border/70 py-6 text-center text-xs text-muted-foreground">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4">
