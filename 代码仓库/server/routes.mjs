@@ -53,6 +53,59 @@ function assetMeta(a) {
   };
 }
 
+function albumItems(a) {
+  if (Array.isArray(a.item_ids)) return a.item_ids;
+  if (typeof a.item_ids === 'string') { try { const p = JSON.parse(a.item_ids); return Array.isArray(p) ? p : []; } catch { return []; } }
+  return [];
+}
+
+function albumMeta(a) {
+  return {
+    id: a.id, title: a.title, cover_asset_id: a.cover_asset_id || null, item_ids: albumItems(a),
+    template_id: a.template_id, visibility: a.visibility, render_status: a.render_status,
+    share_token: a.share_token || null, share_expires_at: a.share_expires_at || null, created_at: a.created_at,
+  };
+}
+
+function shareActive(a) {
+  return Boolean(a.share_token) && a.visibility === 'unlisted'
+    && (!a.share_expires_at || new Date(a.share_expires_at).getTime() > Date.now());
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// 自包含只读画册页（翻页概念借鉴 create-photo-flipbook-ui, MIT；图派自实现轻量版）
+function albumPageHtml(title, imgs) {
+  const pages = imgs.map((src, i) => `<figure class="page" style="--i:${i}"><img src="${escHtml(src)}" alt="作品 ${i + 1}" loading="lazy"><figcaption>${i + 1} / ${imgs.length}</figcaption></figure>`).join('');
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escHtml(title)} · 图派画册</title>
+<style>
+:root{color-scheme:light dark}body{margin:0;font-family:system-ui,sans-serif;background:#f6f3ee;color:#2a2622;display:flex;flex-direction:column;min-height:100vh}
+header{padding:20px;text-align:center}h1{font-size:1.3rem;margin:0}small{color:#8a8178}
+.book{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;perspective:1600px}
+.stack{position:relative;width:min(86vw,420px);aspect-ratio:3/4;transform-style:preserve-3d}
+.page{position:absolute;inset:0;margin:0;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);overflow:hidden;transform-origin:left center;transition:transform .6s ease;backface-visibility:hidden;display:flex;flex-direction:column}
+.page img{width:100%;height:100%;object-fit:cover;flex:1}.page figcaption{padding:8px;text-align:center;font-size:.8rem;color:#8a8178}
+.page.flipped{transform:rotateY(-180deg)}
+nav{display:flex;gap:12px;justify-content:center;padding:18px}button{font:inherit;padding:10px 22px;border-radius:999px;border:1px solid #d8d0c4;background:#fff;cursor:pointer}
+footer{text-align:center;padding:14px;font-size:.75rem;color:#a89f93}
+</style></head><body>
+<header><h1>${escHtml(title)}</h1><small>图派 TuPai · AI 生成作品集 · 原图不公开</small></header>
+<div class="book"><div class="stack" id="stack">${pages}</div></div>
+<nav><button id="prev">上一页</button><button id="next">下一页</button></nav>
+<footer>结果图均为 AI 生成 · 由图派画册分享（只读链接）</footer>
+<script>
+const pages=[...document.querySelectorAll('.page')];let cur=0;
+function render(){pages.forEach((p,i)=>{p.style.zIndex=pages.length-i;p.classList.toggle('flipped',i<cur);});}
+document.getElementById('next').onclick=()=>{if(cur<pages.length){cur++;render();}};
+document.getElementById('prev').onclick=()=>{if(cur>0){cur--;render();}};
+render();
+</script></body></html>`;
+}
+
 export function application({ db, storage, env, fetchImpl }) {
   const scheduler = createKeyScheduler(db, env);
   const agnes = createAgnesProvider(scheduler, fetchImpl);
@@ -75,6 +128,22 @@ export function application({ db, storage, env, fetchImpl }) {
     const asset = found[0];
     if (asset.visibility === 'private' && asset.owner_session !== sid) fail('not_found', 404);
     return asset;
+  }
+
+  async function loadOwnedAlbum(id, sid) {
+    const found = rows(await db.from('albums').select('*').eq('id', id).limit(1));
+    if (!found?.length) fail('not_found', 404);
+    const album = found[0];
+    if (album.owner_session !== sid) fail('not_found', 404);
+    return album;
+  }
+
+  async function loadSharedAlbum(token) {
+    const found = rows(await db.from('albums').select('*').eq('share_token', token).limit(1));
+    if (!found?.length) fail('not_found', 404);
+    const album = found[0];
+    if (!shareActive(album)) fail('not_found', 404, '分享链接已失效或被撤回');
+    return album;
   }
 
   async function assetBytes(asset) {
@@ -584,6 +653,106 @@ export function application({ db, storage, env, fetchImpl }) {
       if (!images.length) fail('parse_failed', 422, '未能从链接提取图文（可能风控或为视频），请手动上传图片或文字');
       const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
       return Response.json({ source_url: finalUrl, text, images: images.map((url) => ({ temp_url: url, expires_at })) });
+    }
+
+    if (path === '/api/v1/albums' && method === 'POST') {
+      const sid = ownerOf(request);
+      const body = await readJson(request);
+      const title = typeof body.title === 'string' ? body.title.trim().slice(0, 100) : '';
+      if (!title) fail('invalid_input', 400, '请给画册起个名字');
+      const ids = Array.isArray(body.item_ids) ? body.item_ids.slice(0, 50) : [];
+      if (!ids.length) fail('invalid_input', 400, '请至少选择一张作品');
+      for (const id of ids) {
+        const a = await loadOwnedAsset(id, sid);
+        if (a.kind !== 'result') fail('invalid_input', 400, '画册只收录生成作品，不含原图');
+      }
+      const id = newId('al');
+      const r = await db.from('albums').insert({
+        id, owner_session: sid, title, cover_asset_id: ids[0], item_ids: ids,
+        template_id: '3d-book', visibility: 'private', render_status: 'ready',
+      });
+      if (r.error) fail('internal', 503, '创建画册失败，请稍后重试');
+      return Response.json({ album: albumMeta(r.data[0]) }, { status: 201 });
+    }
+
+    if (path === '/api/v1/albums' && method === 'GET') {
+      const sid = ownerOf(request);
+      const list = rows(await db.from('albums').select('*').eq('owner_session', sid).order('created_at', { ascending: false }).limit(100)) || [];
+      return Response.json({ albums: list.map(albumMeta) });
+    }
+
+    const albumMatch = path.match(/^\/api\/v1\/albums\/(al_[0-9a-f]{24})$/);
+    if (albumMatch && method === 'GET') {
+      const sid = ownerOf(request);
+      return Response.json({ album: albumMeta(await loadOwnedAlbum(albumMatch[1], sid)) });
+    }
+    if (albumMatch && method === 'PATCH') {
+      const sid = ownerOf(request);
+      const album = await loadOwnedAlbum(albumMatch[1], sid);
+      const body = await readJson(request);
+      const patch = {};
+      if (typeof body.title === 'string' && body.title.trim()) patch.title = body.title.trim().slice(0, 100);
+      if (Array.isArray(body.item_ids)) {
+        const ids = body.item_ids.slice(0, 50);
+        if (!ids.length) fail('invalid_input', 400, '请至少保留一张作品');
+        for (const id of ids) { const a = await loadOwnedAsset(id, sid); if (a.kind !== 'result') fail('invalid_input', 400, '画册只收录生成作品'); }
+        patch.item_ids = ids; patch.cover_asset_id = ids[0];
+      }
+      const r = await db.from('albums').update(patch).eq('id', album.id).eq('owner_session', sid).select();
+      if (r.error) fail('internal', 503, '更新失败，请稍后重试');
+      return Response.json({ album: albumMeta(r.data[0]) });
+    }
+    if (albumMatch && method === 'DELETE') {
+      const sid = ownerOf(request);
+      const album = await loadOwnedAlbum(albumMatch[1], sid);
+      const r = await db.from('albums').delete().eq('id', album.id).eq('owner_session', sid);
+      if (r.error) fail('internal', 503, '删除失败，请稍后重试');
+      return Response.json({ ok: true });
+    }
+
+    const shareMatch = path.match(/^\/api\/v1\/albums\/(al_[0-9a-f]{24})\/share$/);
+    if (shareMatch && method === 'POST') {
+      const sid = ownerOf(request);
+      const album = await loadOwnedAlbum(shareMatch[1], sid);
+      const body = await readJson(request).catch(() => ({}));
+      const hours = Math.min(24 * 30, Math.max(1, Number(body.expires_hours) || 24 * 7));
+      const token = crypto.randomUUID().replace(/-/g, '');
+      const expires = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+      const r = await db.from('albums').update({ visibility: 'unlisted', share_token: token, share_expires_at: expires }).eq('id', album.id).eq('owner_session', sid).select();
+      if (r.error) fail('internal', 503, '生成分享链接失败');
+      return Response.json({ share_token: token, share_page: `/api/v1/share/${token}/page`, expires_at: expires });
+    }
+    if (shareMatch && method === 'DELETE') {
+      const sid = ownerOf(request);
+      const album = await loadOwnedAlbum(shareMatch[1], sid);
+      const r = await db.from('albums').update({ visibility: 'private', share_token: null, share_expires_at: null }).eq('id', album.id).eq('owner_session', sid).select();
+      if (r.error) fail('internal', 503, '撤回失败');
+      return Response.json({ ok: true });
+    }
+
+    const shareView = path.match(/^\/api\/v1\/share\/([0-9a-f]{32})$/);
+    if (shareView && method === 'GET') {
+      const album = await loadSharedAlbum(shareView[1]);
+      return Response.json({
+        title: album.title, created_at: album.created_at,
+        images: albumItems(album).map((id) => `/api/v1/share/${shareView[1]}/img/${id}`),
+      });
+    }
+    const shareImg = path.match(/^\/api\/v1\/share\/([0-9a-f]{32})\/img\/(a_[0-9a-f]{24})$/);
+    if (shareImg && method === 'GET') {
+      const album = await loadSharedAlbum(shareImg[1]);
+      if (!albumItems(album).includes(shareImg[2])) fail('not_found', 404);
+      const found = rows(await db.from('assets').select('*').eq('id', shareImg[2]).limit(1));
+      if (!found?.length || found[0].kind !== 'result') fail('not_found', 404);
+      const file = await storage.download(found[0].storage_key);
+      if (!file.ok) fail('internal', 503, '资产读取失败');
+      return new Response(file.body, { headers: { 'content-type': found[0].content_type, 'cache-control': 'public, max-age=3600' } });
+    }
+    const sharePage = path.match(/^\/api\/v1\/share\/([0-9a-f]{32})\/page$/);
+    if (sharePage && method === 'GET') {
+      const album = await loadSharedAlbum(sharePage[1]);
+      const imgs = albumItems(album).map((id) => `/api/v1/share/${sharePage[1]}/img/${id}`);
+      return new Response(albumPageHtml(album.title, imgs), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     }
 
     fail('not_found', 404);

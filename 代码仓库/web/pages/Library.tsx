@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlbumsPanel } from '@/components/AlbumsPanel';
 import { toast } from 'sonner';
 
 const KIND_LABEL: Record<string, string> = { original: '原图', result: '作品', reference: '参考' };
@@ -19,6 +20,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'assets' | 'albums'>('assets');
 
   const load = useCallback(async (reset: boolean) => {
     setBusy(true);
@@ -60,9 +62,15 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
         <h1 className="text-xl font-bold tracking-tight">我的资产库</h1>
         <Badge variant="secondary">{total} 项</Badge>
         <span className="text-xs text-muted-foreground">原图全程私密 · 登录后可跨设备</span>
-        <Button variant="outline" size="sm" className="ml-auto" onClick={() => navigate('/studio')}>去创作</Button>
+        <div className="ml-auto flex items-center gap-1">
+          <Button size="sm" variant={mode === 'assets' ? 'secondary' : 'ghost'} onClick={() => setMode('assets')}>资产</Button>
+          <Button size="sm" variant={mode === 'albums' ? 'secondary' : 'ghost'} onClick={() => setMode('albums')}>画册</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/studio')}>去创作</Button>
+        </div>
       </div>
 
+      {mode === 'albums' && <AlbumsPanel />}
+      {mode === 'assets' && (<>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {[['', '全部'], ['original', '原图'], ['result', '作品']].map(([v, label]) => (
           <Button key={v} size="sm" variant={kind === v ? 'secondary' : 'ghost'} onClick={() => setKind(v)}>{label}</Button>
@@ -117,6 +125,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
           )}
         </>
       )}
+      </>)}
     </div>
   );
 }

@@ -98,3 +98,16 @@ export interface AssetMeta {
   deleted_at: string | null;
   content_url: string;
 }
+
+export interface AlbumMeta {
+  id: string;
+  title: string;
+  cover_asset_id: string | null;
+  item_ids: string[];
+  template_id: string;
+  visibility: string;
+  render_status: string;
+  share_token: string | null;
+  share_expires_at: string | null;
+  created_at: string;
+}

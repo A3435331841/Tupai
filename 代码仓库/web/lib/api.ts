@@ -83,6 +83,12 @@ export const api = {
   deleteAsset: (id: string) => request<{ ok: boolean; deleted_at: string }>('DELETE', `/api/v1/assets/${id}`),
   restoreAsset: (id: string) => request<{ asset: import('./types').AssetMeta }>('POST', `/api/v1/assets/${id}/restore`, {}),
   parseLink: (url: string) => request<{ source_url: string; text: string; images: { temp_url: string; expires_at: string }[] }>('POST', '/api/v1/links/parse', { url }),
+  albums: () => request<{ albums: import('./types').AlbumMeta[] }>('GET', '/api/v1/albums'),
+  createAlbum: (title: string, item_ids: string[]) => request<{ album: import('./types').AlbumMeta }>('POST', '/api/v1/albums', { title, item_ids }),
+  updateAlbum: (id: string, patch: { title?: string; item_ids?: string[] }) => request<{ album: import('./types').AlbumMeta }>('PATCH', `/api/v1/albums/${id}`, patch),
+  deleteAlbum: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/albums/${id}`),
+  shareAlbum: (id: string, expires_hours?: number) => request<{ share_token: string; share_page: string; expires_at: string }>('POST', `/api/v1/albums/${id}/share`, { expires_hours }),
+  revokeAlbumShare: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/albums/${id}/share`),
 };
 
 // Qoder 平台登录入口（公开站不影响登录；登录后网关向云函数注入已验证身份）
