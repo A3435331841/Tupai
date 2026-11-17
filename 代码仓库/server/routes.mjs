@@ -560,7 +560,30 @@ export function application({ db, storage, env, fetchImpl }) {
     }
 
     if (path === '/api/v1/links/parse' && method === 'POST') {
-      fail('parse_failed', 422, '链接解析暂未开放，请直接上传图片或文字；视频请截帧上传');
+      const body = await readJson(request);
+      const raw = typeof body?.url === 'string' ? body.url.trim() : '';
+      let u;
+      try { u = new URL(raw); } catch { fail('parse_failed', 422, '链接格式有误，请粘贴抖音图文分享链接'); }
+      if (!/(^|\.)douyin\.com$/.test(u.hostname)) fail('parse_failed', 422, '仅支持抖音图文链接；其他平台请手动上传图片或文字');
+      const ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+      let finalUrl = raw, html = '';
+      try {
+        const res = await fetchImpl(raw, { headers: { 'User-Agent': ua, Accept: 'text/html' }, redirect: 'follow', signal: AbortSignal.timeout(15000) });
+        finalUrl = res.url || raw;
+        if (/\/video\//.test(finalUrl)) fail('parse_failed', 422, '这是视频链接，请截帧后上传图片');
+        html = await res.text();
+      } catch (e) {
+        if (e instanceof AppError) throw e;
+        fail('parse_failed', 422, '链接访问失败（可能被风控拦截），请直接上传图片或文字');
+      }
+      //  best-effort 提取图文：仅取抖音 CDN 图片 URL，不持久化（用后即焚，返回临时直链）
+      const matches = [...html.matchAll(/https?:\/\/[^"'\s\\<>]+?\.(?:jpeg|jpg|png|webp)[^"'\s\\<>]*/g)].map((m) => m[0]);
+      const images = [...new Set(matches.filter((x) => /douyinpic|byteimg|snssdk|zjcdn/.test(x)))].slice(0, 9);
+      const titleM = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      const text = titleM ? titleM[1].replace(/\s*-\s*抖音.*$/, '').trim().slice(0, 500) : '';
+      if (!images.length) fail('parse_failed', 422, '未能从链接提取图文（可能风控或为视频），请手动上传图片或文字');
+      const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      return Response.json({ source_url: finalUrl, text, images: images.map((url) => ({ temp_url: url, expires_at })) });
     }
 
     fail('not_found', 404);

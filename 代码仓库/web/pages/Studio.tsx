@@ -119,6 +119,9 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const [mySkills, setMySkills] = useState<SkillRecord[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bootRef = useRef('');
@@ -532,6 +535,28 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     setLastJob(null);
   }
 
+  async function importLink() {
+    if (!linkUrl.trim()) { toast.error('请粘贴抖音图文分享链接'); return; }
+    setLinkBusy(true);
+    try {
+      const r = await api.parseLink(linkUrl.trim());
+      const first = r.images[0];
+      if (first) {
+        const res = await fetch(first.temp_url);
+        if (!res.ok) throw new Error('image fetch failed');
+        const blob = await res.blob();
+        const f = new File([blob], 'douyin-image.jpg', { type: blob.type || 'image/jpeg' });
+        setTab('image');
+        adoptFile(f);
+      }
+      if (r.text) setText(r.text);
+      setLinkOpen(false); setLinkUrl('');
+      toast.success('链接图文已入场，点「自动优化提示词」开始');
+    } catch (e) {
+      toast.error(e instanceof ApiRequestError ? e.message : '链接图文入场失败（可能跨域限制），请手动保存图片后上传');
+    } finally { setLinkBusy(false); }
+  }
+
   async function downloadResult() {
     const blob = resultBlobRef.current;
     if (!blob) return;
@@ -772,6 +797,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Button size="lg" disabled={busy || converting} onClick={() => void startOptimize(false)}>自动优化提示词</Button>
             <span className="text-xs text-muted-foreground">不会写提示词没关系：系统产出 2–4 条中文摘要候选 + 相似模板推荐</span>
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setLinkOpen(true)}>粘贴抖音链接</Button>
           </div>
         </Card>
       )}
@@ -1060,6 +1086,18 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
               ))}
             </div>
           )}
+          <DialogFooter />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>粘贴抖音图文链接</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://v.douyin.com/xxxx/" onKeyDown={(e) => { if (e.key === 'Enter') void importLink(); }} />
+            <p className="text-xs text-muted-foreground">仅支持单条图文帖；视频请截帧后上传。解析所得图文仅用于本次创作，不存储、不公开。风控或跨域受限时请手动保存图片上传。</p>
+            <Button className="w-full" disabled={linkBusy} onClick={() => void importLink()}>{linkBusy ? '解析中…' : '解析并入场'}</Button>
+          </div>
           <DialogFooter />
         </DialogContent>
       </Dialog>

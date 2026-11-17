@@ -82,6 +82,7 @@ export const api = {
   updateAssetTags: (id: string, tags: string[]) => request<{ asset: import('./types').AssetMeta }>('PATCH', `/api/v1/assets/${id}`, { tags }),
   deleteAsset: (id: string) => request<{ ok: boolean; deleted_at: string }>('DELETE', `/api/v1/assets/${id}`),
   restoreAsset: (id: string) => request<{ asset: import('./types').AssetMeta }>('POST', `/api/v1/assets/${id}/restore`, {}),
+  parseLink: (url: string) => request<{ source_url: string; text: string; images: { temp_url: string; expires_at: string }[] }>('POST', '/api/v1/links/parse', { url }),
 };
 
 // Qoder 平台登录入口（公开站不影响登录；登录后网关向云函数注入已验证身份）
