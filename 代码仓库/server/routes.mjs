@@ -191,7 +191,8 @@ export function application({ db, storage, env, fetchImpl }) {
   async function workCounts(w) {
     const lc = await db.from('likes').select('id', { count: 'exact' }).eq('work_id', w.id).limit(1);
     const cc = await db.from('comments').select('id', { count: 'exact' }).eq('work_id', w.id).eq('hidden_by_author', false).limit(1);
-    return { like_count: Number(lc.count) || 0, comment_count: Number(cc.count) || 0 };
+    const fc = await db.from('works').select('id', { count: 'exact' }).eq('parent_work_id', w.id).limit(1);
+    return { like_count: Number(lc.count) || 0, comment_count: Number(cc.count) || 0, fork_count: Number(fc.count) || 0 };
   }
 
   async function assetBytes(asset) {
@@ -854,7 +855,8 @@ export function application({ db, storage, env, fetchImpl }) {
       if (tag) filtered = filtered.filter((w) => jsonArr(w.tags).includes(tag));
       if (q) filtered = filtered.filter((w) => w.title.toLowerCase().includes(q)
         || (w.author_credit || '').toLowerCase().includes(q)
-        || jsonArr(w.tags).some((t) => String(t).toLowerCase().includes(q)));
+        || jsonArr(w.tags).some((t) => String(t).toLowerCase().includes(q))
+        || String(w.skill_snapshot?.prompt || '').toLowerCase().includes(q));
       if (sort === 'hot') {
         const counted = await Promise.all(filtered.map(async (w) => ({ w, c: (await workCounts(w)).like_count })));
         counted.sort((a, b) => b.c - a.c);

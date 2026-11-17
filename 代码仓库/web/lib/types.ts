@@ -129,5 +129,6 @@ export interface WorkMeta {
   created_at: string;
   like_count?: number;
   comment_count?: number;
+  fork_count?: number;
   is_owner?: boolean;
 }

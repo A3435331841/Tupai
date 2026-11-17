@@ -26,7 +26,7 @@ function WorkCard({ w, onOpen }: { w: WorkMeta; onOpen: (w: WorkMeta) => void })
         <p className="truncate text-sm font-medium">{w.title}</p>
         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{w.author_credit || '匿名'} {w.depth > 0 ? `· fork ${w.depth} 层` : ''}</p>
         <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>♥ {w.like_count ?? 0}</span><span>💬 {w.comment_count ?? 0}</span>
+          <span>♥ {w.like_count ?? 0}</span><span>💬 {w.comment_count ?? 0}</span><span>⑂ {w.fork_count ?? 0}</span>
           {w.tags.slice(0, 2).map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
         </div>
       </div>
