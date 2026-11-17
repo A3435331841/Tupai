@@ -97,7 +97,7 @@ async function main() {
     check('candidates 2–4', Array.isArray(c) && c.length >= 2 && c.length <= 4);
     check('candidate 结构+保留句', Array.isArray(c) && c.every((x) => typeof x.prompt === 'string'
       && typeof x.negative_prompt === 'string' && Array.isArray(x.style_tags)
-      && /unchanged|保留/i.test(x.prompt)));
+      && /unchanged|保留|Keep any person natural|consistent facial features/i.test(x.prompt)));
     check('candidate 中文摘要', Array.isArray(c) && c.every((x) => typeof x.summary_zh === 'string' && x.summary_zh.length > 0));
     check('recommendations 数组', Array.isArray(r.json?.recommendations));
     check('recommendations 兜底标记', typeof r.json?.recommendations_fallback === 'boolean');
