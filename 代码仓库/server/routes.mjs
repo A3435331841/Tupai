@@ -8,6 +8,7 @@ import { createAgnesProvider } from './agnes.mjs';
 import { mockOptimize, mockGenerate } from './mock.mjs';
 import { TEMPLATES, ensureSeeded } from './seed.mjs';
 import { renderSkillMarkdown } from './skillmd.mjs';
+import { getUser } from './auth.mjs';
 
 const LEASE_MS = 90_000;
 const MAX_ATTEMPTS = 3;
@@ -40,6 +41,18 @@ function safeCoverUrl(value) {
 export function application({ db, storage, env, fetchImpl }) {
   const scheduler = createKeyScheduler(db, env);
   const agnes = createAgnesProvider(scheduler, fetchImpl);
+
+  // 登录用户归属 u:<user_id>（跨设备稳定）；游客回退会话标识。SDK 仅校验格式，
+  // 伪造防护依赖平台网关 ingress（剥离浏览器 x-qoder-* 并注入已验证上下文）。
+  function currentUser(request) {
+    try { return getUser(request); }
+    catch (e) { fail(e.code || 'invalid_user_context', e.status || 403); }
+  }
+  function ownerOf(request) {
+    const user = currentUser(request);
+    if (user) return 'u:' + user.user_id;
+    return requireSession(request);
+  }
 
   async function loadOwnedAsset(id, sid) {
     const found = rows(await db.from('assets').select('*').eq('id', id).limit(1));
@@ -178,8 +191,33 @@ export function application({ db, storage, env, fetchImpl }) {
       });
     }
 
+    if (path === '/api/v1/me' && method === 'GET') {
+      const user = currentUser(request);
+      const owner_key = user ? 'u:' + user.user_id : (request.headers.get('x-session-id') || '').toLowerCase() || null;
+      return Response.json({
+        logged_in: Boolean(user),
+        user: user ? { user_id: user.user_id, name: user.name, picture: user.picture } : null,
+        owner_key,
+      });
+    }
+
+    if (path === '/api/v1/auth/bind' && method === 'POST') {
+      const user = currentUser(request);
+      if (!user) fail('login_required', 401);
+      const guestSid = requireSession(request);
+      const target = 'u:' + user.user_id;
+      if (guestSid === target) return Response.json({ migrated: 0, owner_key: target });
+      let migrated = 0;
+      for (const table of ['assets', 'skills', 'jobs']) {
+        const r = await db.from(table).update({ owner_session: target }).eq('owner_session', guestSid).select();
+        if (r.error) fail('internal', 503, '绑定迁移失败，请稍后重试');
+        migrated += r.data?.length || 0;
+      }
+      return Response.json({ migrated, owner_key: target });
+    }
+
     if (path === '/api/v1/quota' && method === 'GET') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       const dayStart = startOfToday();
       const mine = await db.from('jobs').select('id', { count: 'exact' }).eq('owner_session', sid).gte('created_at', dayStart).limit(1);
       const all = await db.from('jobs').select('id', { count: 'exact' }).gte('created_at', dayStart).limit(1);
@@ -194,7 +232,7 @@ export function application({ db, storage, env, fetchImpl }) {
     }
 
     if (path === '/api/v1/assets' && method === 'POST') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       let form;
       try { form = await request.formData(); } catch { fail('invalid_input', 400, '上传格式有误'); }
       const file = form.get('file');
@@ -220,7 +258,7 @@ export function application({ db, storage, env, fetchImpl }) {
       if (!found?.length) fail('not_found', 404);
       const asset = found[0];
       if (asset.visibility === 'private') {
-        const sid = requireSession(request);
+        const sid = ownerOf(request);
         if (asset.owner_session !== sid) fail('not_found', 404);
       }
       const file = await storage.download(asset.storage_key);
@@ -235,7 +273,7 @@ export function application({ db, storage, env, fetchImpl }) {
     }
 
     if (path === '/api/v1/optimize' && method === 'POST') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       const body = await readJson(request);
       const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 500) : '';
       const assetId = typeof body?.asset_id === 'string' ? body.asset_id : '';
@@ -302,7 +340,7 @@ export function application({ db, storage, env, fetchImpl }) {
     }
 
     if (path === '/api/v1/jobs/generate' && method === 'POST') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       const body = await readJson(request);
       const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
       if (!prompt || prompt.length > 4000) fail('invalid_input', 400, '提示词不能为空且不超过 4000 字');
@@ -331,7 +369,7 @@ export function application({ db, storage, env, fetchImpl }) {
 
     const jobMatch = path.match(/^\/api\/v1\/jobs\/(j_[0-9a-f]{24})$/);
     if (jobMatch && method === 'GET') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       const found = rows(await db.from('jobs').select('*').eq('id', jobMatch[1]).eq('owner_session', sid).limit(1));
       if (!found?.length) fail('not_found', 404);
       let job = found[0];
@@ -378,7 +416,7 @@ export function application({ db, storage, env, fetchImpl }) {
     }
 
     if (path === '/api/v1/skills' && method === 'GET') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       const list = rows(await db.from('skills').select('*').eq('owner_session', sid).order('created_at', { ascending: false }).limit(50)) || [];
       return Response.json({
         skills: list.map((s) => {
@@ -395,7 +433,7 @@ export function application({ db, storage, env, fetchImpl }) {
     }
 
     if (path === '/api/v1/skills' && method === 'POST') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       const body = await readJson(request);
       validateSkill(body);
       const id = newId('s');
@@ -412,7 +450,7 @@ export function application({ db, storage, env, fetchImpl }) {
     }
 
     if (path === '/api/v1/skills/import' && method === 'POST') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       const body = await readJson(request);
       validateSkill(body);
       const id = newId('s');
@@ -430,7 +468,7 @@ export function application({ db, storage, env, fetchImpl }) {
 
     const skillMatch = path.match(/^\/api\/v1\/skills\/(s_[0-9a-f]{24})(\/skill\.md)?$/);
     if (skillMatch && method === 'GET') {
-      const sid = requireSession(request);
+      const sid = ownerOf(request);
       const found = rows(await db.from('skills').select('*').eq('id', skillMatch[1]).eq('owner_session', sid).limit(1));
       if (!found?.length) fail('not_found', 404);
       const skill = found[0];

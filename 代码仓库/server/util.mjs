@@ -13,6 +13,8 @@ export const MESSAGES = {
   parse_failed: '解析失败，请直接上传图片或文字；视频请截帧上传',
   not_found: '内容不存在或无权访问',
   internal: '服务暂时不可用，请稍后重试',
+  login_required: '请先登录后再操作',
+  invalid_user_context: '登录状态异常，请重新登录',
 };
 
 export function fail(code, status, message) {

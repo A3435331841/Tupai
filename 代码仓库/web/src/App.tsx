@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import Home from '@/pages/Home';
 import Studio from '@/pages/Studio';
 import Legal from '@/pages/Legal';
+import { AuthChip } from '@/components/AuthChip';
 
 export default function App() {
   const [path, navigate] = useRoute();
@@ -19,6 +20,7 @@ export default function App() {
             <Button variant={path === '/' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/')}>首页</Button>
             <Button variant={path === '/studio' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/studio')}>创作台</Button>
             <Button variant="ghost" size="sm" className="hidden text-muted-foreground sm:inline-flex" onClick={() => navigate('/legal')}>隐私与 AI 说明</Button>
+            <AuthChip />
           </nav>
         </div>
       </header>

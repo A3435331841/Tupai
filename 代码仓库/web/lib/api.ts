@@ -65,7 +65,14 @@ export const api = {
   importSkill: (skill: unknown) => request<import('./types').TupaiSkill>('POST', '/api/v1/skills/import', skill),
   skill: (id: string) => request<import('./types').TupaiSkill>('GET', `/api/v1/skills/${id}`),
   skillMd: (id: string) => request<string>('GET', `/api/v1/skills/${id}/skill.md`),
+  me: () => request<{ logged_in: boolean; user: { user_id: string; name: string; picture: string } | null; owner_key: string | null }>('GET', '/api/v1/me'),
+  bind: () => request<{ migrated: number; owner_key: string }>('POST', '/api/v1/auth/bind', {}),
 };
+
+// Qoder 平台登录入口（公开站不影响登录；登录后网关向云函数注入已验证身份）
+export function loginUrl(returnPath: string = window.location.pathname + window.location.search): string {
+  return '/__qoder_auth/start?return_path=' + encodeURIComponent(returnPath);
+}
 
 // Private assets need the session header, so <img src> cannot load them directly.
 export async function fetchAssetBlob(logicalPath: string): Promise<Blob> {
