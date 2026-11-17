@@ -61,6 +61,11 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   }, []);
 
   const pickFile = useCallback((f: File | null) => {
+    if (f) {
+      const mime = (f.type || '').split(';')[0].trim().toLowerCase();
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime)) { toast.error('仅支持 JPG / PNG / WebP 图片'); return; }
+      if (f.size > 15 * 1024 * 1024) { toast.error('图片超过 15MB 上限'); return; }
+    }
     if (preview) URL.revokeObjectURL(preview);
     setFile(f);
     setAssetId(null);
@@ -200,21 +205,27 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   async function downloadResult() {
     const blob = resultBlobRef.current;
     if (!blob) return;
+    const url = URL.createObjectURL(blob);
     try {
-      const bmp = await createImageBitmap(blob);
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('decode failed'));
+        img.src = url;
+      });
       const canvas = document.createElement('canvas');
-      canvas.width = bmp.width;
-      canvas.height = bmp.height;
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('no canvas');
-      ctx.drawImage(bmp, 0, 0);
+      ctx.drawImage(img, 0, 0);
       const label = 'AI 生成 · 图派 TuPai';
-      const fs = Math.max(14, Math.round(bmp.width / 32));
+      const fs = Math.max(14, Math.round(canvas.width / 32));
       ctx.font = `${fs}px sans-serif`;
       const w = ctx.measureText(label).width + fs * 1.2;
       const h = fs * 2;
-      const x = bmp.width - w - fs;
-      const y = bmp.height - h - fs;
+      const x = canvas.width - w - fs;
+      const y = canvas.height - h - fs;
       ctx.fillStyle = 'rgba(0,0,0,0.55)';
       ctx.beginPath();
       ctx.roundRect(x, y, w, h, fs / 2);
@@ -223,11 +234,14 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       ctx.textBaseline = 'middle';
       ctx.fillText(label, x + fs * 0.6, y + h / 2);
       const out = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
-      if (out) downloadBlob(out, `tupai-ai-${Date.now()}.png`);
+      if (!out) throw new Error('encode failed');
+      downloadBlob(out, `tupai-ai-${Date.now()}.png`);
       toast.success('已下载（含 AI 生成标识）');
     } catch {
-      downloadBlob(blob, `tupai-ai-${Date.now()}.png`);
+      downloadBlob(blob, `tupai-ai-${Date.now()}.${blob.type.includes('svg') ? 'svg' : 'png'}`);
       toast('已下载原结果图');
+    } finally {
+      URL.revokeObjectURL(url);
     }
   }
 
@@ -370,7 +384,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
 
       {(stage === 'ready' || stage === 'generating') && (
         <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             {optimize && optimize.candidates.length > 0 && (
               <section aria-label="候选提示词">
                 <h2 className="mb-2 text-sm font-semibold">候选提示词 · 点选后可在右侧编辑</h2>

@@ -30,7 +30,7 @@ export default function Legal() {
         <Card className="p-5">
           <h2 className="font-semibold">第三方服务与开源致谢</h2>
           <p className="mt-2 text-muted-foreground">
-            出图与视觉理解使用 Agnes 免费模型（agnes-image-2.5-flash / 2.1-flash / 3.0-flash）。
+            出图使用 Agnes 免费图像模型（agnes-image-2.5-flash / 2.1-flash），视觉理解与提示词优化使用免费文本模型 agnes-3.0-flash。
             模板视觉语法参考 open-image-prompts 风格卡（代码 MIT，元数据 CC-BY-4.0；提示词全部为图派原创重写，未搬运第三方源提示词与图片）。
             测试底图来自 Unsplash/Pexels 等公开授权图片。二期画册将复用 MIT 开源项目 create-photo-flipbook-ui。
           </p>
