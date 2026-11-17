@@ -77,27 +77,12 @@ function imageMime(file: File): string {
 }
 
 async function convertHeic(file: File): Promise<File> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('heic decode failed'));
-      img.src = url;
-    });
-    if (!img.naturalWidth || !img.naturalHeight) throw new Error('empty image');
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('no canvas');
-    ctx.drawImage(img, 0, 0);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-    if (!blob) throw new Error('encode failed');
-    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  // Chromium（桌面/安卓 Chrome）原生不解 HEIC，须用 libheif（heic2any, MIT）解码；按需动态加载
+  const { default: heic2any } = await import('heic2any');
+  const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+  const blob = Array.isArray(out) ? out[0] : out;
+  if (!blob || !blob.size) throw new Error('empty conversion');
+  return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
 }
 
 export default function Studio({ navigate }: { navigate: (to: string) => void }) {
