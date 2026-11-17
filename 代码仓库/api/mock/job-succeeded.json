@@ -1,0 +1,11 @@
+{
+  "job_id": "j_mock001",
+  "status": "succeeded",
+  "result": {
+    "asset_id": "a_mock002",
+    "url": "/api/v1/assets/a_mock002/content",
+    "width": 864,
+    "height": 1152
+  },
+  "error": null
+}

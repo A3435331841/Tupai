@@ -1,0 +1,508 @@
+openapi: 3.1.0
+info:
+  title: 图派 TuPai API
+  version: 1.0.0
+  description: |
+    前后端分离的唯一通信契约（文档摘要见 docs/07-接口契约.md）。
+    冻结规则：v1 只增不改不删；破坏性变更升 /api/v2。
+    游客身份：前端生成 UUID 存 localStorage，每请求带 X-Session-Id 头。
+    所有结果图 URL 均为本站转存后的 URL，不暴露第三方 COS 直链。
+servers:
+  - url: /api/v1
+  - url: /functions/v1/app/api/v1
+    description: Sites 同源传输前缀；云函数剥离 /functions/v1/app 后按 /api/v1 契约路由（2026-11-17 增补，只增不改）
+security:
+  - SessionId: []
+tags:
+  - name: assets
+  - name: catalog
+  - name: optimize
+  - name: jobs
+  - name: skills
+  - name: links
+
+paths:
+  /assets:
+    post:
+      tags: [assets]
+      operationId: uploadAsset
+      summary: 上传图片（original 默认私有）
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, kind]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                kind:
+                  type: string
+                  enum: [original, reference]
+      responses:
+        "201":
+          description: 上传成功
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssetUploaded" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "413": { $ref: "#/components/responses/BadInput" }
+
+  /assets/{id}/content:
+    get:
+      tags: [assets]
+      operationId: getAssetContent
+      summary: 取图片字节（私有校验会话归属）
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: 图片字节
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /templates:
+    get:
+      tags: [catalog]
+      operationId: listTemplates
+      summary: 模板列表（含 tags 与预览）
+      responses:
+        "200":
+          description: 模板列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [templates]
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: "#/components/schemas/Template" }
+
+  /models:
+    get:
+      tags: [catalog]
+      operationId: listModels
+      summary: 可选模型列表（服务端白名单，前端不硬编码模型 ID）
+      responses:
+        "200":
+          description: 模型列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [models]
+                properties:
+                  models:
+                    type: array
+                    items: { $ref: "#/components/schemas/Model" }
+
+  /optimize:
+    post:
+      tags: [optimize]
+      operationId: optimizePrompt
+      summary: 图片/文字 → 候选提示词 + 相似推荐（同步，3–10s）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OptimizeRequest" }
+      responses:
+        "200":
+          description: 候选与推荐；无相似匹配时 recommendations 为空数组
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OptimizeResponse" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "429": { $ref: "#/components/responses/ProviderBusy" }
+
+  /jobs/generate:
+    post:
+      tags: [jobs]
+      operationId: createGenerateJob
+      summary: 创建生成任务（异步）；缺省 asset_id = 文生图
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GenerateRequest" }
+      responses:
+        "202":
+          description: 已入队
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobCreated" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+
+  /jobs/{id}:
+    get:
+      tags: [jobs]
+      operationId: getJob
+      summary: 查询任务状态与结果（建议轮询间隔 2s，60s 未终态提示超时）
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 任务状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /skills:
+    post:
+      tags: [skills]
+      operationId: saveSkill
+      summary: 保存 Skill（tupai-skill-v1 JSON）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TupaiSkill" }
+      responses:
+        "201":
+          description: 已保存
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [skill_id]
+                properties:
+                  skill_id: { type: string }
+        "400": { $ref: "#/components/responses/BadInput" }
+
+  /skills/import:
+    post:
+      tags: [skills]
+      operationId: importSkill
+      summary: 校验导入 Skill 并回填创作台
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TupaiSkill" }
+      responses:
+        "200":
+          description: 校验通过，返回带 skill_id 的完整配方
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [skill]
+                properties:
+                  skill:
+                    allOf:
+                      - $ref: "#/components/schemas/TupaiSkill"
+                      - type: object
+                        required: [skill_id]
+                        properties:
+                          skill_id: { type: string }
+        "422": { $ref: "#/components/responses/BadInput" }
+
+  /skills/{id}:
+    get:
+      tags: [skills]
+      operationId: getSkill
+      summary: 取 Skill JSON
+      parameters:
+        - $ref: "#/components/parameters/SkillId"
+      responses:
+        "200":
+          description: tupai-skill-v1 字段 + skill_id
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/TupaiSkill"
+                  - type: object
+                    required: [skill_id]
+                    properties:
+                      skill_id: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /skills/{id}/skill.md:
+    get:
+      tags: [skills]
+      operationId: exportSkillMarkdown
+      summary: 导出 Agent Skills 格式 SKILL.md（前端触发下载）
+      parameters:
+        - $ref: "#/components/parameters/SkillId"
+      responses:
+        "200":
+          description: SKILL.md 文本
+          content:
+            text/markdown:
+              schema:
+                type: string
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /links/parse:
+    post:
+      tags: [links]
+      operationId: parseLink
+      summary: 扩展：抖音单条图文链接 → 临时图片+文案（用后即焚，不落 Asset 库）
+      description: 此端点失败不影响任何 MVP 路径；视频链接/风控拦截返回 422 降级引导。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  description: 抖音分享短链或图文页链接
+      responses:
+        "200":
+          description: 解析成功；temp_url 生命周期 ≤ 单个 Job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkParseResult" }
+        "422":
+          description: 解析失败（parse_failed），前端引导手动上传
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+components:
+  securitySchemes:
+    SessionId:
+      type: apiKey
+      in: header
+      name: X-Session-Id
+      description: 游客会话 UUID（localStorage 持久）
+
+  parameters:
+    AssetId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    SkillId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    BadInput:
+      description: 输入校验失败
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: 资源不存在或不属于当前会话
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    ProviderBusy:
+      description: 上游限流降级（provider_busy），前端展示降级候选
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    QuotaExceeded:
+      description: 游客配额用尽（quota_exceeded）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [invalid_input, quota_exceeded, provider_busy, parse_failed, not_found, internal]
+            message:
+              type: string
+              description: 人类可读中文
+
+    AssetUploaded:
+      type: object
+      required: [asset_id, kind, preview_url]
+      properties:
+        asset_id: { type: string }
+        kind:
+          type: string
+          enum: [original, reference]
+        width: { type: integer }
+        height: { type: integer }
+        preview_url: { type: string }
+
+    Template:
+      type: object
+      required: [id, title, description, cover_url, prompt, default_model, tags]
+      properties:
+        id: { type: string, description: slug }
+        title: { type: string }
+        description: { type: string }
+        cover_url: { type: string }
+        prompt: { type: string }
+        negative_prompt: { type: string }
+        default_model: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+
+    Model:
+      type: object
+      required: [id, label]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        default: { type: boolean }
+
+    OptimizeRequest:
+      type: object
+      description: asset_id 与 text 至少一个
+      properties:
+        asset_id: { type: string }
+        text: { type: string }
+        count:
+          type: integer
+          minimum: 2
+          maximum: 4
+          default: 3
+
+    PromptCandidate:
+      type: object
+      required: [prompt, style_tags]
+      properties:
+        prompt: { type: string }
+        negative_prompt: { type: string }
+        style_tags:
+          type: array
+          items: { type: string }
+
+    Recommendation:
+      type: object
+      required: [type, id, title, cover_url, score, prompt]
+      properties:
+        type:
+          type: string
+          enum: [template, skill]
+        id: { type: string }
+        title: { type: string }
+        cover_url: { type: string }
+        score: { type: number }
+        prompt: { type: string }
+
+    OptimizeResponse:
+      type: object
+      required: [candidates, recommendations, mode]
+      properties:
+        candidates:
+          type: array
+          items: { $ref: "#/components/schemas/PromptCandidate" }
+        recommendations:
+          type: array
+          items: { $ref: "#/components/schemas/Recommendation" }
+        mode:
+          type: string
+          enum: [img2img, txt2img]
+
+    GenerateRequest:
+      type: object
+      required: [prompt, model]
+      properties:
+        asset_id:
+          type: string
+          description: 可选；缺省 = 文生图
+        prompt: { type: string }
+        negative_prompt: { type: string }
+        model: { type: string }
+        ratio:
+          type: string
+          enum: ["1:1", "3:4", "4:3", "16:9", "9:16", "2:3", "3:2", "21:9"]
+          default: "3:4"
+
+    JobCreated:
+      type: object
+      required: [job_id, status]
+      properties:
+        job_id: { type: string }
+        status:
+          type: string
+          enum: [queued]
+
+    JobResult:
+      type: object
+      required: [asset_id, url]
+      properties:
+        asset_id: { type: string }
+        url: { type: string }
+        width: { type: integer }
+        height: { type: integer }
+
+    Job:
+      type: object
+      required: [job_id, status]
+      properties:
+        job_id: { type: string }
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed]
+        result:
+          oneOf:
+            - $ref: "#/components/schemas/JobResult"
+            - type: "null"
+        error:
+          oneOf:
+            - $ref: "#/components/schemas/ErrorEnvelope"
+            - type: "null"
+
+    TupaiSkill:
+      type: object
+      description: tupai-skill-v1 配方（需求文档 §5.1）；字段可增不可改语义
+      required: [format, version, title, prompt, model]
+      properties:
+        format:
+          type: string
+          enum: [tupai-skill]
+        version:
+          type: integer
+          enum: [1]
+        title: { type: string }
+        prompt: { type: string }
+        negative_prompt: { type: string }
+        model: { type: string }
+        template_id: { type: string }
+        params:
+          type: object
+          properties:
+            aspect: { type: string }
+        notes: { type: string }
+        created_at: { type: string }
+
+    LinkParseResult:
+      type: object
+      required: [source_url, images]
+      properties:
+        source_url: { type: string }
+        text:
+          type: string
+          description: 文案，可能为空
+        images:
+          type: array
+          items:
+            type: object
+            required: [temp_url, expires_at]
+            properties:
+              temp_url: { type: string }
+              expires_at: { type: string }

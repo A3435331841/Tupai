@@ -1,0 +1,16 @@
+{
+  "candidates": [
+    {
+      "prompt": "A cinematic travel photograph at golden hour, a quiet lakeside mountain village with a readable path leading toward distant peaks, low warm side light, thin haze separating three depth layers, slightly cool shadows, calm expansive mood, vertical 3:4, no text, no orange wash.",
+      "negative_prompt": "orange wash, fake HDR halo, oversharpening, watermark, text",
+      "style_tags": ["旅行", "风景", "黄金时刻"]
+    },
+    {
+      "prompt": "Candid analog film photograph of a traveler at a sunlit street cafe, late-afternoon backlight with golden rim light on hair, Kodak Portra color response, warm natural skin tones, fine film grain, off-center observational framing, readable street background, vertical 3:4, no fake light leaks.",
+      "negative_prompt": "fake light leaks, plastic skin, orange color wash, watermark, text",
+      "style_tags": ["胶片", "旅行", "日常"]
+    }
+  ],
+  "recommendations": [],
+  "mode": "txt2img"
+}

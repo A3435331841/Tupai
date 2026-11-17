@@ -1,0 +1,54 @@
+{
+  "templates": [
+    {
+      "id": "film-daily",
+      "title": "胶片日常",
+      "description": "日常随手拍变成朋友抓拍式的胶片氛围照，人物不变",
+      "cover_url": "/mock/covers/film-daily.jpg",
+      "prompt": "Transform this everyday snapshot into a candid analog film photograph. Keep the person's face, expression, hairstyle and outfit exactly unchanged. Late-afternoon warm backlight with a gentle golden rim on hair and shoulders, slightly cool shadows, Kodak Portra-like color response with warm natural skin tones, fine organic film grain, subtle lens softness toward the edges, organic off-center framing as if observed rather than posed, background remains readable with gentle depth, no orange wash, no fake light leaks, no plastic skin.",
+      "negative_prompt": "orange color wash, fake light leaks, plastic smooth skin, over-sharpening, changed facial features, changed outfit, studio backdrop, heavy vignette, watermark, text",
+      "default_model": "agnes-image-2.5-flash",
+      "tags": ["胶片", "日常", "逆光", "暖调", "人像", "旅行", "咖啡馆"]
+    },
+    {
+      "id": "night-bright",
+      "title": "夜景提亮",
+      "description": "暗光聚餐/夜拍废片自然提亮降噪，保留夜晚氛围；含雨夜霓虹变体",
+      "cover_url": "/mock/covers/night-bright.jpg",
+      "prompt": "Brighten and clean up this dark night photo while keeping the person's face, expression and clothing exactly unchanged. Lift the ambient exposure naturally as if soft warm practical light filled the scene, reduce noise and color cast, recover shadow detail on the face, keep background lights and signage readable with a gentle glow, preserve the original night atmosphere and the color of each light source, no daylight look, no plastic skin, no changed facial features.",
+      "negative_prompt": "daylight conversion, blown highlights, plastic skin, changed face, heavy HDR halo, amplified noise, color banding, symmetrical red-blue split, watermark, text",
+      "default_model": "agnes-image-2.5-flash",
+      "tags": ["夜景", "提亮", "人像", "聚餐", "霓虹", "雨夜", "电影感"]
+    },
+    {
+      "id": "clean-portrait",
+      "title": "清透人像",
+      "description": "杂乱背景生活照变成安静高级的柔光棚拍人像",
+      "cover_url": "/mock/covers/clean-portrait.jpg",
+      "prompt": "Turn this casual photo into a quiet-luxury studio portrait. Keep the person's face, expression, hairstyle and outfit exactly unchanged. Replace the background with a seamless warm-gray studio backdrop with subtle tonal gradation, broad soft window-like side light with gentle falloff, natural skin texture with visible pores, calm relaxed posture, restrained editorial styling, visible fabric texture, no glamour props, no skin smoothing, no changed facial features.",
+      "negative_prompt": "plastic smooth skin, harsh shadows, cluttered background, changed face, glamour props, oversaturation, flat background without gradation, watermark, text",
+      "default_model": "agnes-image-2.5-flash",
+      "tags": ["人像", "清透", "柔光", "棚拍", "职场", "质感"]
+    },
+    {
+      "id": "travel-postcard",
+      "title": "旅行明信片",
+      "description": "灰蒙蒙旅行随拍变成黄金时刻电影感明信片；含复古插画变体",
+      "cover_url": "/mock/covers/travel-postcard.jpg",
+      "prompt": "Transform this travel snapshot into a cinematic golden-hour postcard. Keep any people in the frame unchanged in face, pose and clothing. Re-light the scene with low warm golden-hour light entering from one side, slightly cool shadows, thin atmospheric haze separating foreground, midground and distant layers, a readable visual path leading toward the distant landmark, restrained warm highlights, believable natural detail, calm expansive mood, no orange wash, no artificial HDR halo, no added buildings or people.",
+      "negative_prompt": "orange wash, fake HDR halo, sun centered in frame, added people, warped landmark, oversharpening, photographic collage, invented text, logo, watermark",
+      "default_model": "agnes-image-2.5-flash",
+      "tags": ["旅行", "风景", "黄金时刻", "明信片", "城市", "地标"]
+    },
+    {
+      "id": "magazine-cover",
+      "title": "杂志封面",
+      "description": "黑白雕塑感封面构图，顶部留白可排刊头，文字后期加",
+      "cover_url": "/mock/covers/magazine-cover.jpg",
+      "prompt": "Transform this photo into a monochrome sculptural magazine-cover portrait. Keep the person's face, expression and outfit unchanged. Arrange body and garment as one strong readable silhouette against a minimal seamless setting, large negative space reserved at the top for future typography, soft directional key light plus a narrow separation edge, full tonal range from textured blacks to clean highlights, restrained expression, no crushed fabric detail, no flat grayscale conversion, no props, no rendered text.",
+      "negative_prompt": "crushed blacks without detail, flat grayscale conversion, background merging with hair, rendered text or letters, props, ID-photo pose, plastic skin, color accents, watermark",
+      "default_model": "agnes-image-2.5-flash",
+      "tags": ["杂志", "封面", "黑白", "人像", "编辑风", "留白"]
+    }
+  ]
+}

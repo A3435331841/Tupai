@@ -1,0 +1,38 @@
+{
+  "candidates": [
+    {
+      "prompt": "Transform this everyday snapshot into a candid analog film photograph. Keep the person's face, expression, hairstyle and outfit exactly unchanged. Late-afternoon warm backlight with a gentle golden rim, slightly cool shadows, Kodak Portra-like color response, fine organic film grain, off-center observational framing, readable background, no orange wash, no plastic skin.",
+      "negative_prompt": "orange color wash, fake light leaks, plastic smooth skin, changed facial features, watermark, text",
+      "style_tags": ["胶片", "日常", "暖调"]
+    },
+    {
+      "prompt": "Turn this casual photo into a quiet-luxury studio portrait. Keep the person's face, expression and outfit exactly unchanged. Seamless warm-gray backdrop, broad soft window-like side light, natural skin texture with visible pores, calm relaxed posture, no glamour props, no skin smoothing.",
+      "negative_prompt": "plastic smooth skin, cluttered background, changed face, watermark, text",
+      "style_tags": ["人像", "清透", "棚拍"]
+    },
+    {
+      "prompt": "Brighten and clean up this dark photo while keeping the person's face, expression and clothing exactly unchanged. Natural soft warm fill light, reduced noise, recovered facial shadow detail, background lights readable with gentle glow, preserve the original atmosphere, no daylight look.",
+      "negative_prompt": "daylight conversion, blown highlights, plastic skin, changed face, watermark, text",
+      "style_tags": ["提亮", "夜景", "人像"]
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "template",
+      "id": "film-daily",
+      "title": "胶片日常",
+      "cover_url": "/mock/covers/film-daily.jpg",
+      "score": 0.86,
+      "prompt": "Transform this everyday snapshot into a candid analog film photograph. Keep the person's face, expression, hairstyle and outfit exactly unchanged. Late-afternoon warm backlight, Kodak Portra-like color response, fine film grain, off-center framing, no orange wash, no plastic skin."
+    },
+    {
+      "type": "template",
+      "id": "clean-portrait",
+      "title": "清透人像",
+      "cover_url": "/mock/covers/clean-portrait.jpg",
+      "score": 0.71,
+      "prompt": "Turn this casual photo into a quiet-luxury studio portrait. Keep the person's face, expression and outfit exactly unchanged. Seamless warm-gray backdrop, soft window-like side light, natural skin texture, no skin smoothing."
+    }
+  ],
+  "mode": "img2img"
+}
