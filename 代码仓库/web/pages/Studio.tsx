@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, fetchAssetBlob, downloadBlob, downloadText, ApiRequestError } from '@/lib/api';
+import { api, apiUrl, fetchAssetBlob, downloadBlob, downloadText, ApiRequestError } from '@/lib/api';
 import type {
   Candidate, JobResult, ModelInfo, OptimizeResult, Quota, Recommendation, SkillRecord, Template, TupaiSkill,
 } from '@/lib/types';
@@ -17,6 +17,8 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { PublishDialog } from '@/components/PublishDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { StudioStepper } from '@/components/StudioStepper';
+import { SectionHeading } from '@/components/SectionHeading';
 
 type Stage = 'entry' | 'optimizing' | 'ready' | 'generating' | 'result';
 
@@ -35,6 +37,14 @@ type LastJob = {
 };
 
 const RATIOS = ['3:4', '1:1', '4:3', '16:9', '9:16', '2:3', '3:2'];
+// 与首页一致的本地封面映射：优先本地 webp，避免依赖懒生成接口。
+const LOCAL_COVERS: Record<string, string> = {
+  'film-daily': '/templates/film-daily.webp',
+  'night-bright': '/templates/night-bright.webp',
+  'clean-portrait': '/templates/clean-portrait.webp',
+  'travel-postcard': '/templates/travel-postcard.webp',
+  'magazine-cover': '/templates/magazine-cover.webp',
+};
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const LAST_JOB_KEY = 'tupai-last-job';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -754,6 +764,8 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         </div>
       </div>
 
+      <StudioStepper stage={stage} />
+
       {stage === 'entry' && lastJob && (
         <Card className="mb-4 p-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -823,6 +835,33 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         </Card>
       )}
 
+      {stage === 'entry' && templates.length > 0 && (
+        <section className="mt-5">
+          <SectionHeading title="灵感模板" aside="选一个方向，一键带入参数" />
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+            {templates.slice(0, 8).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => applyTemplateData(t, hasImage)}
+                className="group w-28 shrink-0 text-left sm:w-32"
+                title={`套用 ${t.title}`}
+              >
+                <span className="block aspect-[3/4] w-full overflow-hidden rounded-lg border border-border/70 bg-secondary">
+                  <img
+                    src={LOCAL_COVERS[t.id] || apiUrl(t.cover_url)}
+                    alt={`${t.title} 效果示意（AI）`}
+                    loading="lazy"
+                    className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </span>
+                <span className="mt-1.5 block truncate text-xs font-medium text-foreground">{t.title}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {stage === 'optimizing' && (
         <Card className="p-6">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -836,147 +875,136 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       )}
 
       {(stage === 'ready' || stage === 'generating') && (
-        <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-          <div className="min-w-0 space-y-4">
-            <Card className="p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold">底图</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">有底图走图生图；不上传也可直接文生图。</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
-                    {preview ? '更换底图' : '上传底图'}
-                  </Button>
-                  {preview && <Button size="sm" variant="ghost" onClick={() => adoptFile(null)}>移除</Button>}
-                </div>
-              </div>
-              {preview ? (
-                <img src={preview} alt="底图预览" className="mt-3 max-h-48 rounded-lg border border-border object-contain" />
-              ) : (
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="mt-3 flex min-h-24 w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-secondary/30 p-4 text-sm text-muted-foreground hover:border-primary/50"
-                >
-                  加一张你的照片（推荐图生图）
-                  <span className="text-xs">没有照片也可以继续用当前提示词直接生成</span>
-                </button>
-              )}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Button size="sm" variant="outline" disabled={!canReroll || busy} onClick={() => void startOptimize(true)}>
-                  换一批候选
-                </Button>
-                <span className="text-[11px] text-muted-foreground">对候选不满意时，用当前底图/文字重新生成候选；不会丢失底图。</span>
-              </div>
-            </Card>
-
-            {(templates.length > 0 || appliedTemplate) && (
-              <Card className="p-4">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="min-w-40">
-                    <Label className="text-xs" htmlFor="template-select">套用模板</Label>
-                    <NativeSelect id="template-select" className="mt-1 w-full" value={appliedTemplate?.id || ''}
-                      onChange={(e) => {
-                        const t = templates.find((x) => x.id === e.target.value);
-                        if (t) applyTemplateData(t, hasImage);
-                        else { setAppliedTemplate(null); setAppliedVariant(''); toast('已取消模板关联，当前提示词保留'); }
-                      }}>
-                      <option value="">不套用模板</option>
-                      {templates.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
-                      {appliedTemplate && !templates.some((t) => t.id === appliedTemplate.id) && (
-                        <option value={appliedTemplate.id}>{appliedTemplate.title}</option>
-                      )}
-                    </NativeSelect>
-                  </div>
-                  {appliedTemplate?.variants?.length ? (
-                    <div className="min-w-36">
-                      <Label className="text-xs" htmlFor="variant-select">模板变体</Label>
-                      <NativeSelect id="variant-select" className="mt-1 w-full" value={appliedVariant}
-                        disabled={!hasImage}
-                        onChange={(e) => applyTemplateData(appliedTemplate, hasImage, e.target.value)}>
-                        <option value="">默认</option>
-                        {appliedTemplate.variants.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                      </NativeSelect>
-                    </div>
-                  ) : null}
-                </div>
-                {appliedTemplate && !hasImage && (
-                  <p className="mt-2 text-xs text-muted-foreground">当前用「套用后示意」文生图提示词；加一张底图后会自动切换为图生图版本，变体也会解锁。</p>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_340px] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+          {/* ===== 设计稿三栏：左修后预览 / 中原图+候选方案 / 右当前方案 ===== */}
+          <div className="min-w-0 space-y-3">
+            {/* 修后预览大图（示意：用底图或当前模板封面） */}
+            <div className="relative overflow-hidden rounded-xl border border-border/70 bg-secondary">
+              <img
+                src={preview || (appliedTemplate ? apiUrl(appliedTemplate.cover_url) : '/templates/night-bright.webp')}
+                alt="修后预览"
+                className="aspect-[4/5] w-full object-cover"
+              />
+              <span className="absolute left-3 top-3 rounded-md bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">修后预览</span>
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="absolute bottom-3 right-3 rounded-md bg-white/90 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-sm hover:bg-white">
+                {preview ? '更换底图' : '上传底图'}
+              </button>
+            </div>
+            {/* 模板选择 + 换候选（紧凑） */}
+            <div className="flex flex-wrap items-center gap-2">
+              <NativeSelect className="h-9 min-w-32 flex-1 text-xs" value={appliedTemplate?.id || ''}
+                onChange={(e) => {
+                  const t = templates.find((x) => x.id === e.target.value);
+                  if (t) applyTemplateData(t, hasImage);
+                  else { setAppliedTemplate(null); setAppliedVariant(''); toast('已取消模板关联，当前提示词保留'); }
+                }}>
+                <option value="">不套用模板</option>
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                {appliedTemplate && !templates.some((t) => t.id === appliedTemplate.id) && (
+                  <option value={appliedTemplate.id}>{appliedTemplate.title}</option>
                 )}
-                {appliedTemplate && hasImage && appliedVariantData && (
-                  <p className="mt-2 text-xs text-muted-foreground">已选变体：{appliedVariantData.label}（图生图）。</p>
-                )}
-              </Card>
+              </NativeSelect>
+              <Button size="sm" variant="outline" disabled={!canReroll || busy} onClick={() => void startOptimize(true)}>换一批候选</Button>
+            </div>
+            {appliedTemplate?.variants?.length ? (
+              <NativeSelect className="h-9 w-full text-xs" value={appliedVariant} disabled={!hasImage}
+                onChange={(e) => applyTemplateData(appliedTemplate, hasImage, e.target.value)}>
+                <option value="">默认变体</option>
+                {appliedTemplate.variants.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+              </NativeSelect>
+            ) : null}
+            {appliedTemplate && !hasImage && (
+              <p className="text-[11px] text-muted-foreground">当前用「套用后示意」文生图提示词；加底图后自动切换图生图版本。</p>
             )}
+          </div>
 
+          <div className="min-w-0 space-y-3">
+            {/* 原图缩略 + 隐私标记 */}
+            <div className="flex items-center gap-3">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-secondary">
+                <img src={preview || '/samples/demo-night.jpg'} alt="原图" className="size-full object-cover" />
+                <span className="absolute left-1 top-1 rounded bg-black/50 px-1.5 py-0.5 text-[9px] text-white">原图</span>
+              </div>
+              <span className="inline-flex items-center gap-1.5 text-xs text-green-700 dark:text-green-500">
+                <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                仅自己可见
+              </span>
+            </div>
+            {/* 候选方案单选卡（设计稿：缩略图 + 标题 + 描述 + 单选圈） */}
             {optimize && optimize.candidates.length > 0 && (
-              <section aria-label="候选提示词">
-                <h2 className="mb-2 text-sm font-semibold">候选提示词 · 点选后可在右侧高级编辑</h2>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {optimize.candidates.map((c, i) => (
-                    <Card key={i} className={`cursor-pointer p-3 text-xs transition-colors hover:border-primary/60 ${prompt === c.prompt ? 'border-primary ring-1 ring-primary/40' : ''}`}>
-                      <button className="w-full text-left" onClick={() => applyCandidate(c, i)}>
-                        <div className="mb-1 flex flex-wrap gap-1">
-                          {(c.style_tags || []).slice(0, 3).map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
-                        </div>
-                        <p className="mb-1 font-medium">{c.summary_zh || c.style_tags?.join(' · ') || '候选方案'}</p>
-                        <p className="line-clamp-3 text-muted-foreground">{c.prompt}</p>
+              <section aria-label="候选方案">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="font-display text-sm font-bold">候选方案</h2>
+                  <span className="text-[11px] text-muted-foreground">选一个方向</span>
+                </div>
+                <div className="space-y-2">
+                  {optimize.candidates.map((c, i) => {
+                    const active = prompt === c.prompt;
+                    const cover = (c as Candidate & { cover_url?: string }).cover_url
+                      || (i === 2 ? '/gallery/g09-street.jpg' : i === 1 ? '/templates/night-bright.webp' : '/templates/film-daily.webp');
+                    // 设计稿文案：标题短、描述一行中文；无 summary 时按风格标签兜底
+                    const titles = ['自然提亮', '保留夜色', '雨夜霓虹'];
+                    const descs = [
+                      '适度提升整体亮度与细节，保留夜晚的氛围与真实质感。',
+                      '维持夜晚的低光氛围，增强层次与对比，让画面更有情绪。',
+                      '营造雨夜街头的氛围感，加入霓虹光影与湿润反光，故事感更强。',
+                    ];
+                    const title = c.summary_zh ? c.summary_zh.split('，')[0].slice(0, 8) : (titles[i] || `候选 ${i + 1}`);
+                    const desc = c.summary_zh ? c.summary_zh.slice(0, 34) : (descs[i] || c.prompt.slice(0, 34));
+                    return (
+                      <button key={i} onClick={() => applyCandidate(c, i)}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border/70 hover:border-primary/50'}`}>
+                        <img src={cover} alt="" className="h-14 w-16 shrink-0 rounded-md object-cover" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-foreground">{title}</span>
+                          <span className="mt-1 block overflow-hidden text-[11px] leading-snug text-muted-foreground" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{desc}</span>
+                        </span>
+                        <span className={`grid size-4 shrink-0 place-items-center rounded-full border ${active ? 'border-primary bg-primary' : 'border-muted-foreground/50'}`}>
+                          {active && <span className="size-1.5 rounded-full bg-primary-foreground" />}
+                        </span>
                       </button>
-                    </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             )}
-
             {optimize && optimize.recommendations.length > 0 && (
               <section aria-label="相似推荐">
-                <h2 className="mb-2 text-sm font-semibold">
-                  {optimize.recommendations_fallback ? '没有完全匹配的，试试这些模板' : '相似模板 / Skills · 一键同款'}
-                </h2>
+                <h2 className="mb-2 font-display text-sm font-bold">{optimize.recommendations_fallback ? '试试这些模板' : '相似模板 / Skills'}</h2>
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
                   {optimize.recommendations.map((rec) => (
-                    <Card key={rec.type + rec.id} className="w-44 shrink-0 overflow-hidden p-0">
-                      <div className="aspect-[3/4] w-full bg-secondary">
+                    <Card key={rec.type + rec.id} className="w-32 shrink-0 overflow-hidden p-0">
+                      <div className="aspect-[4/3] w-full bg-secondary">
                         {rec.cover_url
                           ? <AssetImage path={rec.cover_url} alt={`${rec.title} 预览`} className="size-full object-cover" isPublic={!rec.cover_private} />
-                          : <div className="grid size-full place-items-center text-xs text-muted-foreground">我的配方</div>}
+                          : <div className="grid size-full place-items-center text-[10px] text-muted-foreground">我的配方</div>}
                       </div>
-                      <div className="p-2">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="truncate text-xs font-semibold">{rec.title}</span>
-                          <Badge variant="secondary" className="shrink-0 text-[10px]">{rec.type === 'template' ? '模板' : '配方'}</Badge>
-                        </div>
-                        {rec.match_tags?.length ? (
-                          <p className="mt-1 text-[10px] text-primary">匹配：{rec.match_tags.slice(0, 3).join(' · ')}</p>
-                        ) : <p className="mt-1 text-[10px] text-muted-foreground">推荐试试</p>}
-                        {rec.description && <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{rec.description}</p>}
-                        <Button size="sm" variant="outline" className="mt-1.5 h-7 w-full text-xs" onClick={() => applyRecommendation(rec)}>一键同款</Button>
+                      <div className="p-1.5">
+                        <span className="block truncate text-[11px] font-semibold">{rec.title}</span>
+                        <Button size="sm" variant="outline" className="mt-1 h-6 w-full text-[10px]" onClick={() => applyRecommendation(rec)}>一键同款</Button>
                       </div>
                     </Card>
                   ))}
                 </div>
               </section>
             )}
-
             {jobError && (
               <Card className="border-destructive/40 bg-destructive/5 p-4 text-sm">
                 {jobError}
-                {pendingJobId
-                  ? <Button variant="link" size="sm" onClick={restoreLastJob}>继续等待</Button>
-                  : <Button variant="link" size="sm" onClick={runGenerate}>重试</Button>}
+                {pendingJobId ? <Button variant="link" size="sm" onClick={restoreLastJob}>继续等待</Button> : <Button variant="link" size="sm" onClick={runGenerate}>重试</Button>}
               </Card>
             )}
           </div>
 
           <Card className="h-fit p-4 lg:sticky lg:top-20">
-            <h2 className="text-sm font-semibold">当前方案与参数</h2>
+            <h2 className="font-display text-base font-bold text-foreground">当前方案</h2>
             {currentSummary && (
-              <p data-testid="current-summary" className="mt-2 rounded-md bg-secondary/60 p-2 text-xs text-foreground">
+              <p data-testid="current-summary" className="mt-2 rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
                 {currentSummary}{promptDirty ? '（已手动修改）' : ''}
               </p>
             )}
-            <Label className="mt-3 text-xs" htmlFor="prompt">{`正向提示词（${prompt.length}/4000）`}</Label>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">高级编辑：英文提示词；上方中文摘要用于快速判断</p>
+            <Label className="mt-3 text-xs" htmlFor="prompt">提示词</Label>
             <Textarea id="prompt" value={prompt} onChange={(e) => { setPrompt(e.target.value.slice(0, 4000)); setPromptDirty(true); }} rows={8} className="mt-1 text-xs" />
             <details className="mt-3">
               <summary className="cursor-pointer text-xs text-muted-foreground">负面提示词（可选）</summary>

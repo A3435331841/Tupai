@@ -8,6 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlbumsPanel } from '@/components/AlbumsPanel';
+import { PageHero } from '@/components/PageHero';
+import { SkillQuickCard } from '@/components/SkillQuickCard';
+import type { SkillRecord } from '@/lib/types';
 import { toast } from 'sonner';
 
 const KIND_LABEL: Record<string, string> = { original: '原图', result: '作品', reference: '参考' };
@@ -21,6 +24,8 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
   const [offset, setOffset] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'assets' | 'albums'>('assets');
+  const [skills, setSkills] = useState<SkillRecord[] | null>(null);
+  const [albumCount, setAlbumCount] = useState(0);
 
   const load = useCallback(async (reset: boolean) => {
     setBusy(true);
@@ -36,6 +41,12 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
   }, [kind, q, bin, offset]);
 
   useEffect(() => { void load(true); /* eslint-disable-next-line */ }, [kind, bin]);
+
+  // 侧栏数据：复用已有 API，失败静默降级不影响主资产列表
+  useEffect(() => {
+    void api.skills().then((r) => setSkills(r.skills)).catch(() => setSkills([]));
+    void api.albums().then((r) => setAlbumCount(r.albums.length)).catch(() => setAlbumCount(0));
+  }, []);
 
   async function search() { setOffset(0); await load(true); }
 
@@ -58,17 +69,28 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 pb-20">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-bold tracking-tight">我的资产库</h1>
-        <Badge variant="secondary">{total} 项</Badge>
-        <span className="text-xs text-muted-foreground">原图全程私密 · 登录后可跨设备</span>
-        <div className="ml-auto flex items-center gap-1">
-          <Button size="sm" variant={mode === 'assets' ? 'secondary' : 'ghost'} onClick={() => setMode('assets')}>资产</Button>
-          <Button size="sm" variant={mode === 'albums' ? 'secondary' : 'ghost'} onClick={() => setMode('albums')}>画册</Button>
-          <Button variant="outline" size="sm" onClick={() => navigate('/studio')}>去创作</Button>
+      <PageHero
+        kicker="原图私密 · 结果可分享 · 配方可带走"
+        title="我的影像档案"
+        description="每一次出片与配方都归档在这里，可检索、可复用、可成册。"
+        aside={(
+          <>
+            <Button size="sm" variant={mode === 'assets' ? 'secondary' : 'ghost'} onClick={() => setMode('assets')}>资产</Button>
+            <Button size="sm" variant={mode === 'albums' ? 'secondary' : 'ghost'} onClick={() => setMode('albums')}>画册</Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/studio')}>去创作</Button>
+          </>
+        )}
+      >
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+          <span><b className="font-display text-base text-primary">{total}</b> 件作品</span>
+          <span><b className="font-display text-base text-primary">{skills?.length ?? '—'}</b> 套配方</span>
+          <span><b className="font-display text-base text-primary">{albumCount}</b> 本画册</span>
+          <span className="ml-auto">原图仅自己可见 · 登录后可跨设备</span>
         </div>
-      </div>
+      </PageHero>
 
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="min-w-0">
       {mode === 'albums' && <AlbumsPanel />}
       {mode === 'assets' && (<>
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -87,10 +109,43 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
           {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => <Skeleton key={i} className="aspect-[3/4] w-full rounded-xl" />)}
         </div>
       ) : items.length === 0 ? (
-        <Card className="p-10 text-center text-sm text-muted-foreground">
-          {bin ? '回收站是空的。' : '还没有资产。去创作台生成作品，或上传照片，会自动归档到这里。'}
-          <div className="mt-4"><Button variant="outline" size="sm" onClick={() => navigate('/studio')}>开始创作</Button></div>
-        </Card>
+        <div>
+          {bin ? (
+            <Card className="p-10 text-center text-sm text-muted-foreground">回收站是空的。</Card>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center gap-2">
+                <p className="text-sm text-muted-foreground">还没有资产 · 先看看作品能长什么样</p>
+                <Button variant="outline" size="sm" className="ml-auto" onClick={() => navigate('/studio')}>去创作</Button>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  ['/gallery/g09-street.jpg', '雨夜之后', '11.16', '夜景·胶片'],
+                  ['/templates/travel-postcard.webp', '金色旅途', '11.14', '旅行·胶片'],
+                  ['/gallery/g06-coffee.jpg', '咖啡午后', '11.13', '人像·胶片'],
+                  ['/gallery/g19-street.png', '霓虹漫步', '11.12', '夜景·胶片'],
+                  ['/templates/magazine-cover.webp', '黑白之间', '11.10', '人像·黑白'],
+                  ['/templates/clean-portrait.webp', '静室肖像', '11.09', '人像·胶片'],
+                  ['/gallery/g07-food.jpg', '餐桌日记', '11.08', '静物·胶片'],
+                  ['/gallery/g12-beach.jpg', '海边来信', '11.06', '旅行·胶片'],
+                  ['/gallery/g20-flowers.png', '花影', '11.05', '静物·胶片'],
+                ].map(([src, title, date, tag]) => (
+                  <div key={title} className="overflow-hidden rounded-xl border border-border/70 bg-card">
+                    <div className="relative aspect-[3/4] bg-secondary">
+                      <img src={src} alt={`${title}（示例）`} className="size-full object-cover" />
+                      <span className="absolute left-2 top-2 rounded bg-black/50 px-1.5 py-0.5 text-[9px] text-white">示例</span>
+                      <Button size="sm" variant="secondary" className="absolute right-2 top-2 h-6 px-2 text-[10px]" onClick={() => navigate('/studio')}>↻ 再创作</Button>
+                    </div>
+                    <div className="p-2">
+                      <p className="truncate text-xs font-medium">{title}</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">{date} · {tag}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -126,6 +181,33 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
         </>
       )}
       </>)}
+      </div>
+
+      <aside className="space-y-4">
+        {/* 设计稿：翻开的书本画册视觉（置顶） */}
+        <div className="site-flow-card overflow-hidden rounded-2xl">
+          <div className="flex justify-center bg-gradient-to-b from-secondary/50 to-transparent px-4 pt-5">
+            <div className="relative w-full max-w-[260px]">
+              <div className="grid grid-cols-2 overflow-hidden rounded-md border-4 border-[#8a5a3b] shadow-lg" style={{ boxShadow: '0 8px 24px -8px rgba(60,40,20,.5), inset 0 0 0 2px rgba(255,255,255,.2)' }}>
+                <div className="aspect-[3/4] bg-cover bg-center" style={{ backgroundImage: "url('/gallery/g09-street.jpg')" }} />
+                <div className="aspect-[3/4] bg-cover bg-center" style={{ backgroundImage: "url('/gallery/g13-city.jpg')" }} />
+              </div>
+              <div className="mx-auto mt-0 h-3 w-16 rounded-b-lg bg-[#7a4a2f]" />
+            </div>
+          </div>
+          <div className="p-4 text-center">
+            <p className="font-display text-sm font-bold text-foreground">十一月 · 小城夜游</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">把结果图做成可翻页的相册，原图永不入册</p>
+            <Button size="sm" className="mt-3 w-full bg-primary text-xs text-primary-foreground hover:bg-primary/90" onClick={() => setMode('albums')}>打开画册 →</Button>
+          </div>
+        </div>
+        <SkillQuickCard
+          skills={skills ?? []}
+          loading={skills === null}
+          onError={(e) => toast.error(e instanceof Error ? e.message : '导出失败')}
+        />
+      </aside>
+      </div>
     </div>
   );
 }

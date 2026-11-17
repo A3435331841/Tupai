@@ -9,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { PageHero } from '@/components/PageHero';
+import { SectionHeading } from '@/components/SectionHeading';
 
 type Tab = 'feed' | 'tasks' | 'notify' | 'mine';
 const needLogin = (e: unknown) => {
@@ -57,7 +59,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   }, [tag, q, sort]);
   useEffect(() => { if (tab === 'feed') void loadFeed(); }, [tab, loadFeed]);
   useEffect(() => {
-    if (tab === 'tasks') api.tasks().then((r) => setTasks(r.tasks)).catch(() => setTasks([]));
+    if (tab === 'tasks' || tab === 'feed') api.tasks().then((r) => setTasks(r.tasks)).catch(() => setTasks([]));
     if (tab === 'notify') api.notifications().then((r) => setNotices(r.notifications)).catch(() => setNotices([]));
     if (tab === 'mine') api.myWorks().then((r) => setMine(r.works)).catch((e) => { if (!needLogin(e)) setMine([]); });
   }, [tab]);
@@ -112,15 +114,26 @@ export default function Community({ navigate }: { navigate: (to: string) => void
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 pb-20">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-bold tracking-tight">社区</h1>
-        <span className="text-xs text-muted-foreground">作品 + 配方可 fork · 原图永不公开</span>
-        <div className="ml-auto flex flex-wrap gap-1">
-          {([['feed', '发现'], ['tasks', '共创任务'], ['notify', '通知'], ['mine', '我的作品']] as [Tab, string][]).map(([v, l]) => (
-            <Button key={v} size="sm" variant={tab === v ? 'secondary' : 'ghost'} onClick={() => setTab(v)}>{l}</Button>
-          ))}
+      <PageHero
+        kicker="本周策展"
+        title="废片，也有第二次机会。"
+        description="公开作品与配方，底图始终属于你。别人可以 fork 你的配方做同款，但原图永不出现。"
+        aside={(
+          <>
+            {([['feed', '发现'], ['tasks', '共创任务'], ['notify', '通知'], ['mine', '我的作品']] as [Tab, string][]).map(([v, l]) => (
+              <Button key={v} size="sm" variant={tab === v ? 'secondary' : 'ghost'} onClick={() => setTab(v)}>{l}</Button>
+            ))}
+          </>
+        )}
+      >
+        <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+          <span className="site-trust-list flex flex-wrap gap-x-4 gap-y-1">
+            <span>公开的是结果与配方</span>
+            <span>原图永不公开</span>
+            <span>fork 署名沿链保留</span>
+          </span>
         </div>
-      </div>
+      </PageHero>
 
       {tab === 'feed' && (
         <>
@@ -131,9 +144,78 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             <Button size="sm" variant={sort === 'hot' ? 'secondary' : 'outline'} onClick={() => setSort('hot')}>热门</Button>
             <Button size="sm" variant="outline" onClick={() => void loadFeed()}>搜索</Button>
           </div>
-          {works === null ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="aspect-[3/4] rounded-xl" />)}</div>
-            : works.length === 0 ? <Card className="p-10 text-center text-sm text-muted-foreground">还没有公开作品。去创作台生成并发布第一张。</Card>
-              : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{works.map((w) => <WorkCard key={w.id} w={w} onOpen={openWork} />)}</div>}
+          {works === null ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="aspect-[3/4] rounded-xl" />)}</div>
+            : works.length === 0 ? (
+              /* 设计稿：错落作品墙（示例） */
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:grid-rows-2">
+                <div className="relative col-span-2 row-span-2 overflow-hidden rounded-xl border border-border/70">
+                  <img src="/gallery/g19-street.png" alt="雨夜之后（示例）" className="size-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-4">
+                    <p className="font-display text-xl font-bold text-white">雨夜之后</p>
+                    <p className="mt-1 text-xs text-white/85">小岛 · 夜景提亮 · 雨夜霓虹</p>
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-[11px] text-white/70">小岛 → 阿禾 · fork 2</span>
+                      <Button size="sm" className="h-7 bg-primary text-[11px] text-primary-foreground" onClick={() => navigate('/studio?template=night-bright')}>做同款</Button>
+                    </div>
+                  </div>
+                </div>
+                {[
+                  ['/templates/film-daily.webp', '阿禾', '胶片暖调', '阿禾 → 拾光 · fork 2'],
+                  ['/gallery/g13-city.jpg', '山木', '金色山野', '山木 → 南风 · fork 2'],
+                  ['/templates/clean-portrait.webp', '林间', '柔光人像', '林间 → 阿禾 · fork 2'],
+                  ['/templates/magazine-cover.webp', '白川', '黑白颗粒', '白川 → 山木 · fork 2'],
+                  ['/gallery/g10-pet.jpg', '橙子', '日常胶片', '橙子 → 林间 · fork 2'],
+                  ['/gallery/g07-food.jpg', '南风', '食物暖光', '南风 → 拾光 · fork 2'],
+                  ['/gallery/g12-beach.jpg', '拾光', '海边日记', '拾光 → 阿禾 · fork 2'],
+                  ['/gallery/g20-flowers.png', '花影', '静物胶片', '花影 → 南风 · fork 2'],
+                ].map(([src, author, tag, fork]) => (
+                  <div key={author} className="group overflow-hidden rounded-xl border border-border/70 bg-card">
+                    <div className="relative aspect-[4/3] bg-secondary">
+                      <img src={src} alt={`${author}（示例）`} className="size-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      <span className="absolute left-2 top-2 rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white">示例</span>
+                    </div>
+                    <div className="p-2">
+                      <p className="truncate text-xs font-medium">{author} <span className="font-normal text-muted-foreground">· {tag}</span></p>
+                      <p className="mt-0.5 truncate text-[10px] text-primary">{fork}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+              : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{works.map((w) => <WorkCard key={w.id} w={w} onOpen={openWork} />)}</div>}
+
+          {/* 设计稿：共创主题横排 */}
+          <section className="mt-8">
+            <SectionHeading title="共创主题：把秋天拍成电影" aside="本周热门" />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="grid flex-1 grid-cols-3 gap-3">
+                {['/gallery/g15-plant.jpg', '/gallery/g19-street.png', '/gallery/g17-reading.png'].map((src, i) => (
+                  <div key={i} className="aspect-[16/10] overflow-hidden rounded-lg border border-border/70 bg-secondary">
+                    <img src={src} alt="共创主题示例" className="size-full object-cover" />
+                  </div>
+                ))}
+              </div>
+              <Button className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setTab('tasks')}>参加共创</Button>
+            </div>
+          </section>
+
+          {tasks && tasks.length > 0 && (
+            <section className="mt-8">
+              <SectionHeading title="进行中的共创" aside={`${tasks.length} 个`}>
+                <button type="button" className="text-xs text-primary hover:underline" onClick={() => setTab('tasks')}>查看全部 →</button>
+              </SectionHeading>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {tasks.slice(0, 3).map((t) => (
+                  <Card key={t.id} className="cursor-pointer p-4 transition-transform hover:-translate-y-0.5" onClick={() => { setTab('tasks'); void openTask(t.id); }}>
+                    <p className="font-display text-sm font-bold text-foreground">{t.theme}</p>
+                    {t.constraints && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{t.constraints}</p>}
+                    <span className="mt-3 inline-block text-[11px] text-primary">参与共创 →</span>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
 
