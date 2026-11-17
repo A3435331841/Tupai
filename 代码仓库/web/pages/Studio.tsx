@@ -314,7 +314,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             onChange={(e) => { const f = e.target.files?.[0]; if (f) importSkillFile(f); e.target.value = ''; }} />
           <Button variant="outline" size="sm" onClick={() => importRef.current?.click()}>导入 Skills 配方</Button>
           {stage !== 'entry' && (
-            <Button variant="ghost" size="sm" onClick={() => { setStage('entry'); setOptimize(null); setJob(null); setJobError(null); }}>
+            <Button variant="ghost" size="sm" onClick={() => { pickFile(null); setPrompt(''); setNegative(''); setText(''); setStage('entry'); setOptimize(null); setJob(null); setJobError(null); }}>
               重新开始
             </Button>
           )}
@@ -323,7 +323,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
 
       {stage === 'entry' && (
         <Card className="p-5">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as 'image' | 'text')}>
+          <Tabs value={tab} onValueChange={(v) => { const next = v as 'image' | 'text'; setTab(next); if (next === 'text') pickFile(null); }}>
             <TabsList>
               <TabsTrigger value="image">上传图片</TabsTrigger>
               <TabsTrigger value="text">输入文字</TabsTrigger>
