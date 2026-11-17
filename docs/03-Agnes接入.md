@@ -1,14 +1,14 @@
 # 图派 · Agnes 接入文档
 
-> 版本 v3.0 · 2026-11-17 · 面向实现的接入摘要。完整实测手册见 [references/agnes-api.md](references/agnes-api.md)。
-> ⚠️ 该手册内含 10 个真实 API Key，属敏感文件：**不得提交公开仓库、不得进前端、不得外传**。Key 一律存 Sites Secret。
+> 版本 v3.1 · 2026-11-17 · 面向实现的接入摘要。实测手册与 Key 原文离线保存、不入仓库。
+> ⚠️ Key 一律存 Sites Secret、仅云函数可读：**不进仓库、不进前端、不外传**。
 
 ## 1. 站点与认证
 
 | | 中国站 | 国际站 |
 |---|---|---|
 | Base URL | `https://api.agnes-ai.cn/v1` | `https://apihub.agnes-ai.com/v1` |
-| Key 归属 | 6 个（qq1/qq2/163-1/163-2a/qq-3/163-2b） | 4 个（proton-1/gmail-1/proton-2/agnes-gmail） |
+| Key 归属 | 6 个（别名脱敏，按站点分组） | 4 个（别名脱敏，按站点分组） |
 
 - 认证：`Authorization: Bearer sk-xxx`。
 - **Key 与站点不互通**，打错站返回 401。Key 池按站点分组，请求配对。
@@ -92,19 +92,19 @@ POST {BASE}/chat/completions
 
 - 存储：Sites Secret（如 `AGNES_KEYS_CN` / `AGNES_KEYS_INTL`，JSON 数组），仅云函数可读。
 - 调度：轮询选 key → 令牌桶校验 → 请求；429/402 标记冷却并换下一个；全池冷却 → Job 排队或 Mock 兜底。
-- 日志：记录 key 别名（qq1 等）与状态码，**不落 key 明文**。
+- 日志：记录脱敏别名与状态码，**不落 key 明文**。
 - 游客配额：每会话每日生成次数上限（M2 定值），防公开站被刷。
 
 ## 7. M0 实测清单（2026-11-17 本地实测，结果已回填）
 
-- [x] 中国站 key 图生图（base64 原图）成功，7.9s（T4，qq2）
-- [x] 国际站 key 出图成功，12.5s（T6，proton-1，`agnes-image-2.1-flash`）
+- [x] 中国站 key 图生图（base64 原图）成功，7.9s（T4，CN key）
+- [x] 国际站 key 出图成功，12.5s（T6，INTL key，`agnes-image-2.1-flash`）
 - [x] 文生图（文字入口，无底图）成功，8.4s（T3，`agnes-image-2.5-flash`）
 - [x] `agnes-image-2.1-flash` 出图成功（模型切换可用，T6）
 - [x] optimize：公网 URL 图片 → 视觉描述成功，3.0s（T2）
 - [x] **optimize：data URL 被接受 ✅（T1，2.3s）→ 隐私走 base64 直传，无需临时公开机制**
 - [x] optimize：纯文字 → 结构化 JSON 候选成功，3.9s（T5，含保留约束句，格式符合 §4 要求）
-- [x] 429 触发与轮换行为：qq2 约 2–3 次请求后即 429（**实际 RPM 远严于标称 20**）；换 key/等待后恢复，轮换策略有效
+- [x] 429 触发与轮换行为：单 CN key 约 2–3 次请求后即 429（**实际 RPM 远严于标称 20**）；换 key/等待后恢复，轮换策略有效
 - [x] 云函数单次执行超时上限 vs 出图 8–20s（2026-11-17 云端实测：`_spike/sleep` 10/20/30s 均 HTTP 200，实际 10.34/20.58/30.79s → 网关单请求 ≥30s，轮询驱动租约执行形态成立，M0-3）
 
 ### 实测结论对设计的影响
