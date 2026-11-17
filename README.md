@@ -45,6 +45,10 @@ docs/         # 本套文档
 cd 代码仓库/web && npm install && npm run dev   # 前端 :5173（proxy → :8000）
 cd 代码仓库 && deno run --allow-net=127.0.0.1:8000 --allow-read dev/function-local.ts  # 后端（无凭证 fake，Mock 兜底）
 node 代码仓库/api/contract-test.mjs             # 契约测试 29 断言（可传云端 BASE）
+node 代码仓库/dev/failpath-test.mjs             # 故障注入 20 断言（429/402/401→冷却/禁用→Mock、超时文案，零真实调用）
+node 代码仓库/dev/mobile-test.mjs               # 移动视口+无痕等效 33 断言（需 playwright；BASE 可指本地 :5173）
+node 代码仓库/dev/cloud-acceptance.mjs          # 云端真实出图验收（Secret 同步+正式发布后跑：真实 optimize/生成/封面懒生成/隐私）
+node 代码仓库/dev/demo-rehearsal.mjs            # 60 秒演示彩排计时（核心路径 ≤60s 门禁）
 ```
 
 Key 只存 Sites Secret（`AGNES_KEYS_CN` / `AGNES_KEYS_INTL`），云函数运行时读取；本地开发无需任何真实 Key。
