@@ -358,7 +358,7 @@ components:
           properties:
             code:
               type: string
-              enum: [invalid_input, quota_exceeded, provider_busy, parse_failed, not_found, internal]
+              enum: [invalid_input, quota_exceeded, provider_busy, parse_failed, not_found, internal, login_required, invalid_user_context]
             message:
               type: string
               description: 人类可读中文
@@ -509,6 +509,9 @@ components:
         url: { type: string }
         width: { type: integer }
         height: { type: integer }
+        mock:
+          type: boolean
+          description: true 表示由演示兜底生成（未接真实模型），前端可据此提示
 
     Job:
       type: object

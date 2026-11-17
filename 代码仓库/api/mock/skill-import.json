@@ -1,15 +1,13 @@
 {
-  "skill": {
-    "format": "tupai-skill",
-    "version": 1,
-    "title": "胶片日常·旅行",
-    "prompt": "Transform this everyday snapshot into a candid analog film photograph. Keep the person's face, expression, hairstyle and outfit exactly unchanged. Late-afternoon warm backlight, Kodak Portra-like color response, fine film grain, off-center framing, no orange wash, no plastic skin.",
-    "negative_prompt": "orange color wash, fake light leaks, plastic smooth skin, changed facial features, watermark, text",
-    "model": "agnes-image-2.5-flash",
-    "template_id": "film-daily",
-    "params": { "aspect": "3:4" },
-    "notes": "适合日光旅行随拍",
-    "created_at": "2026-11-17T12:00:00+08:00",
-    "skill_id": "s_mock001"
-  }
+  "format": "tupai-skill",
+  "version": 1,
+  "title": "胶片日常·旅行",
+  "prompt": "Transform this everyday snapshot into a candid analog film photograph. Keep the person's face, expression, hairstyle and outfit exactly unchanged. Late-afternoon warm backlight, Kodak Portra-like color response, fine film grain, off-center framing, no orange wash, no plastic skin.",
+  "negative_prompt": "orange color wash, fake light leaks, plastic smooth skin, changed facial features, watermark, text",
+  "model": "agnes-image-2.5-flash",
+  "template_id": "film-daily",
+  "params": { "aspect": "3:4" },
+  "notes": "适合日光旅行随拍",
+  "created_at": "2026-11-17T12:00:00+08:00",
+  "skill_id": "s_mock001"
 }

@@ -5,7 +5,8 @@
     "asset_id": "a_mock002",
     "url": "/api/v1/assets/a_mock002/content",
     "width": 864,
-    "height": 1152
+    "height": 1152,
+    "mock": false
   },
   "error": null
 }

@@ -9,6 +9,7 @@ import { mockOptimize, mockGenerate } from './mock.mjs';
 import { TEMPLATES, ensureSeeded } from './seed.mjs';
 import { renderSkillMarkdown } from './skillmd.mjs';
 import { getUser } from './auth.mjs';
+import { vInt, vOneOf, KIND_VALUES, SORT_VALUES } from './validate.mjs';
 
 const LEASE_MS = 90_000;
 const MAX_ATTEMPTS = 3;
@@ -367,12 +368,12 @@ export function application({ db, storage, env, fetchImpl }) {
     if (path === '/api/v1/assets' && method === 'GET') {
       const sid = ownerOf(request);
       const url = new URL(request.url);
-      const kind = url.searchParams.get('kind') || '';
+      const kind = url.searchParams.get('kind') ? vOneOf(url.searchParams.get('kind'), 'kind', KIND_VALUES) : '';
       const q = (url.searchParams.get('q') || '').trim().toLowerCase();
       const tag = (url.searchParams.get('tag') || '').trim();
       const includeDeleted = url.searchParams.get('include_deleted') === '1';
-      const limit = Math.min(60, Math.max(1, Number(url.searchParams.get('limit')) || 24));
-      const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+      const limit = vInt(url.searchParams.get('limit'), 'limit', { min: 1, max: 60, fallback: 24 });
+      const offset = vInt(url.searchParams.get('offset'), 'offset', { min: 0, fallback: 0 });
       let query = db.from('assets').select('*').eq('owner_session', sid).order('created_at', { ascending: false });
       if (!includeDeleted) query = query.is('deleted_at', null);
       if (kind) query = query.eq('kind', kind);
@@ -471,8 +472,7 @@ export function application({ db, storage, env, fetchImpl }) {
       const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 500) : '';
       const assetId = typeof body?.asset_id === 'string' ? body.asset_id : '';
       if (!text && !assetId) fail('invalid_input', 400, '请上传图片或输入文字');
-      let count = Number(body?.count ?? 3);
-      if (!Number.isInteger(count) || count < 2 || count > 4) count = 3;
+      const count = vInt(body?.count, 'count', { min: 2, max: 4, fallback: 3 });
       let imageBytes = null, imageMime = null;
       if (assetId) {
         const asset = await loadOwnedAsset(assetId, sid);
@@ -610,6 +610,15 @@ export function application({ db, storage, env, fetchImpl }) {
       if (typeof body.title !== 'string' || !body.title.trim() || body.title.length > 100) fail('invalid_input', 422, '缺少 title 字段');
       if (typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 4000) fail('invalid_input', 422, '缺少 prompt 字段');
       if (typeof body.model !== 'string' || !body.model.trim() || body.model.length > 100) fail('invalid_input', 422, '缺少 model 字段');
+      if (!MODEL_WHITELIST.includes(body.model)) fail('invalid_input', 422, 'model 不在支持列表中');
+      if (body.params && typeof body.params === 'object') {
+        if (body.params.aspect && !RATIOS.includes(body.params.aspect)) fail('invalid_input', 422, '画幅不受支持');
+      }
+      if (body.style_tags !== undefined) {
+        if (!Array.isArray(body.style_tags) || body.style_tags.some((t) => typeof t !== 'string')) {
+          fail('invalid_input', 422, 'style_tags 必须是字符串数组');
+        }
+      }
     }
 
     if (path === '/api/v1/skills' && method === 'GET') {
@@ -764,7 +773,7 @@ export function application({ db, storage, env, fetchImpl }) {
       const sid = ownerOf(request);
       const album = await loadOwnedAlbum(shareMatch[1], sid);
       const body = await readJson(request).catch(() => ({}));
-      const hours = Math.min(24 * 30, Math.max(1, Number(body.expires_hours) || 24 * 7));
+      const hours = vInt(body.expires_hours, 'expires_hours', { min: 1, max: 24 * 30, fallback: 24 * 7 });
       const token = crypto.randomUUID().replace(/-/g, '');
       const expires = new Date(Date.now() + hours * 3600 * 1000).toISOString();
       const r = await db.from('albums').update({ visibility: 'unlisted', share_token: token, share_expires_at: expires }).eq('id', album.id).eq('owner_session', sid).select();
@@ -847,9 +856,9 @@ export function application({ db, storage, env, fetchImpl }) {
       const url = new URL(request.url);
       const tag = url.searchParams.get('tag') || '';
       const q = (url.searchParams.get('q') || '').trim().toLowerCase();
-      const sort = url.searchParams.get('sort') || 'new';
-      const limit = Math.min(48, Math.max(1, Number(url.searchParams.get('limit')) || 24));
-      const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+      const sort = vOneOf(url.searchParams.get('sort') || 'new', 'sort', SORT_VALUES);
+      const limit = vInt(url.searchParams.get('limit'), 'limit', { min: 1, max: 48, fallback: 24 });
+      const offset = vInt(url.searchParams.get('offset'), 'offset', { min: 0, fallback: 0 });
       const all = rows(await db.from('works').select('*').eq('status', 'published').order('created_at', { ascending: false }).range(0, 499)) || [];
       let filtered = all;
       if (tag) filtered = filtered.filter((w) => jsonArr(w.tags).includes(tag));
@@ -1056,7 +1065,8 @@ export function application({ db, storage, env, fetchImpl }) {
     const ntMatch = path.match(/^\/api\/v1\/notifications\/(nt_[0-9a-f]{24})\/read$/);
     if (ntMatch && method === 'POST') {
       const sid = ownerOf(request);
-      await db.from('notifications').update({ read: true }).eq('id', ntMatch[1]).eq('owner_session', sid).select();
+      const r = await db.from('notifications').update({ read: true }).eq('id', ntMatch[1]).eq('owner_session', sid).select();
+      if (!rows(r)?.length) fail('not_found', 404);
       return Response.json({ ok: true });
     }
 
@@ -1121,6 +1131,7 @@ export function application({ db, storage, env, fetchImpl }) {
       await db.from('tasks').delete().eq('owner_session', sid);
       await db.from('albums').delete().eq('owner_session', sid);
       await db.from('skills').delete().eq('owner_session', sid);
+      await db.from('jobs').delete().eq('owner_session', sid);
       const assets = rows(await db.from('assets').select('*').eq('owner_session', sid).limit(2000)) || [];
       for (const a of assets) { try { await storage.remove([a.storage_key]); } catch { /* ignore */ } }
       await db.from('assets').delete().eq('owner_session', sid);
