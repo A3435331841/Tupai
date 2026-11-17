@@ -20,7 +20,13 @@ export const TEMPLATES = [
     tags: ['夜景', '提亮', '人像', '聚餐', '霓虹', '雨夜', '电影感'],
     features: '欠曝夜景 → 明亮干净或霓虹电影感，人物面部不变',
     sample_prompt: 'Natural-looking brightened night photograph of a young East Asian woman at an outdoor dinner table with friends, warm practical string lights, clean low-noise image, clear facial detail in shadow areas, readable background signage with gentle glow, authentic night atmosphere preserved, vertical 3:4.',
-    variant_prompt: "Restyle this night photo into a cinematic rainy-neon portrait. Keep the person's face, expression and outfit unchanged. Cool cyan ambient light with a narrow magenta rim from physically motivated neon signs, wet-look reflections on street surfaces, soft neon bokeh in the background, deep blacks with preserved facial detail, emotionally restrained mood, no symmetrical red-blue split, no cyber implants, no plastic skin.",
+    variants: [
+      {
+        id: 'rain-neon', label: '雨夜霓虹',
+        prompt: "Restyle this night photo into a cinematic rainy-neon portrait. Keep the person's face, expression and outfit unchanged. Cool cyan ambient light with a narrow magenta rim from physically motivated neon signs, wet-look reflections on street surfaces, soft neon bokeh in the background, deep blacks with preserved facial detail, emotionally restrained mood, no symmetrical red-blue split, no cyber implants, no plastic skin.",
+        negative_prompt: 'symmetrical red-blue split, cyber implants, plastic skin, changed facial features, daylight look, watermark, text',
+      },
+    ],
   },
   {
     id: 'clean-portrait', title: '清透人像', sort: 3,
@@ -41,7 +47,13 @@ export const TEMPLATES = [
     tags: ['旅行', '风景', '黄金时刻', '明信片', '城市', '地标'],
     features: '平淡旅行照 → 黄金时刻三层景深电影感，或复古插画明信片',
     sample_prompt: 'Cinematic golden-hour landscape of a lakeside mountain village, tactile foreground of wildflowers and rocks leading along a path toward distant peaks, low warm side light, thin haze separating three depth layers, slightly cool shadows, calm expansive mood, vertical 3:4, no text, no orange wash.',
-    variant_prompt: 'Restyle this travel photo into a vintage mid-century travel postcard illustration: one iconic landmark as a heroic simplified silhouette against a simple sun-and-sky field, limited screen-print palette of three to four inks such as vermilion, teal and cream, cream paper border, subtle halftone and worn lithographic grain, optimistic mood, clean empty title band at the bottom, no invented text, no logo.',
+    variants: [
+      {
+        id: 'retro-postcard', label: '复古明信片',
+        prompt: 'Restyle this travel photo into a vintage mid-century travel postcard illustration: one iconic landmark as a heroic simplified silhouette against a simple sun-and-sky field, limited screen-print palette of three to four inks such as vermilion, teal and cream, cream paper border, subtle halftone and worn lithographic grain, optimistic mood, clean empty title band at the bottom, no invented text, no logo.',
+        negative_prompt: 'photorealism, invented text, logo, watermark, extra people, warped landmark, oversaturation',
+      },
+    ],
   },
   {
     id: 'magazine-cover', title: '杂志封面', sort: 5,

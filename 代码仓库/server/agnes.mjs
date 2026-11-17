@@ -5,15 +5,17 @@ const GENERATE_TIMEOUT_MS = 45_000;
 const RESULT_DOWNLOAD_TIMEOUT_MS = 30_000;
 
 const PRESERVE = "Keep the person's face, facial features, expression, hairstyle and outfit exactly unchanged.";
+const SCENE_PRESERVE = 'Keep the scene layout, objects, lighting and background unchanged; do not add people.';
 
 function optimizeInstruction(count, hasImage) {
-  const shape = `{"candidates":[{"prompt":"...","negative_prompt":"...","style_tags":["..."]}],"tags":["..."]}`;
+  const shape = `{"candidates":[{"summary_zh":"...","prompt":"...","negative_prompt":"...","style_tags":["..."]}],"tags":["..."]}`;
   if (hasImage) {
     return [
       '你是照片二次创作提示词专家。分析这张照片（主体/场景/光线/问题），产出可直接用于图生图模型的英文提示词。',
       `输出严格 JSON（不要 markdown 代码块），结构：${shape}`,
       `candidates 恰好 ${count} 条，每条是「单任务变体」：只改环境/光线/风格，绝不改人物主体。`,
-      `每条 prompt 必须包含保留约束句："${PRESERVE}"`,
+      '每条候选必须有 summary_zh：一句中文（不超过 40 字），说明这条会改什么、会保留什么，供普通用户判断。',
+      `若画面中有人物，prompt 必须包含保留约束句："${PRESERVE}"；若没有人像，改用："${SCENE_PRESERVE}"`,
       'prompt 用英文、具体、可执行（光线方向/色温/质感/氛围），negative_prompt 列出不想要的伪影。',
       'style_tags 用中文短词（如 胶片/夜景/人像/旅行/提亮/杂志）。tags 是整张照片的风格/场景/主体标签（中文，5–10 个），用于相似模板检索。',
       '只输出 JSON。',
@@ -23,6 +25,7 @@ function optimizeInstruction(count, hasImage) {
     '你是出图提示词专家。把用户的中文想法扩写为可直接用于文生图模型的英文提示词。',
     `输出严格 JSON（不要 markdown 代码块），结构：${shape}`,
     `candidates 恰好 ${count} 条，每条是同一意图的不同风格变体（单任务，不叠加多个改造）。`,
+    '每条候选必须有 summary_zh：一句中文（不超过 40 字），说明这条会改什么、会保留什么，供普通用户判断。',
     '若涉及人物，prompt 必须包含保留约束句（文生图场景指人物自然真实）："Keep any person natural and realistic, with consistent facial features and hands."',
     'prompt 用英文、具体（构图/光线/色彩/质感/氛围）；negative_prompt 列出伪影；style_tags 用中文短词。',
     'tags 是意图的风格/场景/主体标签（中文，5–10 个），用于相似模板检索。只输出 JSON。',
@@ -38,11 +41,16 @@ function parseCandidates(text, count) {
   if (start >= 0 && end > start) raw = raw.slice(start, end + 1);
   const obj = JSON.parse(raw);
   if (!Array.isArray(obj.candidates) || !obj.candidates.length) throw new Error('bad_shape');
-  const candidates = obj.candidates.slice(0, count).map((c) => ({
-    prompt: String(c.prompt || '').slice(0, 4000),
-    negative_prompt: String(c.negative_prompt || '').slice(0, 1000),
-    style_tags: Array.isArray(c.style_tags) ? c.style_tags.map(String).slice(0, 8) : [],
-  })).filter((c) => c.prompt.length > 10);
+  const candidates = obj.candidates.slice(0, count).map((c) => {
+    const styleTags = Array.isArray(c.style_tags) ? c.style_tags.map(String).slice(0, 8) : [];
+    const summary = String(c.summary_zh || '').trim().slice(0, 80) || styleTags.join('、') || '风格变体';
+    return {
+      summary_zh: summary,
+      prompt: String(c.prompt || '').slice(0, 4000),
+      negative_prompt: String(c.negative_prompt || '').slice(0, 1000),
+      style_tags: styleTags,
+    };
+  }).filter((c) => c.prompt.length > 10);
   if (!candidates.length) throw new Error('empty_candidates');
   const tags = Array.isArray(obj.tags) ? obj.tags.map(String).slice(0, 12) : [];
   return { candidates, tags };

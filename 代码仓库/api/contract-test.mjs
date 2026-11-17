@@ -46,6 +46,9 @@ async function main() {
     const t = list?.[0];
     check('template 结构', t && typeof t.id === 'string' && typeof t.title === 'string'
       && typeof t.prompt === 'string' && typeof t.cover_url === 'string' && Array.isArray(t.tags));
+    const night = list?.find((x) => x.id === 'night-bright');
+    check('template 文生图/变体字段', night && typeof night.sample_prompt === 'string' && Array.isArray(night.variants)
+      && night.variants.some((v) => v.id === 'rain-neon' && typeof v.prompt === 'string'));
   }
 
   // 2. GET /models
@@ -55,6 +58,14 @@ async function main() {
     const list = r.json?.models;
     check('models 白名单', Array.isArray(list) && list.length > 0
       && list.every((m) => MODELS.includes(m.id)), JSON.stringify(list));
+  }
+
+  // 2b. GET /quota
+  {
+    const r = await req('GET', '/quota');
+    check('quota 200 字段', r.status === 200 && typeof r.json?.remaining === 'number'
+      && typeof r.json?.session_limit === 'number' && typeof r.json?.global_limit === 'number',
+    JSON.stringify(r.json).slice(0, 120));
   }
 
   // 3. POST /assets
@@ -87,7 +98,9 @@ async function main() {
     check('candidate 结构+保留句', Array.isArray(c) && c.every((x) => typeof x.prompt === 'string'
       && typeof x.negative_prompt === 'string' && Array.isArray(x.style_tags)
       && /unchanged|保留/i.test(x.prompt)));
+    check('candidate 中文摘要', Array.isArray(c) && c.every((x) => typeof x.summary_zh === 'string' && x.summary_zh.length > 0));
     check('recommendations 数组', Array.isArray(r.json?.recommendations));
+    check('recommendations 兜底标记', typeof r.json?.recommendations_fallback === 'boolean');
   }
 
   // 6+7. POST /jobs/generate → GET /jobs/{id} 轮询至终态
@@ -131,6 +144,9 @@ async function main() {
     check('skills 保存 2xx', r.status >= 200 && r.status < 300, `got ${r.status}`);
     skillId = r.json?.skill_id || r.json?.id;
     check('skill_id 返回', typeof skillId === 'string');
+    const list = await req('GET', '/skills');
+    check('skills 列表 200', list.status === 200 && Array.isArray(list.json?.skills));
+    check('skills 列表含刚保存配方', list.json?.skills?.some((s) => s.skill_id === skillId && s.prompt === skillBody.prompt));
   }
 
   // 9. GET /skills/{id}

@@ -30,8 +30,8 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button size="lg" onClick={() => navigate('/studio')}>开始创作</Button>
-          <Button size="lg" variant="outline" onClick={() => navigate('/studio?demo=night')}>
-            一键试玩 · 样例废片
+          <Button size="lg" variant="outline" onClick={() => navigate('/studio?demo=night&template=night-bright')}>
+            一键试玩 · 废片提亮
           </Button>
           <Button size="lg" variant="ghost" className="text-muted-foreground" onClick={() => navigate(`/studio?demo=text&text=${encodeURIComponent(DEMO_TEXT)}`)}>
             文字试玩

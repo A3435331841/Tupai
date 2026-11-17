@@ -33,6 +33,10 @@ function publicAssetUrl(id) {
   return `/api/v1/assets/${id}/content`;
 }
 
+function safeCoverUrl(value) {
+  return typeof value === 'string' && /^\/api\/v1\/assets\/a_[0-9a-f]{24}\/content$/.test(value) ? value : undefined;
+}
+
 export function application({ db, storage, env, fetchImpl }) {
   const scheduler = createKeyScheduler(db, env);
   const agnes = createAgnesProvider(scheduler, fetchImpl);
@@ -119,12 +123,17 @@ export function application({ db, storage, env, fetchImpl }) {
       await ensureSeeded(db);
       const list = rows(await db.from('templates').select('*').order('sort', { ascending: true }).limit(50)) || [];
       return Response.json({
-        templates: list.map((t) => ({
-          id: t.id, title: t.title, description: t.description,
-          cover_url: t.cover_asset_id ? publicAssetUrl(t.cover_asset_id) : `/api/v1/templates/${t.id}/cover`,
-          prompt: t.prompt, negative_prompt: t.negative_prompt,
-          default_model: t.default_model, ratio: t.ratio, tags: t.tags || [],
-        })),
+        templates: list.map((t) => {
+          const meta = TEMPLATES.find((x) => x.id === t.id) || {};
+          return {
+            id: t.id, title: t.title, description: t.description,
+            cover_url: t.cover_asset_id ? publicAssetUrl(t.cover_asset_id) : `/api/v1/templates/${t.id}/cover`,
+            prompt: t.prompt, negative_prompt: t.negative_prompt,
+            sample_prompt: meta.sample_prompt || null,
+            variants: meta.variants || [],
+            default_model: t.default_model, ratio: t.ratio, tags: t.tags || [],
+          };
+        }),
       });
     }
 
@@ -163,9 +172,24 @@ export function application({ db, storage, env, fetchImpl }) {
     if (path === '/api/v1/models' && method === 'GET') {
       return Response.json({
         models: [
-          { id: 'agnes-image-2.5-flash', label: 'Agnes Image 2.5', default: true },
-          { id: 'agnes-image-2.1-flash', label: 'Agnes Image 2.1' },
+          { id: 'agnes-image-2.5-flash', label: 'Agnes Image 2.5', description: '默认推荐', default: true },
+          { id: 'agnes-image-2.1-flash', label: 'Agnes Image 2.1', description: '备选对比' },
         ],
+      });
+    }
+
+    if (path === '/api/v1/quota' && method === 'GET') {
+      const sid = requireSession(request);
+      const dayStart = startOfToday();
+      const mine = await db.from('jobs').select('id', { count: 'exact' }).eq('owner_session', sid).gte('created_at', dayStart).limit(1);
+      const all = await db.from('jobs').select('id', { count: 'exact' }).gte('created_at', dayStart).limit(1);
+      if (mine.error || all.error) fail('internal', 503, '额度查询失败，请稍后重试');
+      const sessionUsed = Number(mine.count) || 0;
+      const globalUsed = Number(all.count) || 0;
+      return Response.json({
+        session_used: sessionUsed, session_limit: DAILY_QUOTA_PER_SESSION,
+        global_used: globalUsed, global_limit: DAILY_QUOTA_GLOBAL,
+        remaining: Math.max(0, Math.min(DAILY_QUOTA_PER_SESSION - sessionUsed, DAILY_QUOTA_GLOBAL - globalUsed)),
       });
     }
 
@@ -236,14 +260,42 @@ export function application({ db, storage, env, fetchImpl }) {
       const templates = rows(await db.from('templates').select('*').limit(50)) || [];
       const skills = rows(await db.from('skills').select('*').eq('owner_session', sid).order('created_at', { ascending: false }).limit(50)) || [];
       const queryTags = out.tags || [];
-      const scored = [
-        ...templates.map((t) => ({ type: 'template', id: t.id, title: t.title, cover_url: t.cover_asset_id ? publicAssetUrl(t.cover_asset_id) : `/api/v1/templates/${t.id}/cover`, prompt: t.prompt, score: scoreMatch(queryTags, t.tags || [], t.features) })),
-        ...skills.map((s) => ({ type: 'skill', id: s.id, title: s.title, cover_url: '', prompt: s.prompt, score: scoreMatch(queryTags, s.tags || [], '') })),
-      ].filter((x) => x.score >= 0.15).sort((a, b) => b.score - a.score).slice(0, 5)
+      const overlapTags = (itemTags) => queryTags.filter((q) => (itemTags || []).some((t) => t === q || t.includes(q) || q.includes(t)));
+      const templateItems = templates.map((t) => {
+        const meta = TEMPLATES.find((x) => x.id === t.id) || {};
+        return {
+          type: 'template', id: t.id, title: t.title, description: t.description,
+          cover_url: t.cover_asset_id ? publicAssetUrl(t.cover_asset_id) : `/api/v1/templates/${t.id}/cover`,
+          prompt: t.prompt, negative_prompt: t.negative_prompt,
+          sample_prompt: meta.sample_prompt || null, variants: meta.variants || [],
+          default_model: t.default_model, ratio: t.ratio,
+          match_tags: overlapTags(t.tags || []),
+          score: scoreMatch(queryTags, t.tags || [], t.features),
+        };
+      });
+      const skillItems = skills.map((s) => {
+        const meta = s.meta_json || {};
+        const cover = safeCoverUrl(meta.cover_url) || '';
+        return {
+          type: 'skill', id: s.id, title: s.title, description: meta.notes || '我的配方',
+          cover_url: cover, cover_private: Boolean(cover),
+          prompt: s.prompt, negative_prompt: s.negative_prompt || '',
+          model: s.model, ratio: meta.params?.aspect || '3:4',
+          match_tags: overlapTags(s.tags || []),
+          score: scoreMatch(queryTags, s.tags || [], ''),
+        };
+      });
+      let recommendations = [...templateItems, ...skillItems]
+        .filter((x) => x.score >= 0.15)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
         .map((x) => ({ ...x, score: Math.round(x.score * 100) / 100 }));
+      const recommendationsFallback = recommendations.length === 0;
+      if (recommendationsFallback) recommendations = templateItems.slice(0, 5);
       return Response.json({
         candidates: out.candidates,
-        recommendations: scored,
+        recommendations,
+        recommendations_fallback: recommendationsFallback,
         mode: assetId ? 'img2img' : 'txt2img',
         ...(mock ? { mock: true } : {}),
       });
@@ -325,16 +377,36 @@ export function application({ db, storage, env, fetchImpl }) {
       if (typeof body.model !== 'string' || !body.model.trim() || body.model.length > 100) fail('invalid_input', 422, '缺少 model 字段');
     }
 
+    if (path === '/api/v1/skills' && method === 'GET') {
+      const sid = requireSession(request);
+      const list = rows(await db.from('skills').select('*').eq('owner_session', sid).order('created_at', { ascending: false }).limit(50)) || [];
+      return Response.json({
+        skills: list.map((s) => {
+          const meta = s.meta_json || {};
+          return {
+            ...meta, skill_id: s.id, title: s.title, prompt: s.prompt,
+            negative_prompt: s.negative_prompt || '',
+            model: s.model, template_id: s.template_id || meta.template_id,
+            style_tags: s.tags || [], cover_url: safeCoverUrl(meta.cover_url) || '',
+            created_at: meta.created_at || s.created_at,
+          };
+        }),
+      });
+    }
+
     if (path === '/api/v1/skills' && method === 'POST') {
       const sid = requireSession(request);
       const body = await readJson(request);
       validateSkill(body);
       const id = newId('s');
+      const meta = { ...body };
+      const cover = safeCoverUrl(body.cover_url);
+      if (cover) meta.cover_url = cover; else delete meta.cover_url;
       rows(await db.from('skills').insert({
         id, owner_session: sid, title: body.title.trim(), prompt: body.prompt,
         negative_prompt: typeof body.negative_prompt === 'string' ? body.negative_prompt : null,
         model: body.model, template_id: typeof body.template_id === 'string' ? body.template_id : null,
-        tags: Array.isArray(body.style_tags) ? body.style_tags.slice(0, 12) : [], meta_json: body,
+        tags: Array.isArray(body.style_tags) ? body.style_tags.slice(0, 12) : [], meta_json: meta,
       }));
       return Response.json({ skill_id: id }, { status: 201 });
     }
@@ -344,13 +416,16 @@ export function application({ db, storage, env, fetchImpl }) {
       const body = await readJson(request);
       validateSkill(body);
       const id = newId('s');
+      const meta = { ...body };
+      const cover = safeCoverUrl(body.cover_url);
+      if (cover) meta.cover_url = cover; else delete meta.cover_url;
       rows(await db.from('skills').insert({
         id, owner_session: sid, title: body.title.trim(), prompt: body.prompt,
         negative_prompt: typeof body.negative_prompt === 'string' ? body.negative_prompt : null,
         model: body.model, template_id: typeof body.template_id === 'string' ? body.template_id : null,
-        tags: Array.isArray(body.style_tags) ? body.style_tags.slice(0, 12) : [], meta_json: body,
+        tags: Array.isArray(body.style_tags) ? body.style_tags.slice(0, 12) : [], meta_json: meta,
       }));
-      return Response.json({ ...body, skill_id: id });
+      return Response.json({ ...meta, skill_id: id });
     }
 
     const skillMatch = path.match(/^\/api\/v1\/skills\/(s_[0-9a-f]{24})(\/skill\.md)?$/);

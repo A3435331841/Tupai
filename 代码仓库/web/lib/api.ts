@@ -46,6 +46,8 @@ export const api = {
   health: () => request<{ ok: boolean; keys_configured: boolean }>('GET', '/api/v1/health'),
   templates: () => request<{ templates: import('./types').Template[] }>('GET', '/api/v1/templates'),
   models: () => request<{ models: import('./types').ModelInfo[] }>('GET', '/api/v1/models'),
+  quota: () => request<import('./types').Quota>('GET', '/api/v1/quota'),
+  skills: () => request<{ skills: import('./types').SkillRecord[] }>('GET', '/api/v1/skills'),
   upload: (file: File, kind: 'original' | 'reference' = 'original') => {
     const form = new FormData();
     form.append('file', file);

@@ -103,6 +103,18 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/Model" }
 
+  /quota:
+    get:
+      tags: [jobs]
+      operationId: getQuota
+      summary: 当前会话今日生成配额（生成次数上限与剩余）
+      responses:
+        "200":
+          description: 配额
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Quota" }
+
   /optimize:
     post:
       tags: [optimize]
@@ -160,6 +172,28 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
 
   /skills:
+    get:
+      tags: [skills]
+      operationId: listSkills
+      summary: 当前会话保存过的 Skills 配方（最新 50 条）
+      responses:
+        "200":
+          description: 配方列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [skills]
+                properties:
+                  skills:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/TupaiSkill"
+                        - type: object
+                          required: [skill_id]
+                          properties:
+                            skill_id: { type: string }
     post:
       tags: [skills]
       operationId: saveSkill
@@ -193,20 +227,16 @@ paths:
             schema: { $ref: "#/components/schemas/TupaiSkill" }
       responses:
         "200":
-          description: 校验通过，返回带 skill_id 的完整配方
+          description: 校验通过，直接返回带 skill_id 的完整配方
           content:
             application/json:
               schema:
-                type: object
-                required: [skill]
-                properties:
-                  skill:
-                    allOf:
-                      - $ref: "#/components/schemas/TupaiSkill"
-                      - type: object
-                        required: [skill_id]
-                        properties:
-                          skill_id: { type: string }
+                allOf:
+                  - $ref: "#/components/schemas/TupaiSkill"
+                  - type: object
+                    required: [skill_id]
+                    properties:
+                      skill_id: { type: string }
         "422": { $ref: "#/components/responses/BadInput" }
 
   /skills/{id}:
@@ -345,6 +375,15 @@ components:
         height: { type: integer }
         preview_url: { type: string }
 
+    TemplateVariant:
+      type: object
+      required: [id, label, prompt]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        prompt: { type: string }
+        negative_prompt: { type: string }
+
     Template:
       type: object
       required: [id, title, description, cover_url, prompt, default_model, tags]
@@ -353,9 +392,14 @@ components:
         title: { type: string }
         description: { type: string }
         cover_url: { type: string }
-        prompt: { type: string }
+        prompt: { type: string, description: 图生图提示词；有底图时使用 }
         negative_prompt: { type: string }
+        sample_prompt: { type: [string, "null"], description: 文生图示意提示词；无底图时使用，与封面同源 }
+        variants:
+          type: array
+          items: { $ref: "#/components/schemas/TemplateVariant" }
         default_model: { type: string }
+        ratio: { type: string }
         tags:
           type: array
           items: { type: string }
@@ -366,6 +410,7 @@ components:
       properties:
         id: { type: string }
         label: { type: string }
+        description: { type: string }
         default: { type: boolean }
 
     OptimizeRequest:
@@ -384,6 +429,7 @@ components:
       type: object
       required: [prompt, style_tags]
       properties:
+        summary_zh: { type: string, description: 中文一句话摘要，供普通用户判断 }
         prompt: { type: string }
         negative_prompt: { type: string }
         style_tags:
@@ -392,16 +438,29 @@ components:
 
     Recommendation:
       type: object
-      required: [type, id, title, cover_url, score, prompt]
+      required: [type, id, title, cover_url, prompt]
       properties:
         type:
           type: string
           enum: [template, skill]
         id: { type: string }
         title: { type: string }
+        description: { type: string }
         cover_url: { type: string }
+        cover_private: { type: boolean, description: 私有封面需带会话头读取 }
         score: { type: number }
+        match_tags:
+          type: array
+          items: { type: string }
         prompt: { type: string }
+        negative_prompt: { type: string }
+        model: { type: string }
+        default_model: { type: string }
+        ratio: { type: string }
+        sample_prompt: { type: [string, "null"] }
+        variants:
+          type: array
+          items: { $ref: "#/components/schemas/TemplateVariant" }
 
     OptimizeResponse:
       type: object
@@ -413,6 +472,7 @@ components:
         recommendations:
           type: array
           items: { $ref: "#/components/schemas/Recommendation" }
+        recommendations_fallback: { type: boolean, description: 无匹配时为 true，返回模板兜底 }
         mode:
           type: string
           enum: [img2img, txt2img]
@@ -487,8 +547,25 @@ components:
           type: object
           properties:
             aspect: { type: string }
+            size: { type: string }
         notes: { type: string }
+        style_tags:
+          type: array
+          items: { type: string }
+        cover_url:
+          type: string
+          description: 可选私有封面（本站资产逻辑路径，仅同会话可读）
         created_at: { type: string }
+
+    Quota:
+      type: object
+      required: [session_used, session_limit, global_used, global_limit, remaining]
+      properties:
+        session_used: { type: integer }
+        session_limit: { type: integer }
+        global_used: { type: integer }
+        global_limit: { type: integer }
+        remaining: { type: integer }
 
     LinkParseResult:
       type: object

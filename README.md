@@ -36,16 +36,16 @@ docs/         # 本套文档
 
 ## 当前状态
 
-一期 MVP 已发布（2026-11-17）：**https://tupai-moo3r9zpvox.qoder.zone** （Qoder Sites，public，真实 Agnes 出图）。图片/文字双入口 → 自动优化提示词 → 相似模板/Skills 推荐 → 模型/画幅编辑 → 异步生成 → 修前修后对比 → 含 AI 标识下载 → Skills JSON + SKILL.md 双导出/导入回填；游客免登录、原图全程私密。验收：云端契约 29/29、真实出图验收 22/22、移动视口 33/33、60 秒彩排 24.6s，记录见 [06 §7](docs/06-参赛交付.md)。模板封面为 AI 生成样片。截止 2026-11-30 18:00。
+一期 MVP 已发布（2026-11-17）：**https://tupai-moo3r9zpvox.qoder.zone** （Qoder Sites，public，真实 Agnes 出图）。图片/文字双入口（生成前可补/换底图）→ 自动优化提示词（中文摘要候选）→ 相似模板/Skills 推荐（无匹配 5 模板兜底）→ 创作台模板选择/夜景雨夜霓虹等变体/换一批候选 → 模型/画幅编辑 → 异步生成 → 修前修后对比 → 强制带 AI 标识下载 → Skills JSON + SKILL.md 双导出/导入回填 + 「我的配方」复用；刷新可恢复上次生成，游客免登录、原图全程私密，HEIC 自动转 JPG。验收：本地契约 35/35、移动视口 50/50、交互 10/10、故障注入 20/20、构建通过；云端复跑记录见 [06 §7](docs/06-参赛交付.md)。模板封面与演示样片为 AI/授权素材，演示样片做了暗光废片化处理。截止 2026-11-30 18:00。
 
 ## 本地开发
 
 ```bash
 cd 代码仓库/web && npm install && npm run dev   # 前端 :5173（proxy → :8000）
 cd 代码仓库 && deno run --allow-net=127.0.0.1:8000 --allow-read dev/function-local.ts  # 后端（无凭证 fake，Mock 兜底）
-node 代码仓库/api/contract-test.mjs             # 契约测试 29 断言（可传云端 BASE）
+node 代码仓库/api/contract-test.mjs             # 契约测试 35 断言（可传云端 BASE）
 node 代码仓库/dev/failpath-test.mjs             # 故障注入 20 断言（429/402/401→冷却/禁用→Mock、超时文案，零真实调用）
-node 代码仓库/dev/mobile-test.mjs               # 移动视口+无痕等效 33 断言（需 playwright；BASE 可指本地 :5173）
+node 代码仓库/dev/mobile-test.mjs               # 移动视口+无痕等效 50 断言（需 playwright；BASE 可指本地 :5173）
 node 代码仓库/dev/cloud-acceptance.mjs          # 云端真实出图验收（Secret 同步+正式发布后跑：真实 optimize/生成/封面懒生成/隐私）
 node 代码仓库/dev/interaction-verify.mjs        # 交互补核 10 断言（F5 推荐/一键同款、F7 字数/负面、F10 再生成、F11 导入回填）
 node 代码仓库/dev/regression-tab-reset.mjs      # 回归 6 断言（切文字标签/重新开始清除底图，纯文字不拿旧图生成）
