@@ -15,19 +15,27 @@
 | [06-参赛交付](docs/06-参赛交付.md) | 赛规、时间线、演示脚本、天池帖、发布检查清单 |
 | [07-接口契约](docs/07-接口契约.md) | 前后端分离的 API 契约 v1（冻结规则、端点定义、mock 约定） |
 | [08-调研参考](docs/08-调研参考.md) | 豆包爆款玩法、Skills 原料、数据集、前端设计参考、DeepSeek 搜索调研结论 |
+| [09-统一重构方案](docs/09-统一重构方案与文件清单.md) | 三页结构重构方案、文件清单与实施记录（含 historical 标记） |
+| [10-资产治理执行Prompt](docs/10-下一阶段资产治理与页面迭代执行Prompt.md) | 资产治理与页面迭代的执行约束（九阶段） |
+| [AGENTS.md](AGENTS.md) | **唯一 AI 协作规则**：读取顺序、写作用域、资产源规则、验证门禁、提交与发布纪律 |
 
 ⚠️ API Key 仅存 Sites Secret（仅云函数可读）；Key 手册离线保存、被 `.gitignore` 排除，仓库与站点零 Key（见 05 文档）。
 
 ## 目录
 
 ```
+AGENTS.md     # ★ 唯一 AI 协作规则（读取顺序 / 写作用域 / 资产源 / 验证门禁 / 提交发布纪律）
 代码仓库/
-├─ web/      # 前端 SPA（Vite+React，纯静态，独立部署）
+├─ web/      # 前端 SPA（Vite+React，纯静态，独立部署）；web/public/ 是运行时派生副本
 ├─ server/   # 后端 API（Sites 云函数，独立部署）
-└─ api/      # openapi.yaml 契约 + mock + 契约测试
-资产仓库/     # 模板提示词与 Skills 原料（测试底图仅本地保存，不入库；规范见 04）
-docs/         # 本套文档
+├─ api/      # openapi.yaml 契约 + schema + mock + 契约测试
+└─ .图派.qoder.site  # 发布元数据（真实 project/site/deployment ID）
+资产仓库/     # ★ 唯一资产源：brand / designs / templates / media / skills / manifests / test-images
+docs/         # 本套文档 01–10
+早期规划/     # 历史资料，只读
 ```
+
+> 资产治理（2026-11-18）：原「设计稿」目录已整体吸收进 `资产仓库/`，按页面版本、品牌、媒体、模板、Skills 五类归位；`manifests/assets.json`（113 项）+ `runtime-map.json`（26 项，零缺失）提供可追溯映射。详见 [`资产仓库/INDEX.md`](资产仓库/INDEX.md)。
 
 ## 关联项目
 
