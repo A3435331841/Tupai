@@ -5,6 +5,7 @@ import Home from '@/pages/Home';
 import Studio from '@/pages/Studio';
 import Legal from '@/pages/Legal';
 import Library from '@/pages/Library';
+import Community from '@/pages/Community';
 import { AuthChip } from '@/components/AuthChip';
 
 export default function App() {
@@ -21,13 +22,14 @@ export default function App() {
             <Button variant={path === '/' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/')}>首页</Button>
             <Button variant={path === '/studio' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/studio')}>创作台</Button>
             <Button variant={path === '/library' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/library')}>资产库</Button>
+            <Button variant={path === '/community' ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate('/community')}>社区</Button>
             <Button variant="ghost" size="sm" className="hidden text-muted-foreground sm:inline-flex" onClick={() => navigate('/legal')}>隐私与 AI 说明</Button>
             <AuthChip />
           </nav>
         </div>
       </header>
       <main className="flex-1">
-        {path === '/studio' ? <Studio navigate={navigate} /> : path === '/library' ? <Library navigate={navigate} /> : path === '/legal' ? <Legal /> : <Home navigate={navigate} />}
+        {path === '/studio' ? <Studio navigate={navigate} /> : path === '/library' ? <Library navigate={navigate} /> : path === '/community' ? <Community navigate={navigate} /> : path === '/legal' ? <Legal /> : <Home navigate={navigate} />}
       </main>
       <footer className="border-t border-border/70 py-6 text-center text-xs text-muted-foreground">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4">

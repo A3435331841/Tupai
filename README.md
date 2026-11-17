@@ -50,6 +50,7 @@ node 代码仓库/dev/cloud-acceptance.mjs          # 云端真实出图验收�
 node 代码仓库/dev/interaction-verify.mjs        # 交互补核 10 断言（F5 推荐/一键同款、F7 字数/负面、F10 再生成、F11 导入回填）
 node 代码仓库/dev/regression-tab-reset.mjs      # 回归 6 断言（切文字标签/重新开始清除底图，纯文字不拿旧图生成）
 node 代码仓库/dev/heic-verify.mjs               # HEIC 跨浏览器转换（失败引导必测；HEIC_FIXTURE=<真实.heic> 启用成功路径）
+node 代码仓库/dev/community-test.mjs            # 三期社区全链 23 断言（本地身份夹具：发布审核/Fork/互动/任务/通知/举报申诉/注销）
 node 代码仓库/dev/demo-rehearsal.mjs            # 60 秒演示彩排计时（核心路径 ≤60s 门禁）
 ```
 

@@ -111,3 +111,23 @@ export interface AlbumMeta {
   share_expires_at: string | null;
   created_at: string;
 }
+
+export interface WorkMeta {
+  id: string;
+  title: string;
+  tags: string[];
+  status: string;
+  allow_fork: boolean;
+  parent_work_id: string | null;
+  parent_skill_id: string | null;
+  depth: number;
+  author_credit: string | null;
+  author_id: string;
+  result_asset_id: string;
+  skill_snapshot: { prompt: string; negative_prompt?: string | null; model: string; ratio: string } | null;
+  image_url: string;
+  created_at: string;
+  like_count?: number;
+  comment_count?: number;
+  is_owner?: boolean;
+}

@@ -72,6 +72,22 @@ function shareActive(a) {
     && (!a.share_expires_at || new Date(a.share_expires_at).getTime() > Date.now());
 }
 
+function jsonArr(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+  return [];
+}
+
+function workMeta(w, extras = {}) {
+  return {
+    id: w.id, title: w.title, tags: jsonArr(w.tags), status: w.status, allow_fork: Boolean(w.allow_fork),
+    parent_work_id: w.parent_work_id || null, parent_skill_id: w.parent_skill_id || null,
+    depth: w.depth || 0, author_credit: w.author_credit || null, author_id: w.owner_session,
+    result_asset_id: w.result_asset_id, skill_snapshot: w.skill_snapshot || null,
+    image_url: `/api/v1/works/${w.id}/img`, created_at: w.created_at, ...extras,
+  };
+}
+
 function escHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -144,6 +160,38 @@ export function application({ db, storage, env, fetchImpl }) {
     const album = found[0];
     if (!shareActive(album)) fail('not_found', 404, '分享链接已失效或被撤回');
     return album;
+  }
+
+  async function loadWork(id) {
+    const found = rows(await db.from('works').select('*').eq('id', id).limit(1));
+    if (!found?.length) fail('not_found', 404);
+    return found[0];
+  }
+
+  async function notify(owner, kind, workId, body) {
+    if (!owner) return;
+    await db.from('notifications').insert({ id: newId('nt'), owner_session: owner, kind, work_id: workId || null, body: body || null, read: false }).select();
+  }
+
+  const BANNED = /色情|裸体|裸露|性交|血腥|暴力|恐怖|尸体|枪支|毒品|赌博|反动|法轮|未成年/i;
+  async function moderateWork({ title, tags, imageBytes, imageMime }) {
+    if (BANNED.test([title, ...(tags || [])].join(' '))) return { ok: false, reason: '标题或标签含违规内容' };
+    const s = await agnes.safety({ imageBytes, imageMime });
+    if (s.busy || s.parseFailed) return { ok: true, degraded: true };
+    if (s.safe === false) return { ok: false, reason: s.reason || '图片未通过安全审核' };
+    return { ok: true };
+  }
+
+  function viewerKey(request) {
+    const user = currentUser(request);
+    if (user) return 'u:' + user.user_id;
+    return (request.headers.get('x-session-id') || '').toLowerCase() || null;
+  }
+
+  async function workCounts(w) {
+    const lc = await db.from('likes').select('id', { count: 'exact' }).eq('work_id', w.id).limit(1);
+    const cc = await db.from('comments').select('id', { count: 'exact' }).eq('work_id', w.id).eq('hidden_by_author', false).limit(1);
+    return { like_count: Number(lc.count) || 0, comment_count: Number(cc.count) || 0 };
   }
 
   async function assetBytes(asset) {
@@ -753,6 +801,296 @@ export function application({ db, storage, env, fetchImpl }) {
       const album = await loadSharedAlbum(sharePage[1]);
       const imgs = albumItems(album).map((id) => `/api/v1/share/${sharePage[1]}/img/${id}`);
       return new Response(albumPageHtml(album.title, imgs), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+    }
+
+    if (path === '/api/v1/works' && method === 'POST') {
+      const user = currentUser(request);
+      if (!user) fail('login_required', 401);
+      const sid = 'u:' + user.user_id;
+      const body = await readJson(request);
+      const title = typeof body.title === 'string' ? body.title.trim().slice(0, 100) : '';
+      if (!title) fail('invalid_input', 400, '请给作品起个标题');
+      const raid = typeof body.result_asset_id === 'string' ? body.result_asset_id : '';
+      const asset = await loadOwnedAsset(raid, sid);
+      if (asset.kind !== 'result') fail('invalid_input', 400, '只能发布生成作品，原图不公开');
+      const snap = body.skill_snapshot || {};
+      if (typeof snap.prompt !== 'string' || !snap.prompt.trim()) fail('invalid_input', 400, '缺少配方提示词');
+      const tags = Array.isArray(body.tags) ? body.tags.slice(0, 12).map(String) : [];
+      const bytes = await assetBytes(asset);
+      const mod = await moderateWork({ title, tags, imageBytes: bytes, imageMime: asset.content_type });
+      if (!mod.ok) fail('invalid_input', 422, mod.reason);
+      let depth = 0, parentWork = null, parentSkill = null;
+      const credit = user.name || '匿名创作者';
+      if (typeof body.parent_work_id === 'string' && body.parent_work_id) {
+        const pw = await loadWork(body.parent_work_id);
+        if (pw.status !== 'published') fail('invalid_input', 400, '来源作品不可 fork');
+        if (!pw.allow_fork) fail('invalid_input', 403, '作者已关闭 fork');
+        depth = (pw.depth || 0) + 1; parentWork = pw.id; parentSkill = pw.parent_skill_id || pw.id;
+      }
+      const id = newId('wk');
+      const r = await db.from('works').insert({
+        id, owner_session: sid, result_asset_id: raid,
+        skill_snapshot: { prompt: snap.prompt.slice(0, 4000), negative_prompt: snap.negative_prompt || null, model: snap.model || 'agnes-image-2.5-flash', ratio: snap.ratio || '3:4' },
+        title, tags, status: 'published', allow_fork: body.allow_fork !== false,
+        parent_work_id: parentWork, parent_skill_id: parentSkill, depth, author_credit: credit,
+      }).select();
+      if (r.error) fail('internal', 503, '发布失败，请稍后重试');
+      if (parentWork) {
+        const pw = await loadWork(parentWork);
+        if (pw.owner_session !== sid) await notify(pw.owner_session, 'fork', id, `${credit} fork 了你的作品`);
+      }
+      return Response.json({ work: workMeta(r.data[0]) }, { status: 201 });
+    }
+
+    if (path === '/api/v1/feed' && method === 'GET') {
+      const url = new URL(request.url);
+      const tag = url.searchParams.get('tag') || '';
+      const limit = Math.min(48, Math.max(1, Number(url.searchParams.get('limit')) || 24));
+      const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+      const all = rows(await db.from('works').select('*').eq('status', 'published').order('created_at', { ascending: false }).range(0, 499)) || [];
+      let filtered = all;
+      if (tag) filtered = filtered.filter((w) => jsonArr(w.tags).includes(tag));
+      const page = filtered.slice(offset, offset + limit);
+      const works = await Promise.all(page.map(async (w) => workMeta(w, await workCounts(w))));
+      return Response.json({ works, total: filtered.length, next_offset: offset + limit < filtered.length ? offset + limit : null });
+    }
+
+    const workMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})$/);
+    if (workMatch && method === 'GET') {
+      const w = await loadWork(workMatch[1]);
+      const sid = viewerKey(request);
+      const isOwner = Boolean(sid) && w.owner_session === sid;
+      if (w.status !== 'published' && !isOwner) fail('not_found', 404);
+      return Response.json({ work: workMeta(w, { ...(await workCounts(w)), is_owner: isOwner }) });
+    }
+    if (workMatch && method === 'DELETE') {
+      const sid = ownerOf(request);
+      const w = await loadWork(workMatch[1]);
+      if (w.owner_session !== sid) fail('not_found', 404);
+      const r = await db.from('works').update({ status: 'removed' }).eq('id', w.id).select();
+      if (r.error) fail('internal', 503);
+      return Response.json({ ok: true });
+    }
+
+    const workImg = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})\/img$/);
+    if (workImg && method === 'GET') {
+      const w = await loadWork(workImg[1]);
+      if (w.status !== 'published') {
+        const sid = viewerKey(request);
+        if (!sid || w.owner_session !== sid) fail('not_found', 404);
+      }
+      const f = rows(await db.from('assets').select('*').eq('id', w.result_asset_id).limit(1));
+      if (!f?.length) fail('not_found', 404);
+      const file = await storage.download(f[0].storage_key);
+      if (!file.ok) fail('internal', 503, '资产读取失败');
+      return new Response(file.body, { headers: { 'content-type': f[0].content_type, 'cache-control': 'public, max-age=3600' } });
+    }
+
+    const forkMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})\/fork$/);
+    if (forkMatch && method === 'POST') {
+      const w = await loadWork(forkMatch[1]);
+      if (w.status !== 'published') fail('invalid_input', 400, '作品不可 fork');
+      if (!w.allow_fork) fail('invalid_input', 403, '作者已关闭 fork');
+      return Response.json({ skill_snapshot: w.skill_snapshot, parent_work_id: w.id, parent_skill_id: w.parent_skill_id || w.id, depth: (w.depth || 0) + 1, title: w.title });
+    }
+
+    const withdrawMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})\/withdraw$/);
+    if (withdrawMatch && method === 'POST') {
+      const sid = ownerOf(request);
+      const w = await loadWork(withdrawMatch[1]);
+      if (w.owner_session !== sid) fail('not_found', 404);
+      const r = await db.from('works').update({ status: 'withdrawn' }).eq('id', w.id).select();
+      if (r.error) fail('internal', 503);
+      return Response.json({ ok: true, status: 'withdrawn' });
+    }
+
+    const userWorks = path.match(/^\/api\/v1\/users\/([^/]+)\/works$/);
+    if (userWorks && method === 'GET') {
+      const owner = decodeURIComponent(userWorks[1]);
+      const list = rows(await db.from('works').select('*').eq('owner_session', owner).eq('status', 'published').order('created_at', { ascending: false }).limit(60)) || [];
+      const works = await Promise.all(list.map(async (w) => workMeta(w, await workCounts(w))));
+      return Response.json({ works });
+    }
+
+    if (path === '/api/v1/me/works' && method === 'GET') {
+      const sid = ownerOf(request);
+      const list = rows(await db.from('works').select('*').eq('owner_session', sid).order('created_at', { ascending: false }).limit(100)) || [];
+      const works = await Promise.all(list.map(async (w) => workMeta(w, { ...(await workCounts(w)), is_owner: true })));
+      return Response.json({ works });
+    }
+
+    async function rateLimit(owner, table, windowMs, max) {
+      const since = new Date(Date.now() - windowMs).toISOString();
+      const c = await db.from(table).select('id', { count: 'exact' }).eq('owner_session', owner).gte('created_at', since).limit(1);
+      if ((Number(c.count) || 0) >= max) fail('quota_exceeded', 429, '操作太频繁，请稍后再试');
+    }
+
+    const cwMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})\/comments$/);
+    if (cwMatch && method === 'GET') {
+      const w = await loadWork(cwMatch[1]);
+      if (w.status !== 'published') { const sid = viewerKey(request); if (!sid || w.owner_session !== sid) fail('not_found', 404); }
+      const list = rows(await db.from('comments').select('*').eq('work_id', w.id).eq('hidden_by_author', false).order('created_at', { ascending: true }).limit(100)) || [];
+      return Response.json({ comments: list.map((c) => ({ id: c.id, body: c.body, author_id: c.owner_session, created_at: c.created_at })) });
+    }
+    if (cwMatch && method === 'POST') {
+      const user = currentUser(request); if (!user) fail('login_required', 401);
+      const sid = 'u:' + user.user_id;
+      const w = await loadWork(cwMatch[1]); if (w.status !== 'published') fail('not_found', 404);
+      await rateLimit(sid, 'comments', 3600_000, 20);
+      const body = await readJson(request);
+      const text = typeof body.body === 'string' ? body.body.trim().slice(0, 500) : '';
+      if (!text) fail('invalid_input', 400, '评论不能为空');
+      if (BANNED.test(text)) fail('invalid_input', 422, '评论含违规内容');
+      const id = newId('cm');
+      const r = await db.from('comments').insert({ id, work_id: w.id, owner_session: sid, body: text, hidden_by_author: false }).select();
+      if (r.error) fail('internal', 503);
+      if (w.owner_session !== sid) await notify(w.owner_session, 'comment', w.id, `${user.name || '有人'} 评论了你的作品`);
+      return Response.json({ comment: { id, body: text, author_id: sid, created_at: r.data[0].created_at } }, { status: 201 });
+    }
+
+    const cmMatch = path.match(/^\/api\/v1\/comments\/(cm_[0-9a-f]{24})$/);
+    if (cmMatch && method === 'DELETE') {
+      const sid = ownerOf(request);
+      const f = rows(await db.from('comments').select('*').eq('id', cmMatch[1]).limit(1));
+      if (!f?.length) fail('not_found', 404);
+      const c = f[0];
+      if (c.owner_session === sid) { await db.from('comments').delete().eq('id', c.id); return Response.json({ ok: true }); }
+      const w = await loadWork(c.work_id);
+      if (w.owner_session === sid) { await db.from('comments').update({ hidden_by_author: true }).eq('id', c.id).select(); return Response.json({ ok: true, hidden: true }); }
+      fail('not_found', 404);
+    }
+
+    const likeMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})\/like$/);
+    if (likeMatch && method === 'POST') {
+      const user = currentUser(request); if (!user) fail('login_required', 401);
+      const sid = 'u:' + user.user_id;
+      const w = await loadWork(likeMatch[1]); if (w.status !== 'published') fail('not_found', 404);
+      const ex = rows(await db.from('likes').select('*').eq('work_id', w.id).eq('owner_session', sid).limit(1));
+      if (ex?.length) { await db.from('likes').delete().eq('id', ex[0].id); return Response.json({ liked: false }); }
+      await db.from('likes').insert({ id: newId('lk'), work_id: w.id, owner_session: sid }).select();
+      if (w.owner_session !== sid) await notify(w.owner_session, 'like', w.id, null);
+      return Response.json({ liked: true });
+    }
+
+    if (path === '/api/v1/tasks' && method === 'GET') {
+      const list = rows(await db.from('tasks').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(50)) || [];
+      return Response.json({ tasks: list.map((t) => ({ id: t.id, theme: t.theme, constraints: t.constraints, owner_id: t.owner_session, created_at: t.created_at })) });
+    }
+    if (path === '/api/v1/tasks' && method === 'POST') {
+      const user = currentUser(request); if (!user) fail('login_required', 401);
+      const sid = 'u:' + user.user_id;
+      await rateLimit(sid, 'tasks', 86400_000, 5);
+      const body = await readJson(request);
+      const theme = typeof body.theme === 'string' ? body.theme.trim().slice(0, 100) : '';
+      if (!theme) fail('invalid_input', 400, '请给任务一个主题');
+      const id = newId('tk');
+      const r = await db.from('tasks').insert({ id, owner_session: sid, theme, constraints: typeof body.constraints === 'string' ? body.constraints.slice(0, 500) : null, status: 'open' }).select();
+      if (r.error) fail('internal', 503);
+      return Response.json({ task: { id, theme, status: 'open' } }, { status: 201 });
+    }
+    const taskMatch = path.match(/^\/api\/v1\/tasks\/(tk_[0-9a-f]{24})$/);
+    if (taskMatch && method === 'GET') {
+      const f = rows(await db.from('tasks').select('*').eq('id', taskMatch[1]).limit(1));
+      if (!f?.length) fail('not_found', 404);
+      const t = f[0];
+      const subs = rows(await db.from('submissions').select('*').eq('task_id', t.id).limit(100)) || [];
+      const works = await Promise.all(subs.map(async (s) => {
+        const wf = rows(await db.from('works').select('*').eq('id', s.work_id).limit(1));
+        return wf?.length && wf[0].status === 'published' ? workMeta(wf[0]) : null;
+      }));
+      return Response.json({ task: { id: t.id, theme: t.theme, constraints: t.constraints, status: t.status, owner_id: t.owner_session }, works: works.filter(Boolean) });
+    }
+    const subMatch = path.match(/^\/api\/v1\/tasks\/(tk_[0-9a-f]{24})\/submissions$/);
+    if (subMatch && method === 'POST') {
+      const user = currentUser(request); if (!user) fail('login_required', 401);
+      const sid = 'u:' + user.user_id;
+      const tf = rows(await db.from('tasks').select('*').eq('id', subMatch[1]).limit(1));
+      if (!tf?.length || tf[0].status !== 'open') fail('not_found', 404);
+      const body = await readJson(request);
+      const w = await loadWork(body.work_id);
+      if (w.owner_session !== sid || w.status !== 'published') fail('invalid_input', 400, '请提交自己已发布的作品');
+      const ex = rows(await db.from('submissions').select('*').eq('task_id', tf[0].id).eq('work_id', w.id).limit(1));
+      if (ex?.length) return Response.json({ ok: true, already: true });
+      await db.from('submissions').insert({ id: newId('sb'), task_id: tf[0].id, work_id: w.id, owner_session: sid }).select();
+      if (tf[0].owner_session !== sid) await notify(tf[0].owner_session, 'submission', w.id, `${user.name || '有人'} 提交了你的任务`);
+      return Response.json({ ok: true }, { status: 201 });
+    }
+
+    if (path === '/api/v1/notifications' && method === 'GET') {
+      const sid = ownerOf(request);
+      const list = rows(await db.from('notifications').select('*').eq('owner_session', sid).order('created_at', { ascending: false }).limit(50)) || [];
+      return Response.json({ notifications: list.map((n) => ({ id: n.id, kind: n.kind, work_id: n.work_id, body: n.body, read: n.read, created_at: n.created_at })) });
+    }
+    const ntMatch = path.match(/^\/api\/v1\/notifications\/(nt_[0-9a-f]{24})\/read$/);
+    if (ntMatch && method === 'POST') {
+      const sid = ownerOf(request);
+      await db.from('notifications').update({ read: true }).eq('id', ntMatch[1]).eq('owner_session', sid).select();
+      return Response.json({ ok: true });
+    }
+
+    const rpMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})\/report$/);
+    if (rpMatch && method === 'POST') {
+      const sid = ownerOf(request);
+      const w = await loadWork(rpMatch[1]);
+      const body = await readJson(request);
+      const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 300) : '';
+      if (!reason) fail('invalid_input', 400, '请说明举报原因');
+      await db.from('reports').insert({ id: newId('rp'), work_id: w.id, reporter_session: sid || 'anon', reason, status: 'pending' }).select();
+      const cnt = await db.from('reports').select('id', { count: 'exact' }).eq('work_id', w.id).limit(1);
+      if ((Number(cnt.count) || 0) >= 3 && w.status === 'published') {
+        await db.from('works').update({ status: 'removed' }).eq('id', w.id).select();
+        await notify(w.owner_session, 'removed', w.id, '作品因多次举报被下架，可申诉');
+      }
+      return Response.json({ ok: true });
+    }
+    const apMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})\/appeal$/);
+    if (apMatch && method === 'POST') {
+      const sid = ownerOf(request);
+      const w = await loadWork(apMatch[1]);
+      if (w.owner_session !== sid) fail('not_found', 404);
+      if (w.status !== 'removed') fail('invalid_input', 400, '仅被下架作品可申诉');
+      const f = rows(await db.from('assets').select('*').eq('id', w.result_asset_id).limit(1));
+      let ok = true;
+      if (f?.length) {
+        const bytes = await assetBytes(f[0]);
+        const mod = await moderateWork({ title: w.title, tags: jsonArr(w.tags), imageBytes: bytes, imageMime: f[0].content_type });
+        ok = mod.ok;
+      }
+      if (!ok) fail('invalid_input', 422, '申诉未通过审核');
+      await db.from('works').update({ status: 'published' }).eq('id', w.id).select();
+      await db.from('reports').update({ status: 'resolved' }).eq('work_id', w.id).select();
+      return Response.json({ ok: true, status: 'published' });
+    }
+
+    if (path === '/api/v1/me/export' && method === 'GET') {
+      const sid = ownerOf(request);
+      const works = rows(await db.from('works').select('*').eq('owner_session', sid).limit(500)) || [];
+      const skills = rows(await db.from('skills').select('*').eq('owner_session', sid).limit(500)) || [];
+      const albums = rows(await db.from('albums').select('*').eq('owner_session', sid).limit(200)) || [];
+      return Response.json({ exported_at: new Date().toISOString(), works: works.map(workMeta), skills, albums: albums.map(albumMeta) });
+    }
+    if (path === '/api/v1/me' && method === 'DELETE') {
+      const sid = ownerOf(request);
+      const works = rows(await db.from('works').select('*').eq('owner_session', sid).limit(1000)) || [];
+      for (const w of works) {
+        await db.from('comments').delete().eq('work_id', w.id);
+        await db.from('likes').delete().eq('work_id', w.id);
+        await db.from('reports').delete().eq('work_id', w.id);
+        await db.from('submissions').delete().eq('work_id', w.id);
+      }
+      await db.from('works').delete().eq('owner_session', sid);
+      await db.from('comments').delete().eq('owner_session', sid);
+      await db.from('likes').delete().eq('owner_session', sid);
+      await db.from('notifications').delete().eq('owner_session', sid);
+      await db.from('submissions').delete().eq('owner_session', sid);
+      await db.from('tasks').delete().eq('owner_session', sid);
+      await db.from('albums').delete().eq('owner_session', sid);
+      await db.from('skills').delete().eq('owner_session', sid);
+      const assets = rows(await db.from('assets').select('*').eq('owner_session', sid).limit(2000)) || [];
+      for (const a of assets) { try { await storage.remove([a.storage_key]); } catch { /* ignore */ } }
+      await db.from('assets').delete().eq('owner_session', sid);
+      await db.from('profiles').delete().eq('user_id', sid);
+      return Response.json({ ok: true, deleted: true });
     }
 
     fail('not_found', 404);

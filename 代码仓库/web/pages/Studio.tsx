@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NativeSelect } from '@/components/ui/native-select';
+import { PublishDialog } from '@/components/PublishDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
@@ -122,6 +123,8 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkBusy, setLinkBusy] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [parentWorkId, setParentWorkId] = useState<string | undefined>(undefined);
   const importRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bootRef = useRef('');
@@ -231,8 +234,25 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     const demo = q.get('demo');
     const tplId = q.get('template');
     const assetParam = q.get('asset');
-    if (!demo && !tplId && !assetParam) return;
+    const forkParam = q.get('fork');
+    if (!demo && !tplId && !assetParam && !forkParam) return;
     (async () => {
+      if (forkParam && !demo && !tplId && !assetParam) {
+        try {
+          const f = await api.forkWork(forkParam);
+          setPrompt(f.skill_snapshot.prompt);
+          setNegative(f.skill_snapshot.negative_prompt || '');
+          setModel(normalizeModel(f.skill_snapshot.model));
+          if (RATIOS.includes(f.skill_snapshot.ratio)) setRatio(f.skill_snapshot.ratio);
+          setParentWorkId(f.parent_work_id);
+          setCurrentSummary(`做同款：${f.title}`);
+          setPromptDirty(true);
+          setOptimize({ candidates: [], recommendations: [], mode: 'txt2img' });
+          setStage('ready');
+          toast('已继承配方，可上传自己的底图或直接生成，再发布 fork 作品');
+        } catch (e) { toast.error(e instanceof ApiRequestError ? e.message : '该作品不可 fork'); }
+        return;
+      }
       if (assetParam && !demo && !tplId) {
         try {
           const blob = await fetchAssetBlob(`/api/v1/assets/${assetParam}/content`);
@@ -1014,6 +1034,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
                 <Button onClick={downloadResult}>下载成品（含 AI 标识）</Button>
                 <Button variant="outline" onClick={runGenerate}>再生成一张</Button>
                 <Button variant="outline" onClick={() => { setSkillOpen(true); setSavedSkill(null); setSkillTitle(skillTitle || '我的图派配方'); }}>存为 Skills 配方</Button>
+                <Button variant="outline" onClick={() => setPublishOpen(true)}>发布到社区</Button>
                 <Button variant="ghost" onClick={() => setStage('ready')}>返回修改提示词</Button>
               </div>
               {job.result.mock && <p className="mt-3 text-xs text-muted-foreground">演示模式占位图：AI 服务恢复后再生成即为真实出图。</p>}
@@ -1089,6 +1110,15 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
           <DialogFooter />
         </DialogContent>
       </Dialog>
+
+      <PublishDialog
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        resultAssetId={job?.result?.asset_id || ''}
+        snapshot={{ prompt, negative_prompt: negative, model, ratio }}
+        parentWorkId={parentWorkId}
+        onPublished={() => { setParentWorkId(undefined); navigate('/community'); }}
+      />
 
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
         <DialogContent className="sm:max-w-md">

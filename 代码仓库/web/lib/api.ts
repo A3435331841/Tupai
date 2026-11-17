@@ -89,6 +89,36 @@ export const api = {
   deleteAlbum: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/albums/${id}`),
   shareAlbum: (id: string, expires_hours?: number) => request<{ share_token: string; share_page: string; expires_at: string }>('POST', `/api/v1/albums/${id}/share`, { expires_hours }),
   revokeAlbumShare: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/albums/${id}/share`),
+  feed: (params: { tag?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.tag) qs.set('tag', params.tag);
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.offset) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? '?' + qs.toString() : '';
+    return request<{ works: import('./types').WorkMeta[]; total: number; next_offset: number | null }>('GET', '/api/v1/feed' + suffix);
+  },
+  work: (id: string) => request<{ work: import('./types').WorkMeta }>('GET', `/api/v1/works/${id}`),
+  publishWork: (body: { result_asset_id: string; title: string; tags?: string[]; allow_fork?: boolean; parent_work_id?: string; skill_snapshot: { prompt: string; negative_prompt?: string; model: string; ratio: string } }) =>
+    request<{ work: import('./types').WorkMeta }>('POST', '/api/v1/works', body),
+  forkWork: (id: string) => request<{ skill_snapshot: { prompt: string; negative_prompt?: string; model: string; ratio: string }; parent_work_id: string; title: string }>('POST', `/api/v1/works/${id}/fork`, {}),
+  withdrawWork: (id: string) => request<{ ok: boolean }>('POST', `/api/v1/works/${id}/withdraw`, {}),
+  deleteWork: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/works/${id}`),
+  appealWork: (id: string) => request<{ ok: boolean; status: string }>('POST', `/api/v1/works/${id}/appeal`, {}),
+  reportWork: (id: string, reason: string) => request<{ ok: boolean }>('POST', `/api/v1/works/${id}/report`, { reason }),
+  comments: (id: string) => request<{ comments: { id: string; body: string; author_id: string; created_at: string }[] }>('GET', `/api/v1/works/${id}/comments`),
+  addComment: (id: string, body: string) => request<{ comment: { id: string } }>('POST', `/api/v1/works/${id}/comments`, { body }),
+  deleteComment: (id: string) => request<{ ok: boolean; hidden?: boolean }>('DELETE', `/api/v1/comments/${id}`),
+  like: (id: string) => request<{ liked: boolean }>('POST', `/api/v1/works/${id}/like`, {}),
+  tasks: () => request<{ tasks: { id: string; theme: string; constraints: string | null; owner_id: string; created_at: string }[] }>('GET', '/api/v1/tasks'),
+  createTask: (theme: string, constraints?: string) => request<{ task: { id: string } }>('POST', '/api/v1/tasks', { theme, constraints }),
+  task: (id: string) => request<{ task: { id: string; theme: string; constraints: string | null; status: string }; works: import('./types').WorkMeta[] }>('GET', `/api/v1/tasks/${id}`),
+  submitTask: (id: string, work_id: string) => request<{ ok: boolean }>('POST', `/api/v1/tasks/${id}/submissions`, { work_id }),
+  notifications: () => request<{ notifications: { id: string; kind: string; work_id: string | null; body: string | null; read: boolean; created_at: string }[] }>('GET', '/api/v1/notifications'),
+  readNotification: (id: string) => request<{ ok: boolean }>('POST', `/api/v1/notifications/${id}/read`, {}),
+  myWorks: () => request<{ works: import('./types').WorkMeta[] }>('GET', '/api/v1/me/works'),
+  userWorks: (id: string) => request<{ works: import('./types').WorkMeta[] }>('GET', `/api/v1/users/${encodeURIComponent(id)}/works`),
+  exportMe: () => request<{ exported_at: string; works: unknown[]; skills: unknown[]; albums: unknown[] }>('GET', '/api/v1/me/export'),
+  deleteMe: () => request<{ ok: boolean; deleted: boolean }>('DELETE', '/api/v1/me'),
 };
 
 // Qoder 平台登录入口（公开站不影响登录；登录后网关向云函数注入已验证身份）

@@ -132,5 +132,22 @@ export function createAgnesProvider(scheduler, fetchImpl) {
     return { bytes: buf, mime, keyAlias: r.keyAlias };
   }
 
-  return { optimize, generate };
+  async function safety({ imageBytes, imageMime }) {
+    const content = [];
+    if (imageBytes) content.push({ type: 'image_url', image_url: { url: toDataUrl(imageBytes, imageMime) } });
+    content.push({ type: 'text', text: '你是内容安全审核员。判断这张图片是否包含色情裸露、血腥暴力、或未经授权的真人肖像侵权。只输出 JSON：{"safe":true} 或 {"safe":false,"reason":"简短中文原因"}。不要 markdown 代码块。' });
+    const r = await callJson('/chat/completions', {
+      model: 'agnes-3.0-flash', messages: [{ role: 'user', content }], max_tokens: 200,
+    }, OPTIMIZE_TIMEOUT_MS);
+    if (r.busy) return { busy: true };
+    const msg = r.json?.choices?.[0]?.message || {};
+    const t = String(msg.content || msg.reasoning_content || '');
+    try {
+      const m = t.match(/\{[\s\S]*\}/);
+      const o = JSON.parse(m ? m[0] : t);
+      return { safe: o.safe !== false, reason: String(o.reason || '').slice(0, 120) };
+    } catch { return { parseFailed: true }; }
+  }
+
+  return { optimize, generate, safety };
 }
