@@ -1,0 +1,20 @@
+# 敏感文件：含真实 API Key，绝不入库（见 docs/05-注意事项.md §1）
+docs/references/agnes-api.md
+*.key
+agnes key.txt
+.env*
+
+# 用户真实废片与公开测试底图：仅本地测试，不入公开仓库（docs/04 §1）
+资产仓库/test-images/
+早期规划/
+
+# 依赖与构建产物
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# 日志与系统文件
+*.log
+.DS_Store
+Thumbs.db

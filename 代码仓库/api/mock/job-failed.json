@@ -1,0 +1,6 @@
+{
+  "job_id": "j_mock001",
+  "status": "failed",
+  "result": null,
+  "error": { "code": "provider_busy", "message": "生成服务繁忙，请稍后重试；提示词已为你保留" }
+}

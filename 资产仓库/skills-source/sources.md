@@ -1,0 +1,75 @@
+# skills-source 出处与协议记录
+
+> 规则见 docs/04-资产与数据.md §1：任何入库资产必须有来源与协议记录。
+
+## 1. open-image-prompts（已下载，2026-11-17）
+
+- 仓库：https://github.com/NanmiCoder/open-image-prompts （476★，已核实存在）
+- 本地路径：`资产仓库/skills-source/open-image-prompts/`
+- 下载方式：GitHub raw 逐文件下载（未克隆全库、未下载图片数据集）
+
+### 已下载文件清单（11 个，约 92K）
+
+| 文件 | 内容 |
+|---|---|
+| LICENSE | 代码 MIT |
+| DATA_LICENSE.md | **数据协议边界声明（关键，见下）** |
+| DATASET.md | 数据集说明（oip-visual-v2 语料） |
+| skills/img-gen-prompts/SKILL.md | 提示词生成技能 |
+| skills/img-gen-taste/SKILL.md | 审美/风格卡技能 |
+| skills/img-gen-taste/references/portrait-photography.md | 人像风格卡 ×7 |
+| skills/img-gen-taste/references/poster-cover.md | 海报封面风格卡 |
+| skills/img-gen-taste/references/food-drink.md | 美食饮品风格卡 |
+| skills/img-gen-taste/references/landscape-city.md | 风景城市风格卡 |
+| skills/img-gen-taste/references/illustration-storytelling.md | 插画叙事风格卡 |
+| taxonomy/oip-visual-v2.json | 视觉分类法（项目自著，CC-BY-4.0） |
+
+### 协议边界（DATA_LICENSE.md 原文要点）
+
+- **项目自著部分**（schema、oip-visual-v2 分类法、规范化标签、翻译等元数据）：CC-BY-4.0，可用需署名。
+- **第三方源内容**（source prompts、帖子、作者 handle、源 URL、源图片）：**仍归原作者所有，未被 MIT/CC-BY 重新授权**；收录不代表允许商用。
+
+### 图派的使用方式（合规）
+
+1. **只用风格卡的结构与视觉语法**（视觉 DNA / 构图光色材质 / 边界 / 反模式 / 模板槽位），这是项目蒸馏的元数据层。
+2. 模板提示词**全部重写**为图派自己的中文+英文版本，不逐字搬运英文模板原文；风格卡中的 `{SUBJECT}` 槽位思路可借鉴。
+3. **不下载、不搬运、不展示其源图片**；模板封面与样片一律自产（GPT / Agnes 双通道，见 04 §2）。
+4. 提炼结果逐条记录「参考了哪张风格卡」，在模板 prompt.md 中注明灵感来源（署名 CC-BY-4.0 部分）。
+
+### 已提炼候选 → 首批 5 模板定稿（融合版，2026-11-17 用户拍板）
+
+| 定稿模板 | slug | 主要风格卡支撑 |
+|---|---|---|
+| 胶片日常 | film-daily | portrait-analog-golden-lifestyle |
+| 夜景提亮（含雨夜霓虹变体） | night-bright | portrait-neon-rain-cinematic（变体）；提亮主配方自写 |
+| 清透人像 | clean-portrait | portrait-quiet-luxury-studio |
+| 旅行明信片 | travel-postcard | landscape-golden-hour-wilderness；变体参考 retro-city-travel-poster |
+| 杂志封面 | magazine-cover | portrait-monochrome-sculptural + monochrome-editorial-city-poster（版式思路） |
+
+备选（二期/M2-6 补充）：直闪夜拍（direct-flash-after-hours）、硬影几何（graphic-hard-shadow）、美妆近景（skin-first-beauty）、美食/插画风格卡。
+
+portrait-photography.md 的 7 张卡与图派场景映射：
+
+| 风格卡 id | 中文名 | 图派候选模板方向 |
+|---|---|---|
+| portrait-analog-golden-lifestyle | Portra 金色日常 | 「胶片日常」——咖啡馆/街头/旅行废片救星，优先级高 |
+| portrait-neon-rain-cinematic | 雨夜霓虹电影人像 | 「雨夜霓虹」——夜景糊片改造，优先级高 |
+| portrait-direct-flash-after-hours | 直闪夜生活快照 | 「直闪夜拍」——便利店/聚餐场景 |
+| portrait-quiet-luxury-studio | 安静奢华柔光棚拍 | 「质感棚拍」——职场/品牌人像 |
+| portrait-monochrome-sculptural | 黑白雕塑式编辑人像 | 「黑白大片」——杂志封面方向 |
+| portrait-graphic-hard-shadow | 硬影几何时尚 | 备选（对底图姿态要求高，废片适配差） |
+| portrait-skin-first-beauty | 皮肤优先美妆近景 | 备选（特写门槛高，一期不做） |
+
+其余 4 个风格卡文件（海报/美食/风景/插画）待 M2-6 提炼，对应「海报封面」「美食探店」「旅行风景」「涂鸦插画」方向。
+
+## 2. 待下载 / 待核对
+
+| 仓库 | 状态 | 备注 |
+|---|---|---|
+| aliang2052/aliang-skills（MIT） | 待下载 | 流程编排借鉴，M2 |
+| anthropics/skills | 待核对 | 仅参考 SKILL.md 格式，逐技能核对协议 |
+| xiangzi-cyber/magazine-portfolio-skill | 待核对协议 | 杂志封面模板参考 |
+
+## 3. 网络文章参考（不入库原文，只记结论）
+
+豆包P图爆款指令的分析文章（smzdm/sohu/微博/小红书来源）：提示词原文属第三方作者，**不复制入库**；只提炼方法论与玩法清单，结论见 `docs/08-调研参考.md` §1。

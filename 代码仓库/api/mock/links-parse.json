@@ -1,0 +1,8 @@
+{
+  "source_url": "https://v.douyin.com/mockExample/",
+  "text": "示例文案：傍晚的街道随手拍（mock 数据，非真实解析结果）",
+  "images": [
+    { "temp_url": "/mock/links/img-1.jpg", "expires_at": "2026-11-17T12:10:00+08:00" },
+    { "temp_url": "/mock/links/img-2.jpg", "expires_at": "2026-11-17T12:10:00+08:00" }
+  ]
+}
