@@ -25,19 +25,18 @@
 ├─ web/      # 前端 SPA（Vite+React，纯静态，独立部署）
 ├─ server/   # 后端 API（Sites 云函数，独立部署）
 └─ api/      # openapi.yaml 契约 + mock + 契约测试
-资产仓库/     # 模板样片、测试图、提示词原料（规范见 04）
+资产仓库/     # 模板提示词与 Skills 原料（测试底图仅本地保存，不入库；规范见 04）
 docs/         # 本套文档
-早期规划/     # Grok 时期 PDF 与归档（其中结论以 docs 为准）
 ```
 
 ## 关联项目
 
-- 拾影 Shiying（本地链接解析工具，GPL-3.0，独立运行）：`../Shiying`
+- 拾影 Shiying（链接解析工具，GPL-3.0，独立运行，不并入本仓库）
 - 画册技能：[HaichaoLihc/create-photo-flipbook-ui](https://github.com/HaichaoLihc/create-photo-flipbook-ui)（MIT，二期复用）
 
 ## 当前状态
 
-一期 MVP 已部署（2026-11-17）：**https://tupai-moo3r9zpvox.qoder.zone** （Qoder Sites，public）。图片/文字双入口 → 自动优化提示词 → 相似模板/Skills 推荐 → 模型/画幅编辑 → 异步生成 → 修前修后对比 → 含 AI 标识下载 → Skills JSON + SKILL.md 双导出/导入回填，游客免登录、原图全程私密。云端契约测试 29/29、超时 spike（10/20/30s）与浏览器双入口全链路验收通过，记录见 [06 §7](docs/06-参赛交付.md)。当前线上为无 Key 演示版（界面明确标注）；Agnes Key 经 Sites Secret 录入后发布正式版即恢复真实出图。截止 2026-11-30 18:00。
+一期 MVP 已发布（2026-11-17）：**https://tupai-moo3r9zpvox.qoder.zone** （Qoder Sites，public，真实 Agnes 出图）。图片/文字双入口 → 自动优化提示词 → 相似模板/Skills 推荐 → 模型/画幅编辑 → 异步生成 → 修前修后对比 → 含 AI 标识下载 → Skills JSON + SKILL.md 双导出/导入回填；游客免登录、原图全程私密。验收：云端契约 29/29、真实出图验收 22/22、移动视口 33/33、60 秒彩排 24.6s，记录见 [06 §7](docs/06-参赛交付.md)。模板封面为 AI 生成样片。截止 2026-11-30 18:00。
 
 ## 本地开发
 
@@ -52,3 +51,7 @@ node 代码仓库/dev/demo-rehearsal.mjs            # 60 秒演示彩排计时�
 ```
 
 Key 只存 Sites Secret（`AGNES_KEYS_CN` / `AGNES_KEYS_INTL`），云函数运行时读取；本地开发无需任何真实 Key。
+
+## License
+
+MIT（第三方材料各自协议，见 [LICENSE](LICENSE)）。
