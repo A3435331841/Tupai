@@ -48,6 +48,7 @@ node 代码仓库/dev/failpath-test.mjs             # 故障注入 20 断言（4
 node 代码仓库/dev/mobile-test.mjs               # 移动视口+无痕等效 33 断言（需 playwright；BASE 可指本地 :5173）
 node 代码仓库/dev/cloud-acceptance.mjs          # 云端真实出图验收（Secret 同步+正式发布后跑：真实 optimize/生成/封面懒生成/隐私）
 node 代码仓库/dev/interaction-verify.mjs        # 交互补核 10 断言（F5 推荐/一键同款、F7 字数/负面、F10 再生成、F11 导入回填）
+node 代码仓库/dev/regression-tab-reset.mjs      # 回归 6 断言（切文字标签/重新开始清除底图，纯文字不拿旧图生成）
 node 代码仓库/dev/demo-rehearsal.mjs            # 60 秒演示彩排计时（核心路径 ≤60s 门禁）
 ```
 
