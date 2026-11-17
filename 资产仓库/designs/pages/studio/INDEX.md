@@ -1,0 +1,21 @@
+# 创作台 · 设计索引
+
+> 路由 `/studio` · 状态 `review` · 当前版本 `实现态（无独立版本目录）` · 更新 2026-11-18
+
+## 版本
+
+| 版本目录 | 状态 | 说明 |
+|---|---|---|
+| —（实现态，设计稿见 archive） | review | 设计参考已归档 |
+
+## 归档
+
+- `archive/v01-20261117-reference/`
+
+## 说明
+
+五阶段状态机（entry/optimizing/ready/generating/result）。设计态：三栏（修后预览 / 原图+候选单选 / 当前方案面板）+ 四步步骤条 + 灵感模板横排。参考稿在 archive/v01-20261117-reference。
+
+## 素材
+
+页面所用素材见 `资产仓库/manifests/assets.json`，运行时映射见 `runtime-map.json`。

@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>图派 TuPai · Logo 方案选稿（配色可切换）</title>
+<style>
+:root{
+  /* 默认：暖阳（推荐） */
+  --p:#ea580c; --d:#1c1917; --l:#fffbf7; --g:#fbbf24; --gray:#a8a29e; --bg:#fff8f2;
+  --line:#e6ddd2; --muted:#8a7a68; --ink:#241c16;
+  --font:"PingFang SC","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#efe9e0;color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;transition:background .4s}
+.head{max-width:1160px;margin:0 auto;padding:36px 24px 4px}
+.head h1{font-size:28px;margin:0;letter-spacing:-.02em}
+.head p{margin:8px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7}
+
+/* 配色选择 */
+.pal-wrap{max-width:1160px;margin:18px auto 0;padding:0 24px}
+.pal-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
+.pal-list{display:flex;gap:12px;flex-wrap:wrap}
+.pal{display:flex;align-items:center;gap:9px;padding:9px 14px 9px 9px;border:1.5px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;transition:.25s}
+.pal:hover{border-color:var(--muted);transform:translateY(-2px)}
+.pal.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.pal .dots{display:flex}
+.pal .dots i{width:17px;height:17px;border-radius:50%;border:2px solid #fff;display:block;margin-left:-5px}
+.pal .dots i:first-child{margin-left:0}
+.pal .pname{font-size:12.5px;font-weight:700}
+.pal .pwhy{font-size:11px;color:var(--muted);font-weight:400;margin-left:2px}
+.rec{font-size:9.5px;color:#fff;background:var(--p);border-radius:999px;padding:2px 7px;font-weight:700}
+
+.grp{max-width:1160px;margin:0 auto;padding:20px 24px}
+.grp-title{display:flex;align-items:baseline;gap:12px;margin:16px 0 2px;flex-wrap:wrap}
+.grp-title h2{font-size:18px;margin:0}
+.grp-title span{font-size:12.5px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:17px;overflow:hidden;box-shadow:0 10px 30px -26px rgba(60,40,20,.5);transition:transform .35s,box-shadow .35s,border-color .35s}
+.card:hover{transform:translateY(-5px);box-shadow:0 20px 40px -24px rgba(60,40,20,.5)}
+.card.sel{border-color:var(--p);box-shadow:0 0 0 2px var(--p),0 20px 40px -24px rgba(60,40,20,.5)}
+.stage{display:flex;height:180px}
+.stage .half{flex:1;display:grid;place-items:center;padding:12px;transition:background .4s}
+.stage .light{background:var(--bg)}
+.stage .dark{background:var(--d)}
+.stage svg{width:116px;height:116px}
+.meta{padding:14px 16px 16px;border-top:1px solid var(--line)}
+.meta .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.meta h3{margin:0;font-size:15px}
+.tag{font-size:10.5px;font-weight:700;color:var(--p);border:1px solid var(--p);border-radius:999px;padding:3px 9px;white-space:nowrap;transition:.3s}
+.meta p{margin:7px 0 0;font-size:12px;color:var(--muted);line-height:1.6;min-height:38px}
+.pick{margin-top:11px;width:100%;padding:9px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:12.5px;font-weight:700;color:var(--ink);transition:.25s}
+.pick:hover{border-color:var(--p);color:var(--p)}
+.card.sel .pick{background:var(--p);border-color:var(--p);color:#fff}
+.note{max-width:1160px;margin:4px auto 56px;padding:16px 24px;font-size:12.5px;color:var(--muted);line-height:1.75}
+.note b{color:var(--ink)}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>图派 TuPai · Logo 方案选稿</h1>
+  <p>形体分两组各 3 个；配色不设限——我在上方放了 4 套精选配色，<b>点色板即可实时切换</b>所有方案的颜色。形体和配色分开挑，点「选这个」锁定你看中的形体方案。</p>
+</div>
+
+<div class="pal-wrap">
+  <div class="pal-title">① 先选配色（点一下，下方 6 个方案同步换色）</div>
+  <div class="pal-list">
+    <div class="pal on" data-pal="warm">
+      <span class="dots"><i style="background:#ea580c"></i><i style="background:#1c1917"></i><i style="background:#fbbf24"></i></span>
+      <span><span class="pname">暖阳</span> <span class="pwhy">鲜活橙 + 炭黑 · 温暖又年轻</span> <span class="rec">我推荐</span></span>
+    </div>
+    <div class="pal" data-pal="indigo">
+      <span class="dots"><i style="background:#f97316"></i><i style="background:#1e3a5f"></i><i style="background:#fcd34d"></i></span>
+      <span><span class="pname">靛蓝橙</span> <span class="pwhy">科技蓝 + 暖橙 · 对比冲击</span></span>
+    </div>
+    <div class="pal" data-pal="retro">
+      <span class="dots"><i style="background:#d97706"></i><i style="background:#292524"></i><i style="background:#fde68a"></i></span>
+      <span><span class="pname">胶片棕</span> <span class="pwhy">琥珀 + 石灰黑 · 复古质感</span></span>
+    </div>
+    <div class="pal" data-pal="trend">
+      <span class="dots"><i style="background:#ec4899"></i><i style="background:#3b0764"></i><i style="background:#f9a8d4"></i></span>
+      <span><span class="pname">暮紫粉</span> <span class="pwhy">深紫 + 玫粉 · 潮流社交感</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 简洁风格 ============ -->
+<div class="grp">
+  <div class="grp-title"><h2>简洁风格</h2><span>TP 字母组合 · 尖角几何 · 参考图那种利落做法</span></div>
+  <div class="grid">
+
+    <div class="card" data-id="A1">
+      <div class="stage">
+        <div class="half light"><svg viewBox="0 0 200 200">
+          <path fill="var(--d)" d="M46 44 H116 C158 44 180 66 180 100 C180 134 158 156 116 156 H96 V124 H116 C138 124 148 114 148 100 C148 86 138 76 116 76 H46 Z"/>
+          <path fill="var(--p)" d="M40 44 H92 V70 H78 V146 L66 168 L54 146 V70 H40 Z"/>
+        </svg></div>
+        <div class="half dark"><svg viewBox="0 0 200 200">
+          <path fill="var(--l)" d="M46 44 H116 C158 44 180 66 180 100 C180 134 158 156 116 156 H96 V124 H116 C138 124 148 114 148 100 C148 86 138 76 116 76 H46 Z"/>
+          <path fill="var(--p)" d="M40 44 H92 V70 H78 V146 L66 168 L54 146 V70 H40 Z"/>
+        </svg></div>
+      </div>
+      <div class="meta"><div class="row"><h3>A1 · 咬合 TP</h3><span class="tag">最贴近参考</span></div>
+      <p>T 与 P 共用顶部横笔，两条竖笔底部收成尖角，双色对冲，最像你给的那版。</p><button class="pick">选这个</button></div>
+    </div>
+
+    <div class="card" data-id="A2">
+      <div class="stage">
+        <div class="half light"><svg viewBox="0 0 200 200">
+          <path fill="var(--d)" d="M60 44 H112 C154 44 176 66 176 100 C176 134 154 156 112 156 H60 V124 H112 C134 124 144 114 144 100 C144 86 134 76 112 76 H60 Z"/>
+          <path fill="var(--p)" d="M40 44 H96 L84 70 H72 V142 L60 170 L48 142 V70 H40 Z"/>
+          <path fill="var(--p)" d="M72 44 H96 L84 70 Z"/>
+        </svg></div>
+        <div class="half dark"><svg viewBox="0 0 200 200">
+          <path fill="var(--l)" d="M60 44 H112 C154 44 176 66 176 100 C176 134 154 156 112 156 H60 V124 H112 C134 124 144 114 144 100 C144 86 134 76 112 76 H60 Z"/>
+          <path fill="var(--p)" d="M40 44 H96 L84 70 H72 V142 L60 170 L48 142 V70 H40 Z"/>
+          <path fill="var(--p)" d="M72 44 H96 L84 70 Z"/>
+        </svg></div>
+      </div>
+      <div class="meta"><div class="row"><h3>A2 · 叠影 TP</h3><span class="tag">斜切利落</span></div>
+      <p>顶部斜切收笔，T 的竖笔细长收尖，P 的圆弧更饱满，速度感更强。</p><button class="pick">选这个</button></div>
+    </div>
+
+    <div class="card" data-id="A3">
+      <div class="stage">
+        <div class="half light"><svg viewBox="0 0 200 200">
+          <path fill="var(--d)" d="M52 44 H114 C156 44 178 66 178 100 C178 134 156 156 114 156 H52 V124 H114 C136 124 146 114 146 100 C146 86 136 76 114 76 H52 Z"/>
+          <path fill="var(--p)" d="M44 44 H84 V70 H72 V150 L60 172 L48 150 V70 H44 Z"/>
+          <rect x="86" y="44" width="34" height="26" fill="var(--p)"/>
+        </svg></div>
+        <div class="half dark"><svg viewBox="0 0 200 200">
+          <path fill="var(--l)" d="M52 44 H114 C156 44 178 66 178 100 C178 134 156 156 114 156 H52 V124 H114 C136 124 146 114 146 100 C146 86 136 76 114 76 H52 Z"/>
+          <path fill="var(--p)" d="M44 44 H84 V70 H72 V150 L60 172 L48 150 V70 H44 Z"/>
+          <rect x="86" y="44" width="34" height="26" fill="var(--p)"/>
+        </svg></div>
+      </div>
+      <div class="meta"><div class="row"><h3>A3 · 共笔 TP</h3><span class="tag">结构更紧</span></div>
+      <p>T 的横笔向右延伸与 P 搭接，两个字母咬合成一个整体，标志性强。</p><button class="pick">选这个</button></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ 完全品牌风格 ============ -->
+<div class="grp">
+  <div class="grp-title"><h2>完全品牌风格</h2><span>显影相框 DNA · 比原版更简洁</span></div>
+  <div class="grid">
+
+    <div class="card" data-id="B1">
+      <div class="stage">
+        <div class="half light"><svg viewBox="0 0 200 200">
+          <g fill="none" stroke="var(--d)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M40 66 V50 a10 10 0 0 1 10-10 H66"/><path d="M134 40 h16 a10 10 0 0 1 10 10 V66"/>
+            <path d="M40 134 v16 a10 10 0 0 0 10 10 H66"/><path d="M160 134 v16 a10 10 0 0 1-10 10 H134"/>
+          </g>
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--g)" stop-opacity="0"/><stop offset=".5" stop-color="var(--l)" stop-opacity=".9"/><stop offset="1" stop-color="var(--g)" stop-opacity="0"/></linearGradient><clipPath id="c1"><rect x="66" y="66" width="68" height="68" rx="8"/></clipPath></defs>
+          <g clip-path="url(#c1)"><rect x="66" y="66" width="68" height="68" fill="var(--gray)"/><rect x="100" y="66" width="34" height="68" fill="var(--p)"/><rect x="90" y="66" width="20" height="68" fill="url(#g1)"/></g>
+        </svg></div>
+        <div class="half dark"><svg viewBox="0 0 200 200">
+          <g fill="none" stroke="var(--l)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M40 66 V50 a10 10 0 0 1 10-10 H66"/><path d="M134 40 h16 a10 10 0 0 1 10 10 V66"/>
+            <path d="M40 134 v16 a10 10 0 0 0 10 10 H66"/><path d="M160 134 v16 a10 10 0 0 1-10 10 H134"/>
+          </g>
+          <defs><linearGradient id="g1d" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--g)" stop-opacity="0"/><stop offset=".5" stop-color="var(--l)" stop-opacity=".9"/><stop offset="1" stop-color="var(--g)" stop-opacity="0"/></linearGradient><clipPath id="c1d"><rect x="66" y="66" width="68" height="68" rx="8"/></clipPath></defs>
+          <g clip-path="url(#c1d)"><rect x="66" y="66" width="68" height="68" fill="#6b6258"/><rect x="100" y="66" width="34" height="68" fill="var(--p)"/><rect x="90" y="66" width="20" height="68" fill="url(#g1d)"/></g>
+        </svg></div>
+      </div>
+      <div class="meta"><div class="row"><h3>B1 · 极简显影框</h3><span class="tag">原版简化</span></div>
+      <p>保留取景框四角 + 显影底片，只留色块与光带，一眼看懂「废片变作品」。</p><button class="pick">选这个</button></div>
+    </div>
+
+    <div class="card" data-id="B2">
+      <div class="stage">
+        <div class="half light"><svg viewBox="0 0 200 200">
+          <defs><clipPath id="c2"><rect x="46" y="58" width="108" height="84" rx="12"/></clipPath><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--g)" stop-opacity="0"/><stop offset=".5" stop-color="var(--l)" stop-opacity=".95"/><stop offset="1" stop-color="var(--g)" stop-opacity="0"/></linearGradient></defs>
+          <g clip-path="url(#c2)"><rect x="46" y="58" width="108" height="84" fill="var(--gray)"/><path d="M104 58 H154 V142 H78 Z" fill="var(--p)"/><rect x="88" y="58" width="26" height="84" fill="url(#g2)"/></g>
+          <rect x="46" y="58" width="108" height="84" rx="12" fill="none" stroke="var(--d)" stroke-width="7"/>
+          <g fill="var(--d)"><rect x="58" y="130" width="10" height="6" rx="2"/><rect x="76" y="130" width="10" height="6" rx="2"/><rect x="94" y="130" width="10" height="6" rx="2"/></g>
+        </svg></div>
+        <div class="half dark"><svg viewBox="0 0 200 200">
+          <defs><clipPath id="c2d"><rect x="46" y="58" width="108" height="84" rx="12"/></clipPath><linearGradient id="g2d" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--g)" stop-opacity="0"/><stop offset=".5" stop-color="var(--l)" stop-opacity=".95"/><stop offset="1" stop-color="var(--g)" stop-opacity="0"/></linearGradient></defs>
+          <g clip-path="url(#c2d)"><rect x="46" y="58" width="108" height="84" fill="#6b6258"/><path d="M104 58 H154 V142 H78 Z" fill="var(--p)"/><rect x="88" y="58" width="26" height="84" fill="url(#g2d)"/></g>
+          <rect x="46" y="58" width="108" height="84" rx="12" fill="none" stroke="var(--l)" stroke-width="7"/>
+          <g fill="var(--l)"><rect x="58" y="130" width="10" height="6" rx="2"/><rect x="76" y="130" width="10" height="6" rx="2"/><rect x="94" y="130" width="10" height="6" rx="2"/></g>
+        </svg></div>
+      </div>
+      <div class="meta"><div class="row"><h3>B2 · 显影底片</h3><span class="tag">胶片记忆点</span></div>
+      <p>标志收成一张胶片，左灰右橙斜切 + 显影光，底部齿孔点出「照片」身份。</p><button class="pick">选这个</button></div>
+    </div>
+
+    <div class="card" data-id="B3">
+      <div class="stage">
+        <div class="half light"><svg viewBox="0 0 200 200">
+          <path fill="var(--d)" d="M58 44 H104 C142 44 162 62 162 100 C162 138 142 156 104 156 H58 V124 H104 C124 124 132 114 132 100 C132 86 124 76 104 76 H58 Z"/>
+          <path fill="var(--p)" d="M58 76 H104 C124 76 132 86 132 100 C132 114 124 124 104 124 H58 Z"/>
+          <defs><linearGradient id="g3" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--g)" stop-opacity="0"/><stop offset=".5" stop-color="var(--l)" stop-opacity=".95"/><stop offset="1" stop-color="var(--g)" stop-opacity="0"/></linearGradient></defs>
+          <rect x="86" y="76" width="20" height="48" fill="url(#g3)"/>
+        </svg></div>
+        <div class="half dark"><svg viewBox="0 0 200 200">
+          <path fill="var(--l)" d="M58 44 H104 C142 44 162 62 162 100 C162 138 142 156 104 156 H58 V124 H104 C124 124 132 114 132 100 C132 86 124 76 104 76 H58 Z"/>
+          <path fill="var(--p)" d="M58 76 H104 C124 76 132 86 132 100 C132 114 124 124 104 124 H58 Z"/>
+          <defs><linearGradient id="g3d" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--g)" stop-opacity="0"/><stop offset=".5" stop-color="var(--l)" stop-opacity=".95"/><stop offset="1" stop-color="var(--g)" stop-opacity="0"/></linearGradient></defs>
+          <rect x="86" y="76" width="20" height="48" fill="url(#g3d)"/>
+        </svg></div>
+      </div>
+      <div class="meta"><div class="row"><h3>B3 · 显影派 P</h3><span class="tag">品牌 + 字母</span></div>
+      <p>「派」的拼音首字母 P 作骨架，内腔嵌一道橙色显影光，既是字母标又有品牌母题。</p><button class="pick">选这个</button></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="note">
+  <b>为什么这 4 套配色：</b>图派是「AI 科技 × 废片变温暖的魔法」，所以主色都要有温度、又要够醒目。<br>
+  · <b>暖阳（推荐）</b>#EA580C + #1C1917：鲜活的橙保留胶片温度、比原陶土色更年轻，炭黑比深棕更现代——最贴项目气质。<br>
+  · <b>靛蓝橙</b>#F97316 + #1E3A5F：蓝代表 AI 科技、橙代表温暖成片，互补色对比冲击力强。<br>
+  · <b>胶片棕</b>#D97706 + #292524：琥珀 + 石灰黑，最复古高级，贴近胶片暗房调。<br>
+  · <b>暮紫粉</b>#EC4899 + #3B0764：年轻潮流，瞄准小红书/朋友圈社交场景。<br>
+  全部矢量 SVG。选定形体 + 配色后告诉我（如「A1 + 暖阳」），我导出独立 SVG 并同步替换首页标志。
+</div>
+
+<script>
+const PALS={
+  warm:{p:'#ea580c',d:'#1c1917',l:'#fffbf7',g:'#fbbf24',gray:'#a8a29e',bg:'#fff8f2'},
+  indigo:{p:'#f97316',d:'#1e3a5f',l:'#f8fafc',g:'#fcd34d',gray:'#94a3b8',bg:'#f5f8fc'},
+  retro:{p:'#d97706',d:'#292524',l:'#fffbeb',g:'#fde68a',gray:'#a8a29e',bg:'#fffbf0'},
+  trend:{p:'#ec4899',d:'#3b0764',l:'#fdf4ff',g:'#f9a8d4',gray:'#c4b5fd',bg:'#fdf6ff'}
+};
+document.querySelectorAll('.pal').forEach(pal=>{
+  pal.addEventListener('click',()=>{
+    document.querySelectorAll('.pal').forEach(p=>p.classList.remove('on'));
+    pal.classList.add('on');
+    const c=PALS[pal.dataset.pal];
+    const r=document.documentElement.style;
+    r.setProperty('--p',c.p);r.setProperty('--d',c.d);r.setProperty('--l',c.l);
+    r.setProperty('--g',c.g);r.setProperty('--gray',c.gray);r.setProperty('--bg',c.bg);
+  });
+});
+document.querySelectorAll('.card').forEach(card=>{
+  card.querySelector('.pick').addEventListener('click',()=>{
+    const already=card.classList.contains('sel');
+    document.querySelectorAll('.card').forEach(c=>{c.classList.remove('sel');c.querySelector('.pick').textContent='选这个';});
+    if(!already){card.classList.add('sel');card.querySelector('.pick').textContent='✓ 已选 '+card.dataset.id;}
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# 首页 · 设计索引
+
+> 路由 `/` · 状态 `approved` · 当前版本 `v02-20261118-interactive` · 更新 2026-11-18
+
+## 版本
+
+| 版本目录 | 状态 | 说明 |
+|---|---|---|
+| `v02-20261118-interactive/` | approved | 见该目录 manifest.md |
+
+## 归档
+
+- `archive/light-theme-v00/`
+- `archive/v01-20261117-reference/`
+
+## 说明
+
+暖纸色 + 宋体大字 + 整幅可拖动显影对比 + 五模板横向带 + 三步结构。v02 为当前实现版（含 20 张无限循环画廊）；v01 为 Codex 杂志策展稿，已置 archive。
+
+## 素材
+
+页面所用素材见 `资产仓库/manifests/assets.json`，运行时映射见 `runtime-map.json`。

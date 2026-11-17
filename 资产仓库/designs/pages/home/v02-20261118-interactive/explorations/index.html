@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>图派首页 · 整合方案对比</title>
+<style>
+:root{--bg:#f4efe8;--paper:#fffdf8;--ink:#241c16;--soft:#766b5e;--accent:#c0562f;--accent2:#bb5834;--line:#e5dbcd;--green:#667A64}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased;padding:34px 24px 60px}
+.head{max-width:1200px;margin:0 auto}
+h1{font-size:28px;margin:0 0 6px}
+.lead{color:var(--soft);font-size:13.5px;line-height:1.7;margin:0 0 8px}
+.badge{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--accent);padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
+.note-top{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:12.5px;color:var(--soft);margin:14px 0 24px;line-height:1.7}
+.note-top b{color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:1200px;margin:0 auto}
+.card{background:var(--paper);border:1.5px solid var(--line);border-radius:18px;overflow:hidden;transition:.3s}
+.card.rec{border-color:var(--accent);box-shadow:0 0 0 2px rgba(192,86,47,.25)}
+.card:hover{transform:translateY(-4px);box-shadow:0 18px 40px -26px rgba(60,40,20,.5)}
+.card-h{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+.card-h .no{font-family:Georgia,serif;font-size:24px;font-style:italic;color:var(--accent)}
+.card-h h2{font-size:18px;margin:2px 0 4px;display:inline-block}
+.card-h .pos{font-size:12px;color:var(--soft)}
+/* 布局缩略示意 */
+.mock{height:216px;background:#fbf7f0;padding:12px;position:relative;overflow:hidden}
+.mock .nav{height:12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;font-size:6px;color:var(--soft);padding-bottom:6px;margin-bottom:10px}
+.mock .nav .d{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.hero{display:flex;gap:8px;height:96px}
+.col{display:flex;flex-direction:column;gap:5px}
+.lines{display:flex;flex-direction:column;gap:5px;justify-content:center}
+.ln{height:9px;background:#d9cfc0;border-radius:2px}
+.ln.big{height:14px;background:var(--ink)}
+.ln.acc{background:var(--accent);height:7px;width:60%}
+.btn{height:16px;background:var(--accent);border-radius:4px;width:64px}
+.btn.o{background:transparent;border:1px solid var(--soft)}
+.img{background:linear-gradient(135deg,#e8dcc8,#cbbba2);border-radius:3px}
+.img .mini{position:absolute;width:44px;height:32px;background:#3a332b;border:2px solid #fff;bottom:8px;left:8px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.gal{display:flex;gap:6px;margin-top:10px}
+.gal .g{flex:1;height:54px;background:linear-gradient(160deg,#e4d7c2,#c5b297);border-radius:3px}
+.gal .g:first-child{flex:1.35}
+.flow{display:flex;gap:8px;margin-top:10px;font-size:7px;color:var(--accent);font-family:Georgia,serif}
+.flow span{flex:1;text-align:center;border-top:1px solid var(--line);padding-top:5px}
+/* B 版卡片示意 */
+.cardbox{border:1px solid var(--line);border-radius:10px;padding:12px;height:118px;display:flex;gap:10px;background:#fff}
+.cardbox .side{width:38%;border-left:1px solid var(--line);padding-left:10px}
+/* C 版显影 */
+.hero-c{border-radius:6px;overflow:hidden;position:relative}
+.handle{position:absolute;left:52%;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.3)}
+.handle::after{content:"⇆";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;background:#fff;border-radius:50%;font-size:9px;display:grid;place-items:center;color:var(--ink)}
+.card-b{padding:14px 18px 18px}
+.tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.tag{font-size:10px;padding:2px 8px;border-radius:999px;background:#f0e8dc;color:var(--soft)}
+.tag.g{background:#e5ece4;color:var(--green)}
+.card-b h3{margin:0 0 8px;font-size:14px}
+.sec{margin-bottom:10px}
+.sec .lb{font-size:10px;font-weight:700;color:var(--soft);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.sec p{margin:0;font-size:12px;line-height:1.6;color:#4a4038}
+.pros{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.pros .row{display:flex;gap:8px;font-size:11.5px;line-height:1.55;margin-bottom:6px}
+.pros .row .k{flex:0 0 34px;font-weight:700;color:var(--soft)}
+.pros .row .v{flex:1;color:#4a4038}
+.pick{width:100%;margin-top:14px;padding:10px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:12.5px;cursor:pointer;color:var(--ink);transition:.25s}
+.pick:hover{border-color:var(--accent);color:var(--accent)}
+.card.sel .pick{background:var(--accent);border-color:var(--accent);color:#fff}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>图派首页 · 三套整合方案对比 <span class="badge">保留拉拽交互</span></h1>
+  <p class="lead">基于当前实现（显影相框首页 + 可拖动修前修后对比）与两份设计稿（Codex 杂志策展 / Light-theme 卡片克制）整合。三套方案都<b>保留可拖动的修前修后对比</b>，差异在整体布局、文案密度与视觉气质。</p>
+  <div class="note-top"><b>共同原则：</b>文案大幅精简（删勾选清单、删能力条、删打字机大段、删三张说明卡）；用大图、留白、01/02/03 序号、细线分隔、楷体标题替代长段落；按钮收敛为「开始创作 + 一键试玩」两个。你选一套后我再实施。</div>
+</div>
+
+<div class="grid">
+
+  <!-- 方案 A -->
+  <div class="card" data-id="A">
+    <div class="card-h"><span class="no">A</span><h2>杂志策展</h2><div class="pos">最贴近 Codex 设计稿 · 视觉冲击最强</div></div>
+    <div class="mock">
+      <div class="nav"><span class="d"></span>图派　首页 / 创作台 / 资产库 / 社区　　登录</div>
+      <div class="hero">
+        <div class="col" style="flex:1.1">
+          <div class="lines">
+            <div class="ln big" style="width:92%"></div><div class="ln big" style="width:78%"></div><div class="ln big" style="width:62%"></div>
+            <div class="ln acc" style="margin-top:2px"></div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px"><div class="btn"></div><div class="btn o"></div></div>
+        </div>
+        <div class="col" style="flex:1">
+          <div class="img" style="flex:1;position:relative"><div class="mini"></div></div>
+        </div>
+      </div>
+      <div class="gal"><div class="g"></div><div class="g"></div><div class="g"></div><div class="g"></div><div class="g"></div></div>
+      <div class="flow"><span>01 上传照片</span><span>02 选择灵感</span><span>03 收获作品</span></div>
+    </div>
+    <div class="card-b">
+      <div class="tags"><span class="tag">55/45 不对称双栏</span><span class="tag">宋体大字</span><span class="tag">五图书架</span></div>
+      <div class="sec"><div class="lb">风格差异</div><p>首屏左文右图，宋体大标题占三行；右侧一张带相纸边框的大作品图，叠一张可拖动的原图/作品对比小卡。模板五张横排、首张略大。工作流用 01/02/03 一行细线分隔。</p></div>
+      <div class="pros">
+        <div class="row"><span class="k">优点</span><span class="v">最像摄影杂志，作品是绝对主角；文字最少、留白最多、视觉最抓人。</span></div>
+        <div class="row"><span class="k">缺点</span><span class="v">功能信息弱化，"游客免登录/隐私/AI 标识"等信任点被压到极小的微文案。</span></div>
+        <div class="row"><span class="k">适用</span><span class="v">评委看视觉、比赛演示首屏抓眼球；追求"作品集"气质。</span></div>
+      </div>
+      <button class="pick">选这个方案</button>
+    </div>
+  </div>
+
+  <!-- 方案 B -->
+  <div class="card" data-id="B">
+    <div class="card-h"><span class="no">B</span><h2>卡片克制</h2><div class="pos">最贴近 Light-theme 预览 · 折中稳妥</div></div>
+    <div class="mock">
+      <div class="nav"><span class="d"></span>图派　首页 / 创作台 / 资产库 / 社区　　登录</div>
+      <div class="cardbox">
+        <div class="col" style="flex:1.2">
+          <div class="lines">
+            <div class="ln big" style="width:88%"></div><div class="ln big" style="width:70%"></div>
+            <div class="ln" style="width:96%;height:6px"></div><div class="ln" style="width:80%;height:6px"></div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px"><div class="btn"></div><div class="btn o"></div></div>
+        </div>
+        <div class="side">
+          <div class="ln acc" style="width:70%"></div>
+          <div class="ln" style="width:90%;height:5px;margin-top:8px"></div>
+          <div class="ln" style="width:84%;height:5px"></div>
+          <div class="ln" style="width:88%;height:5px"></div>
+          <div class="ln" style="width:70%;height:5px"></div>
+        </div>
+      </div>
+      <div class="gal"><div class="g"></div><div class="g"></div><div class="g"></div><div class="g"></div><div class="g"></div></div>
+      <div class="flow"><span>01 上传</span><span>02 选方向</span><span>03 带走</span></div>
+    </div>
+    <div class="card-b">
+      <div class="tags"><span class="tag">大圆角卡片</span><span class="tag">右侧步骤卡</span><span class="tag g">信息完整</span></div>
+      <div class="sec"><div class="lb">风格差异</div><p>首屏收在一张大圆角浅卡里：左侧主张 + 精简文案 + 双按钮，右侧一张"三步就能出片"步骤卡。模板五张卡，图在上、名称在下。对比滑块放在步骤卡下方或创作台入口。</p></div>
+      <div class="pros">
+        <div class="row"><span class="k">优点</span><span class="v">信息最完整、结构最稳；改动量小，和现有组件/后台风格一致，落地最快。</span></div>
+        <div class="row"><span class="k">缺点</span><span class="v">视觉冲击弱于 A，仍有"卡片后台感"；文案虽精简但仍多于 A。</span></div>
+        <div class="row"><span class="k">适用</span><span class="v">偏功能型演示、需要把隐私/步骤讲清楚；追求稳妥低风险。</span></div>
+      </div>
+      <button class="pick">选这个方案</button>
+    </div>
+  </div>
+
+  <!-- 方案 C -->
+  <div class="card rec" data-id="C">
+    <div class="card-h"><span class="no">C</span><h2>显影暗房 <span class="badge">我推荐</span></h2><div class="pos">融合双方优点 · 兼顾视觉与交互记忆点</div></div>
+    <div class="mock">
+      <div class="nav"><span class="d"></span>图派　首页 / 创作台 / 资产库 / 社区　　登录</div>
+      <div class="hero">
+        <div class="col" style="flex:1">
+          <div class="lines">
+            <div class="ln big" style="width:86%"></div><div class="ln big" style="width:66%"></div>
+            <div class="ln acc" style="margin-top:2px"></div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px"><div class="btn"></div><div class="btn o"></div></div>
+          <div class="ln" style="width:70%;height:5px;margin-top:8px"></div>
+        </div>
+        <div class="col" style="flex:1.15">
+          <div class="img hero-c" style="flex:1">
+            <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(36,28,22,.55) 50%,transparent 50%)"></div>
+            <div class="handle"></div>
+          </div>
+        </div>
+      </div>
+      <div class="gal"><div class="g"></div><div class="g"></div><div class="g"></div><div class="g"></div><div class="g"></div></div>
+      <div class="flow"><span>01 放入照片</span><span>02 选择方向</span><span>03 收获作品</span></div>
+    </div>
+    <div class="card-b">
+      <div class="tags"><span class="tag">全幅可拖动显影对比</span><span class="tag">极简文案</span><span class="tag g">动效记忆点</span></div>
+      <div class="sec"><div class="lb">风格差异</div><p>取 A 的大图双栏，但把对比做成<b>整幅可拖动</b>的显影图：拖动分界线时一道暖光扫过，灰片实时变作品——把产品核心动作变成首屏主角。左侧只留两行标题 + 一句副标题 + 双按钮。模板五图横排，底部 01/02/03。</p></div>
+      <div class="pros">
+        <div class="row"><span class="k">优点</span><span class="v">兼具 A 的视觉冲击和当前版的拉拽乐趣；显影动效是独特记忆点，文案最精简。</span></div>
+        <div class="row"><span class="k">缺点</span><span class="v">交互实现比 A/B 稍复杂；需确保拖动在手机上也顺滑。</span></div>
+        <div class="row"><span class="k">适用</span><span class="v">想要"既好看又能玩"、突出产品差异化；比赛演示需要记忆点。</span></div>
+      </div>
+      <button class="pick">选这个方案</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.card').forEach(c=>c.querySelector('.pick').addEventListener('click',()=>{
+  const on=c.classList.contains('sel');
+  document.querySelectorAll('.card').forEach(x=>{x.classList.remove('sel');x.querySelector('.pick').textContent='选这个方案';});
+  if(!on){c.classList.add('sel');c.querySelector('.pick').textContent='✓ 已选方案 '+c.dataset.id;}
+}));
+</script>
+</body>
+</html>

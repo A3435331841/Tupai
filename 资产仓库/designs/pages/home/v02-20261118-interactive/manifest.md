@@ -1,0 +1,22 @@
+# manifest · home v02-20261118-interactive
+
+- status: `approved`
+- date: 2026-11-18
+- route: `/`
+- 实现: `代码仓库/web/pages/Home.tsx` + `components/HomeCompare.tsx`
+
+## 内容
+
+| 文件 | 用途 |
+|---|---|
+| `index.html` | 首页可交互原型（含 Hero 显影对比 + 无限循环画廊） |
+| `gallery.html` | 无限画廊独立演示页 |
+| `README-设计方案.md` | 设计方案与实现说明 |
+| `explorations/` | 三套整合方案对比（A 杂志策展 / B 卡片克制 / C 显影暗房） |
+| `preview-*.png` | 各阶段验收截图 |
+| `assets/` | 原型自包含素材（与源重复，仅原型用） |
+
+## 关键决策
+
+- 用户选定 C「显影暗房」：整幅可拖动显影 + 相纸组状态机（进入淡出 / 拖动隐藏指针 / 松手恢复）。
+- 双区块结构 + 滚动吸附，向下滚一屏跨过首页进入循环区。

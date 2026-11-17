@@ -1,0 +1,100 @@
+# 资产仓库 · 总索引（INDEX）
+
+> 这是**唯一资产源**。`代码仓库/web/public/` 只是运行时派生副本，不是第二份源。
+> 规则见 `AGENTS.md` §2 §5 §6。机器可读清单见 `manifests/assets.json` 与 `manifests/runtime-map.json`。
+> 最后更新：2026-11-18
+
+---
+
+## 1. 目录职责
+
+| 路径 | 职责 | 是否公开 | 是否提交 |
+|---|---|---|---|
+| `brand/logo/` | Logo 唯一源（4 版 SVG） | 公开 | ✅ |
+| `brand/explorations/` | Logo 选稿过程（logo-v01-20261117） | 公开 | ✅ |
+| `brand/usage.md` | 品牌使用规范（配色/字体/禁用） | 公开 | ✅ |
+| `designs/pages/home/` | 首页设计版本 | 公开 | ✅ |
+| `designs/pages/studio|library|community|legal/` | 各页设计版本 | 公开 | ✅ |
+| `designs/system/` | 跨页设计系统（prompts/） | 公开 | ✅ |
+| `designs/references/` | 外部参考（不复制其受保护素材） | 公开 | ✅ |
+| `designs/brand/` | 品牌视觉画布 `.miora` | 公开 | ✅ |
+| `designs/archive/` | 历史/过程产物 | 公开 | ✅ |
+| `templates/<id>/` | 模板正本：manifest.json + prompt.md + cover.webp + cover-source.jpg | 公开 | ✅ |
+| `media/generated/` | AI 生成原图（含品牌探索） | 公开 | ✅ |
+| `media/licensed/` | 第三方授权图（Unsplash） | 公开 | ✅ |
+| `media/derived/` | 派生图（webp 转换、降质演示版） | 公开 | ✅ |
+| `media/private/` | 私图占位（真实私图不入库） | **私有** | ❌ |
+| `skills/own/` | 自研 Skills | 公开 | ✅ |
+| `skills/third-party/` | 第三方 Skills（含出处与协议） | 公开 | ✅ |
+| `manifests/` | `assets.json` + `runtime-map.json` | 公开 | ✅ |
+| `test-images/` | 本地测试底图（Unsplash 授权） | **不公开** | ❌ (.gitignore) |
+| `archive/` | 顶层归档 | 公开 | ✅ |
+
+---
+
+## 2. 资产统计（自动生成于 2026-11-18）
+
+| 指标 | 数值 |
+|---|---|
+| 资产总数（assets.json） | 113 |
+| 运行时副本（runtime-map.json） | 26 |
+| 映射缺失 | **0** |
+| 重复组（治理前） | 29 组 / 可回收 26.5 MB |
+
+**治理动作**：把原 `设计稿/`（99 文件 64 MB，混合设计/原型/选稿/生成原图）整体吸收进来，按「页面版本 / 品牌 / 媒体 / 模板 / Skills」五类归位；`设计稿/` 目录已清空并移除。
+
+---
+
+## 3. 运行时映射（关键）
+
+代码通过 `代码仓库/web/public/<path>` 引用资源，其源文件由 `manifests/runtime-map.json` 追溯：
+
+| 运行时路径 | 源文件 | 派生 |
+|---|---|---|
+| `/brand/logo-horizontal.svg` | `brand/logo/logo-horizontal.svg` | 否（直接复制） |
+| `/templates/<id>.webp` | `templates/<id>/cover.webp` | 是（封面压缩版） |
+| `/gallery/g06–g15.jpg` | `media/licensed/*.jpg` | 否 |
+| `/gallery/g16–g22.png` | `media/generated/*.png` | 否 |
+| `/home/hero-street.webp` | `media/derived/hero-street.webp` | 是（源自 `designs/pages/home/v02.../assets/hero.png`） |
+| `/samples/demo-night.jpg` | `media/derived/demo-night.jpg` | 是（降质废片演示版） |
+
+**变更流程**：
+1. 改源文件（`资产仓库/` 内）
+2. 同步到 `代码仓库/web/public/` 对应路径
+3. 更新 `manifests/runtime-map.json` 的 sha256
+4. 跑 `npm run build` + 资源 404 检查
+
+---
+
+## 4. 页面设计版本
+
+| 页面 | 当前版本 | 状态 | 索引 |
+|---|---|---|---|
+| 首页 home | `v02-20261118-interactive` | approved | `designs/pages/home/INDEX.md` |
+| 创作台 studio | 实现态（无独立版本目录） | review | `designs/pages/studio/INDEX.md` |
+| 资产库 library | 实现态 | review | `designs/pages/library/INDEX.md` |
+| 社区 community | 实现态 | review | `designs/pages/community/INDEX.md` |
+| Legal | 实现态（静态） | approved | `designs/pages/legal/INDEX.md` |
+
+> 首页历史：`v01-20261117-editorial`（Codex 杂志策展稿）已置 `archive/`，状态 `superseded`。
+
+---
+
+## 5. 命名规范（摘要，全文见 AGENTS.md §6）
+
+- 目录/文件：ASCII 小写 kebab-case
+- 版本目录：`vNN-YYYYMMDD-<intent>`，禁止 `最终版/new/old/final/copy`
+- 状态枚举：`concept | review | approved | superseded | archived`
+- 页面素材：`<page>-<slot>-vNN-YYYYMMDD-<variant>.<ext>`
+- 预览图：`preview-desktop@2x.webp`、`preview-tablet@2x.webp`、`preview-mobile@2x.webp`
+
+---
+
+## 6. 待归档 / 已知遗留
+
+| 项 | 说明 | 处置 |
+|---|---|---|
+| `designs/pages/home/v02.../assets/` | 原型期素材副本（logo×4、tpl-*×5、gallery/），与源重复 | 保留供 `index.html` 原型自包含显示；已在 assets.json 标记；后续可移除 |
+| `web/screenshots/`（已归档） | 早期验证截图，已移至 `designs/archive/verification-screenshots/` | 已归档 |
+| `test-images/` | 32 张 Unsplash 授权测试图 | 保持本地，`.gitignore` 已覆盖，协议见 `test-images/MANIFEST.md` |
+| 7 个未引用 public 资源 | logo-dark / logo-stacked / g14,g16,g18,g21,g22 | 保留（品牌备用 + 画册/社区示例），runtime-map 已登记 |

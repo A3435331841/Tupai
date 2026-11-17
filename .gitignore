@@ -6,7 +6,12 @@ agnes key.txt
 
 # 用户真实废片与公开测试底图：仅本地测试，不入公开仓库（docs/04 §1）
 资产仓库/test-images/
+资产仓库/media/private/
 早期规划/
+
+# AI 协作工具本地状态与临时产物
+.workbuddy/
+代码仓库/web/screenshots/
 
 # 依赖与构建产物
 node_modules/

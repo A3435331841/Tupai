@@ -1,0 +1,14 @@
+{
+  "id": "magazine-cover",
+  "title": "杂志封面",
+  "description": "黑白高对比，编辑级人像。",
+  "ratio": "3:4",
+  "cover": "cover.webp",
+  "cover_source": "cover-source.jpg",
+  "prompt": "prompt.md",
+  "origin": "ai-generated",
+  "license": "project-owned",
+  "visibility": "public",
+  "runtime_path": "代码仓库/web/public/templates/magazine-cover.webp",
+  "status": "approved"
+}

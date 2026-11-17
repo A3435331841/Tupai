@@ -1,0 +1,14 @@
+{
+  "id": "clean-portrait",
+  "title": "清透人像",
+  "description": "柔和自然光，干净通透的肤色。",
+  "ratio": "3:4",
+  "cover": "cover.webp",
+  "cover_source": "cover-source.jpg",
+  "prompt": "prompt.md",
+  "origin": "ai-generated",
+  "license": "project-owned",
+  "visibility": "public",
+  "runtime_path": "代码仓库/web/public/templates/clean-portrait.webp",
+  "status": "approved"
+}
