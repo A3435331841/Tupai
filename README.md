@@ -16,7 +16,7 @@
 | [07-接口契约](docs/07-接口契约.md) | 前后端分离的 API 契约 v1（冻结规则、端点定义、mock 约定） |
 | [08-调研参考](docs/08-调研参考.md) | 豆包爆款玩法、Skills 原料、数据集、前端设计参考、DeepSeek 搜索调研结论 |
 
-⚠️ `docs/references/agnes-api.md` 含真实 API Key，**禁止提交公开仓库或外传**（见 05 文档）。
+⚠️ API Key 仅存 Sites Secret（仅云函数可读）；Key 手册离线保存、被 `.gitignore` 排除，仓库与站点零 Key（见 05 文档）。
 
 ## 目录
 
