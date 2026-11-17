@@ -341,7 +341,7 @@ export function application({ db, storage, env, fetchImpl }) {
       const target = 'u:' + user.user_id;
       if (guestSid === target) return Response.json({ migrated: 0, owner_key: target });
       let migrated = 0;
-      for (const table of ['assets', 'skills', 'jobs']) {
+      for (const table of ['assets', 'skills', 'jobs', 'albums']) {
         const r = await db.from(table).update({ owner_session: target }).eq('owner_session', guestSid).select();
         if (r.error) fail('internal', 503, '绑定迁移失败，请稍后重试');
         migrated += r.data?.length || 0;
@@ -795,7 +795,7 @@ export function application({ db, storage, env, fetchImpl }) {
       if (!found?.length || found[0].kind !== 'result') fail('not_found', 404);
       const file = await storage.download(found[0].storage_key);
       if (!file.ok) fail('internal', 503, '资产读取失败');
-      return new Response(file.body, { headers: { 'content-type': found[0].content_type, 'cache-control': 'public, max-age=3600' } });
+      return new Response(file.body, { headers: { 'content-type': found[0].content_type, 'cache-control': 'private, no-store' } });
     }
     const sharePage = path.match(/^\/api\/v1\/share\/([0-9a-f]{32})\/page$/);
     if (sharePage && method === 'GET') {
@@ -881,6 +881,8 @@ export function application({ db, storage, env, fetchImpl }) {
       if (w.owner_session !== sid) fail('not_found', 404);
       const r = await db.from('works').update({ status: 'removed' }).eq('id', w.id).select();
       if (r.error) fail('internal', 503);
+      // 子 fork 的上游链接清空，避免指向已删除作品形成死链；署名 author_credit 与 depth 保留
+      await db.from('works').update({ parent_work_id: null }).eq('parent_work_id', w.id).select();
       return Response.json({ ok: true });
     }
 
@@ -914,6 +916,24 @@ export function application({ db, storage, env, fetchImpl }) {
       const r = await db.from('works').update({ status: 'withdrawn' }).eq('id', w.id).select();
       if (r.error) fail('internal', 503);
       return Response.json({ ok: true, status: 'withdrawn' });
+    }
+
+    const republishMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})\/publish$/);
+    if (republishMatch && method === 'POST') {
+      const sid = ownerOf(request);
+      const w = await loadWork(republishMatch[1]);
+      if (w.owner_session !== sid) fail('not_found', 404);
+      if (w.status === 'published') return Response.json({ ok: true, status: 'published' });
+      if (w.status !== 'withdrawn') fail('invalid_input', 400, '仅撤回的作品可重新发布');
+      const f = rows(await db.from('assets').select('*').eq('id', w.result_asset_id).limit(1));
+      if (f?.length) {
+        const bytes = await assetBytes(f[0]);
+        const mod = await moderateWork({ title: w.title, tags: jsonArr(w.tags), imageBytes: bytes, imageMime: f[0].content_type });
+        if (!mod.ok) fail('invalid_input', 422, mod.reason);
+      }
+      const r = await db.from('works').update({ status: 'published' }).eq('id', w.id).select();
+      if (r.error) fail('internal', 503);
+      return Response.json({ ok: true, status: 'published' });
     }
 
     const userWorks = path.match(/^\/api\/v1\/users\/([^/]+)\/works$/);
@@ -1047,7 +1067,10 @@ export function application({ db, storage, env, fetchImpl }) {
       const body = await readJson(request);
       const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 300) : '';
       if (!reason) fail('invalid_input', 400, '请说明举报原因');
-      await db.from('reports').insert({ id: newId('rp'), work_id: w.id, reporter_session: sid || 'anon', reason, status: 'pending' }).select();
+      const reporter = sid || 'anon';
+      const dup = rows(await db.from('reports').select('*').eq('work_id', w.id).eq('reporter_session', reporter).limit(1));
+      if (dup?.length) return Response.json({ ok: true, already: true });
+      await db.from('reports').insert({ id: newId('rp'), work_id: w.id, reporter_session: reporter, reason, status: 'pending' }).select();
       const cnt = await db.from('reports').select('id', { count: 'exact' }).eq('work_id', w.id).limit(1);
       if ((Number(cnt.count) || 0) >= 3 && w.status === 'published') {
         await db.from('works').update({ status: 'removed' }).eq('id', w.id).select();

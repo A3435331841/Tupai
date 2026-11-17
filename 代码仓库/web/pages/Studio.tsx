@@ -732,6 +732,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     setModel(models.find((m) => m.default)?.id || 'agnes-image-2.5-flash');
     setRatio('3:4');
     setLastJob(null);
+    setParentWorkId(undefined);
     clearStoredLastJob();
   }
 

@@ -104,6 +104,7 @@ export const api = {
     request<{ work: import('./types').WorkMeta }>('POST', '/api/v1/works', body),
   forkWork: (id: string) => request<{ skill_snapshot: { prompt: string; negative_prompt?: string; model: string; ratio: string }; parent_work_id: string; title: string }>('POST', `/api/v1/works/${id}/fork`, {}),
   withdrawWork: (id: string) => request<{ ok: boolean }>('POST', `/api/v1/works/${id}/withdraw`, {}),
+  republishWork: (id: string) => request<{ ok: boolean; status: string }>('POST', `/api/v1/works/${id}/publish`, {}),
   deleteWork: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/works/${id}`),
   appealWork: (id: string) => request<{ ok: boolean; status: string }>('POST', `/api/v1/works/${id}/appeal`, {}),
   reportWork: (id: string, reason: string) => request<{ ok: boolean }>('POST', `/api/v1/works/${id}/report`, { reason }),

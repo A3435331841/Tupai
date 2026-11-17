@@ -41,6 +41,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<'new' | 'hot'>('new');
   const [profile, setProfile] = useState<{ authorId: string; name: string; works: WorkMeta[] } | null>(null);
+  const [myKey, setMyKey] = useState<string | null>(null);
   const [active, setActive] = useState<WorkMeta | null>(null);
   const [comments, setComments] = useState<{ id: string; body: string; author_id: string }[]>([]);
   const [commentText, setCommentText] = useState('');
@@ -64,6 +65,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   async function openWork(w: WorkMeta) {
     setActive(w);
     try { const r = await api.comments(w.id); setComments(r.comments); } catch { setComments([]); }
+    api.me().then((m) => setMyKey(m.owner_key)).catch(() => setMyKey(null));
   }
   async function doLike(w: WorkMeta) {
     try { const r = await api.like(w.id); toast.success(r.liked ? '已点赞' : '已取消点赞'); void loadFeed(); }
@@ -84,9 +86,10 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     try { await api.reportWork(w.id, reason); toast.success('已举报，感谢反馈'); }
     catch (e) { toast.error('举报失败'); }
   }
-  async function ownerAction(w: WorkMeta, action: 'withdraw' | 'delete' | 'appeal') {
+  async function ownerAction(w: WorkMeta, action: 'withdraw' | 'republish' | 'delete' | 'appeal') {
     try {
       if (action === 'withdraw') { await api.withdrawWork(w.id); toast.success('已撤回，停止新 fork'); }
+      if (action === 'republish') { await api.republishWork(w.id); toast.success('已重新发布'); }
       if (action === 'delete') { if (!window.confirm('删除作品？')) return; await api.deleteWork(w.id); toast.success('已删除'); }
       if (action === 'appeal') { await api.appealWork(w.id); toast.success('申诉通过，已恢复'); }
       setActive(null); void loadFeed(); if (tab === 'mine') api.myWorks().then((r) => setMine(r.works)).catch(() => {});
@@ -181,6 +184,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                   <Badge variant={w.status === 'published' ? 'secondary' : 'outline'} className="mt-1 text-[10px]">{{ published: '已发布', withdrawn: '已撤回', removed: '已下架', pending: '审核中' }[w.status] || w.status}</Badge>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {w.status === 'published' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(w, 'withdraw')}>撤回</Button>}
+                    {w.status === 'withdrawn' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(w, 'republish')}>重新发布</Button>}
                     {w.status === 'removed' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(w, 'appeal')}>申诉</Button>}
                     <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => void ownerAction(w, 'delete')}>删除</Button>
                   </div>
@@ -209,6 +213,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                   {active.is_owner && (
                     <div className="flex flex-wrap gap-1 border-t border-border pt-2">
                       {active.status === 'published' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(active, 'withdraw')}>撤回</Button>}
+                      {active.status === 'withdrawn' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(active, 'republish')}>重新发布</Button>}
                       {active.status === 'removed' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(active, 'appeal')}>申诉</Button>}
                       <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => void ownerAction(active, 'delete')}>删除</Button>
                     </div>
@@ -225,7 +230,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                   {comments.map((c) => (
                     <div key={c.id} className="flex items-start gap-2 text-sm">
                       <p className="flex-1">{c.body}</p>
-                      <button className="text-[11px] text-muted-foreground hover:text-destructive" onClick={() => void delComment(c.id)}>删除</button>
+                      {(active.is_owner || c.author_id === myKey) && <button className="text-[11px] text-muted-foreground hover:text-destructive" onClick={() => void delComment(c.id)}>{active.is_owner && c.author_id !== myKey ? '隐藏' : '删除'}</button>}
                     </div>
                   ))}
                   {comments.length === 0 && <p className="text-xs text-muted-foreground">还没有评论。</p>}
