@@ -20,7 +20,8 @@ export function fakeDb() {
         const rowsIn = Array.isArray(row) ? row : [row];
         const inserted = rowsIn.map((r) => ({ created_at: new Date().toISOString(), ...r }));
         table(name).push(...inserted);
-        return Promise.resolve({ data: inserted, error: null });
+        const result = { data: inserted, error: null };
+        return { select() { return Promise.resolve(result); }, then(resolve) { resolve(result); } };
       },
       insertIfAbsent(row, opts) {
         const key = opts?.onConflict || 'id';

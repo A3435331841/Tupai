@@ -670,7 +670,7 @@ export function application({ db, storage, env, fetchImpl }) {
       const r = await db.from('albums').insert({
         id, owner_session: sid, title, cover_asset_id: ids[0], item_ids: ids,
         template_id: '3d-book', visibility: 'private', render_status: 'ready',
-      });
+      }).select();
       if (r.error) fail('internal', 503, '创建画册失败，请稍后重试');
       return Response.json({ album: albumMeta(r.data[0]) }, { status: 201 });
     }
