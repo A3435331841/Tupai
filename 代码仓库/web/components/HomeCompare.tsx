@@ -104,12 +104,6 @@ export function HomeCompare({ before, after, initial = 52 }: HomeCompareProps) {
             className="pointer-events-none absolute inset-y-0 z-20 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-[#fff5e6] to-transparent"
             style={{ left: position }}
           />
-          <div className="pointer-events-none absolute top-1/2 z-30 -translate-x-1/2 -translate-y-1/2" style={{ left: position }}>
-            <span className={`grid size-11 place-items-center rounded-full border-2 border-white/90 bg-[#c0562f]/90 text-white shadow-[0_0_24px_rgba(192,86,47,.7)] backdrop-blur transition-transform duration-300 ${dragging ? 'scale-110' : 'scale-100'}`}>
-              <Sparkles className="size-4" />
-            </span>
-          </div>
-
           <span className="pointer-events-none absolute right-2.5 top-2.5 z-10 rounded-sm bg-white/82 px-2 py-1 text-[9px] font-semibold tracking-[0.08em] text-stone-700 backdrop-blur-sm">AI 示意图</span>
 
           <input
@@ -121,6 +115,17 @@ export function HomeCompare({ before, after, initial = 52 }: HomeCompareProps) {
             aria-label="拖动对比原图与作品"
             className="absolute inset-0 z-40 size-full cursor-inherit opacity-0"
           />
+        </div>
+
+        {/* 圆形把手：放在 overflow-hidden 图片层之外，避免拖到两端被裁切；
+            用相框 padding(10px) 作为可移动区间的边界，保证完整浮在图上、不被裁掉 */}
+        <div
+          className="pointer-events-none absolute top-1/2 z-30 -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `calc(10px + (100% - 20px) * ${progress / 100})` }}
+        >
+          <span className={`grid size-11 place-items-center rounded-full border-2 border-white/90 bg-[#c0562f]/90 text-white shadow-[0_0_24px_rgba(192,86,47,.7)] backdrop-blur transition-transform duration-300 ${dragging ? 'scale-110' : 'scale-100'}`}>
+            <Sparkles className="size-4" />
+          </span>
         </div>
 
         {/* 相纸 proof：位置保持用户确认版，交互时淡出 */}

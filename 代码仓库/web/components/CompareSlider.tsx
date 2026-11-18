@@ -48,9 +48,10 @@ export function CompareSlider({
       </span>
 
       <div className="pointer-events-none absolute inset-y-0 z-20 w-px -translate-x-1/2 bg-white/95 shadow-[0_0_18px_rgba(0,0,0,.28)]" style={{ left: `${pos}%` }} />
+      {/* 把手用 clamp 约束在框内，避免拖到两端被 overflow-hidden 裁掉一半 */}
       <div
         className="pointer-events-none absolute top-1/2 z-20 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/80 bg-white text-stone-800 shadow-[0_8px_24px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:scale-105 sm:size-12"
-        style={{ left: `${pos}%` }}
+        style={{ left: `clamp(1.5rem, ${pos}%, calc(100% - 1.5rem))` }}
       >
         <MoveHorizontal className="size-5" aria-hidden="true" />
       </div>
