@@ -5,51 +5,26 @@ import Studio from '@/pages/Studio';
 import Legal from '@/pages/Legal';
 import Library from '@/pages/Library';
 import Community from '@/pages/Community';
-import { AuthChip } from '@/components/AuthChip';
+import SiteHeader from '@/components/SiteHeader';
+import LegacyHeader from '@/components/LegacyHeader';
 
 export default function App() {
   const [path, navigate] = useRoute();
-  const navItems = [
-    ['/', '首页'],
-    ['/studio', '创作台'],
-    ['/library', '资产库'],
-    ['/community', '社区'],
-  ] as const;
+  const isHome = path === '/';
 
   return (
-    <div className="flex min-h-dvh w-full min-w-0 flex-col">
-      <header className="site-header sticky top-0 z-40 border-b border-border/70">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 md:grid md:h-16 md:grid-cols-[1fr_auto_1fr] md:flex-nowrap md:py-0">
-          <button onClick={() => navigate('/')} className="flex shrink-0 items-center" aria-label="图派首页">
-            <img src="/brand/logo-horizontal.svg" alt="图派 TuPai" className="h-9 w-auto sm:h-10" />
-          </button>
-          <nav className="order-3 flex w-full min-w-0 items-center gap-1 overflow-x-auto scrollbar-none md:order-none md:w-auto md:justify-center" aria-label="主导航">
-            {navItems.map(([route, label]) => (
-              <button
-                key={route}
-                type="button"
-                aria-current={path === route ? 'page' : undefined}
-                onClick={() => navigate(route)}
-                className={
-                  'relative px-3 py-2 text-sm transition-colors ' +
-                  (path === route
-                    ? 'font-semibold text-foreground after:absolute after:inset-x-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-primary'
-                    : 'text-muted-foreground hover:text-foreground')
-                }
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center justify-end gap-2 md:ml-0">
-            <AuthChip />
-          </div>
-        </div>
-      </header>
-      <main className="w-full min-w-0 flex-1">
+    <div className={`flex w-full min-w-0 flex-col ${isHome ? 'h-dvh overflow-hidden' : 'min-h-dvh'}`}>
+      {path === '/legal' ? (
+        // 隐私页沿用旧的简易 header，避免法规说明页承载搜索/通知等主站功能
+        <LegacyHeader path={path} navigate={navigate} />
+      ) : (
+        // 首页 / 创作台 / 资产库 / 社区：统一使用主站顶部栏，选中态按 path 自动高亮
+        <SiteHeader path={path} navigate={navigate} />
+      )}
+      <main className={`w-full min-w-0 flex-1 ${isHome ? 'home-snap-scroll min-h-0 overflow-y-auto overscroll-contain' : ''}`}>
         {path === '/studio' ? <Studio navigate={navigate} /> : path === '/library' ? <Library navigate={navigate} /> : path === '/community' ? <Community navigate={navigate} /> : path === '/legal' ? <Legal /> : <Home navigate={navigate} />}
       </main>
-      <footer className="site-footer border-t border-border/70 py-6 text-center text-xs text-muted-foreground">
+      <footer className={`site-footer shrink-0 border-t border-border/70 text-center text-xs text-muted-foreground ${isHome ? 'hidden' : 'py-6'}`}>
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4">
           <img src="/brand/logo-icon.svg" alt="" aria-hidden="true" className="size-5" />
           <span>图派 TuPai · 2026 Qoder 创造大赛 LifeHack 作品</span>
