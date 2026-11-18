@@ -12,7 +12,7 @@
 LifeHack·图派/                    # 仓库根（git 根在此，不在 代码仓库/）
 ├─ AGENTS.md                      # 本文件：唯一协作规则
 ├─ README.md                      # 概览 / 快速开始 / 文档索引 / 当前状态
-├─ docs/                          # 项目文档 01–10
+├─ docs/                          # 项目文档 01–11
 ├─ 资产仓库/                       # ★ 唯一资产源（source of truth）
 │  ├─ 总索引.md                   # 人类可读总索引
 │  ├─ brand/{logo,explorations,品牌规范.md}
@@ -27,12 +27,13 @@ LifeHack·图派/                    # 仓库根（git 根在此，不在 代码
 │  ├─ web/                        # React 前端；web/public/ 是运行时派生副本
 │  ├─ server/                     # Deno 云函数
 │  ├─ api/                        # openapi / schema / contract-test
+│  ├─ dev/                        # 本地 fake、回归与仓库范围检查
 │  └─ .图派.qoder.site            # 发布元数据（真实 ID，勿编造）
 ├─ 早期规划/                       # 历史资料，只读
 └─ .workbuddy/                    # 本地工具状态，不提交
 ```
 
-**必读顺序**：`AGENTS.md` → `README.md` → `docs/01` → `docs/02` → `docs/04` → `docs/05` → `docs/06` → `docs/07` → `docs/09` → `docs/10`
+**必读顺序**：`AGENTS.md` → `README.md` → `docs/01` → `docs/02` → `docs/04` → `docs/05` → `docs/06` → `docs/07` → `docs/09` → `docs/10` → `docs/11`
 
 ---
 
@@ -132,6 +133,7 @@ npm run build            # tsc --noEmit + vite build，必须通过
 cd ..
 node api/contract-test.mjs   # 一期契约测试，必须全绿
 node api/contract-test-extended.mjs   # 二三期契约测试（本地身份夹具），必须全绿
+node dev/repo-scope-check.mjs   # 提交范围与边界检查（禁止路径/未知顶层/超大文件/重复图片）
 ```
 
 按改动范围追加：
@@ -152,6 +154,7 @@ node api/contract-test-extended.mjs   # 二三期契约测试（本地身份夹�
 - 提交前检查 `git diff --cached --stat`。
 - **不覆盖、不强推、不重写已推送历史**；远端前进时先拉取人工解决冲突。
 - 所有批次完成后 `git status --short` 必须干净。
+- GitHub 上传范围与边界见 [`docs/11-提交范围与边界.md`](docs/11-提交范围与边界.md)；每批提交前跑 `node dev/repo-scope-check.mjs`。
 
 ### 8.2 建议批次
 1. `docs(agents): establish project-level AI collaboration rules`
