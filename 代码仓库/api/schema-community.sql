@@ -1,5 +1,6 @@
 -- 图派 TuPai · 社区/画册数据层补齐
 -- 配套 api/schema.sql 使用。api/schema.sql 已定义 assets/templates/skills/jobs/key_state 5 表；
+-- assets 的 tags/source/deleted_at 扩展列见 api/schema-migrations.sql。
 -- 本文件补齐 server/routes.mjs 实际使用、但缺失 DDL 的 9 张表。
 -- 字段严格按 routes.mjs 的 insert/update 反推，不臆造。
 -- 全部使用 IF NOT EXISTS，可安全重复执行，不影响线上已有表。

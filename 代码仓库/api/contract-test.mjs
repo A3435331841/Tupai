@@ -1,4 +1,5 @@
-// 图派契约测试：按 api/openapi.yaml 断言 12 端点结构与枚举。
+// 图派契约测试（一期）：按 api/openapi.yaml 断言一期端点结构与枚举。
+// 二三期端点由 api/contract-test-extended.mjs（本地身份夹具）覆盖。
 // 用法: node api/contract-test.mjs [baseUrl]
 // 默认打本地 Deno: http://127.0.0.1:8000/functions/v1/app
 import { randomUUID } from 'node:crypto';
@@ -173,7 +174,7 @@ async function main() {
     check('import 非法 422', bad.status === 422 && bad.json?.error?.code === 'invalid_input', `got ${bad.status}`);
   }
 
-  // 12. POST /links/parse（一期未开放 → 422 parse_failed）
+  // 12. POST /links/parse（非法/不可解析 → 422 parse_failed 降级）
   {
     const r = await req('POST', '/links/parse', { body: { url: 'https://v.douyin.com/example/' } });
     check('links/parse 422', r.status === 422 && r.json?.error?.code === 'parse_failed', `got ${r.status}`);

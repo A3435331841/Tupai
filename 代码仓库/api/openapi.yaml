@@ -1,12 +1,14 @@
 openapi: 3.1.0
 info:
   title: 图派 TuPai API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     前后端分离的唯一通信契约（文档摘要见 docs/07-接口契约.md）。
     冻结规则：v1 只增不改不删；破坏性变更升 /api/v2。
     游客身份：前端生成 UUID 存 localStorage，每请求带 X-Session-Id 头。
+    登录态：Qoder 平台网关注入 x-qoder-user-context（浏览器不可伪造）；需登录端点会返回 401 login_required。
     所有结果图 URL 均为本站转存后的 URL，不暴露第三方 COS 直链。
+    2026-11-18 v1.1：补齐二期资产库/画册/分享与三期社区/任务/通知/账号全部已实现端点。
 servers:
   - url: /api/v1
   - url: /functions/v1/app/api/v1
@@ -20,9 +22,45 @@ tags:
   - name: jobs
   - name: skills
   - name: links
+  - name: account
+  - name: albums
+  - name: share
+  - name: community
+  - name: tasks
+  - name: notifications
 
 paths:
   /assets:
+    get:
+      tags: [assets]
+      operationId: listAssets
+      summary: 当前所有者资产列表（筛选/分页/回收站）
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, enum: [original, result, reference] }
+        - name: q
+          in: query
+          schema: { type: string, description: 匹配 source / tags / kind }
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: include_deleted
+          in: query
+          schema: { type: string, enum: ["1"] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 60, default: 24 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: 资产分页
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssetList" }
+        "400": { $ref: "#/components/responses/BadInput" }
     post:
       tags: [assets]
       operationId: uploadAsset
@@ -305,6 +343,754 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorEnvelope" }
 
+  /health:
+    get:
+      tags: [catalog]
+      operationId: health
+      summary: 健康检查与 Key 配置状态（无需会话）
+      security: []
+      responses:
+        "200":
+          description: 服务状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /templates/{id}/cover:
+    get:
+      tags: [catalog]
+      operationId: getTemplateCover
+      summary: 模板封面图（懒生成；限流时返回 SVG 占位）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 封面图字节
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: 当前登录态（游客也可调用，logged_in=false）
+      responses:
+        "200":
+          description: 登录态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      tags: [account]
+      operationId: deleteMe
+      summary: 注销并真删当前所有者的作品/资产/画册/配方等内容
+      responses:
+        "200":
+          description: 已注销
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Deleted" }
+
+  /auth/bind:
+    post:
+      tags: [account]
+      operationId: bindGuestData
+      summary: 将游客会话数据迁移到当前登录用户
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      responses:
+        "200":
+          description: 迁移结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BindResult" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+
+  /assets/{id}:
+    get:
+      tags: [assets]
+      operationId: getAssetMeta
+      summary: 资产元数据（仅所有者）
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: 资产元数据
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [asset]
+                properties:
+                  asset: { $ref: "#/components/schemas/AssetMeta" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [assets]
+      operationId: updateAssetTags
+      summary: 更新资产标签（最多 12 个，每个 ≤40 字）
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssetTagsPatch" }
+      responses:
+        "200":
+          description: 更新后的资产元数据
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [asset]
+                properties:
+                  asset: { $ref: "#/components/schemas/AssetMeta" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [assets]
+      operationId: deleteAsset
+      summary: 软删资产入回收站
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: 已软删
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeletedAt" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /assets/{id}/restore:
+    post:
+      tags: [assets]
+      operationId: restoreAsset
+      summary: 从回收站恢复资产
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: 恢复后的资产元数据
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [asset]
+                properties:
+                  asset: { $ref: "#/components/schemas/AssetMeta" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /albums:
+    get:
+      tags: [albums]
+      operationId: listAlbums
+      summary: 当前所有者的画册列表
+      responses:
+        "200":
+          description: 画册列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlbumList" }
+    post:
+      tags: [albums]
+      operationId: createAlbum
+      summary: 创建画册（只收 result 资产）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlbumCreate" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [album]
+                properties:
+                  album: { $ref: "#/components/schemas/AlbumMeta" }
+        "400": { $ref: "#/components/responses/BadInput" }
+
+  /albums/{id}:
+    get:
+      tags: [albums]
+      operationId: getAlbum
+      summary: 画册详情（仅所有者）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 画册
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [album]
+                properties:
+                  album: { $ref: "#/components/schemas/AlbumMeta" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [albums]
+      operationId: updateAlbum
+      summary: 更新画册标题/作品集
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlbumPatch" }
+      responses:
+        "200":
+          description: 更新后的画册
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [album]
+                properties:
+                  album: { $ref: "#/components/schemas/AlbumMeta" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [albums]
+      operationId: deleteAlbum
+      summary: 删除画册
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 已删除
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /albums/{id}/share:
+    post:
+      tags: [albums]
+      operationId: shareAlbum
+      summary: 生成只读分享链接（默认 7 天，可设 1–720 小时）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_hours: { type: integer, minimum: 1, maximum: 720, default: 168 }
+      responses:
+        "200":
+          description: 分享信息
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlbumShare" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [albums]
+      operationId: revokeAlbumShare
+      summary: 撤回分享（停止新访问）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 已撤回
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /share/{token}:
+    get:
+      tags: [share]
+      operationId: getShareView
+      summary: 只读分享视图（无需登录）
+      parameters:
+        - $ref: "#/components/parameters/Token"
+      responses:
+        "200":
+          description: 分享内容
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShareView" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /share/{token}/img/{assetId}:
+    get:
+      tags: [share]
+      operationId: getShareImage
+      summary: 分享作品图（只读、仅 result 资产）
+      parameters:
+        - $ref: "#/components/parameters/Token"
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 图片字节
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /share/{token}/page:
+    get:
+      tags: [share]
+      operationId: getSharePage
+      summary: 自包含只读翻页画册页（HTML）
+      parameters:
+        - $ref: "#/components/parameters/Token"
+      responses:
+        "200":
+          description: HTML 页面
+          content:
+            text/html:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /works:
+    post:
+      tags: [community]
+      operationId: publishWork
+      summary: 发布作品（登录必需；审核 gate；默认允许 fork）
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkCreate" }
+      responses:
+        "201":
+          description: 已发布
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [work]
+                properties:
+                  work: { $ref: "#/components/schemas/WorkMeta" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/BadInput" }
+
+  /feed:
+    get:
+      tags: [community]
+      operationId: getFeed
+      summary: 发现页（标签/搜索/最新或热门）
+      parameters:
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [new, hot], default: new }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 48, default: 24 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: 作品分页
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkList" }
+
+  /works/{id}:
+    get:
+      tags: [community]
+      operationId: getWork
+      summary: 作品页（含配方/lineage/计数；未公开仅作者可见）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 作品
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [work]
+                properties:
+                  work: { $ref: "#/components/schemas/WorkMeta" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [community]
+      operationId: deleteWork
+      summary: 删除作品（标记 removed；子 fork 上游链接清空）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 已删除
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /works/{id}/img:
+    get:
+      tags: [community]
+      operationId: getWorkImage
+      summary: 作品结果图（未公开仅作者可见）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 图片字节
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /works/{id}/fork:
+    post:
+      tags: [community]
+      operationId: forkWork
+      summary: 取 fork 配方（不携带他人底图）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 配方与 lineage
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkFork" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /works/{id}/withdraw:
+    post:
+      tags: [community]
+      operationId: withdrawWork
+      summary: 撤回作品（停止新 fork；已有 fork 保留并标注来源）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 已撤回
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkStatus" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /works/{id}/publish:
+    post:
+      tags: [community]
+      operationId: republishWork
+      summary: 重新发布已撤回作品（重新过审）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 已发布
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkStatus" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/BadInput" }
+
+  /works/{id}/report:
+    post:
+      tags: [community]
+      operationId: reportWork
+      summary: 举报作品；同一举报人只计一次，累计 3 次自动下架
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 300 }
+      responses:
+        "200":
+          description: 举报已记录（already=true 表示重复举报）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  already: { type: boolean }
+        "400": { $ref: "#/components/responses/BadInput" }
+
+  /works/{id}/appeal:
+    post:
+      tags: [community]
+      operationId: appealWork
+      summary: 被下架作品申诉（重新审核）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 申诉通过，已恢复
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkStatus" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/BadInput" }
+
+  /works/{id}/comments:
+    get:
+      tags: [community]
+      operationId: listComments
+      summary: 评论列表（隐藏评论不返回）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 评论列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentList" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [community]
+      operationId: addComment
+      summary: 发表评论（登录必需；每小时最多 20 条）
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentCreate" }
+      responses:
+        "201":
+          description: 已发表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [comment]
+                properties:
+                  comment: { $ref: "#/components/schemas/Comment" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+        "422": { $ref: "#/components/responses/BadInput" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+
+  /comments/{id}:
+    delete:
+      tags: [community]
+      operationId: deleteComment
+      summary: 删除评论（本人真删）或作者隐藏（作品作者）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 已删除或隐藏
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  hidden: { type: boolean }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /works/{id}/like:
+    post:
+      tags: [community]
+      operationId: toggleLike
+      summary: 点赞/取消点赞（登录必需）
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 当前点赞状态
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [liked]
+                properties:
+                  liked: { type: boolean }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /users/{id}/works:
+    get:
+      tags: [community]
+      operationId: getUserWorks
+      summary: 作者公开作品列表
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 作品列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkList" }
+
+  /me/works:
+    get:
+      tags: [community]
+      operationId: getMyWorks
+      summary: 我的全部作品（含未公开）
+      responses:
+        "200":
+          description: 作品列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkList" }
+
+  /me/export:
+    get:
+      tags: [account]
+      operationId: exportMe
+      summary: 导出当前所有者的作品/配方/画册
+      responses:
+        "200":
+          description: 导出包
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportBundle" }
+
+  /tasks:
+    get:
+      tags: [tasks]
+      operationId: listTasks
+      summary: 进行中的共创任务
+      responses:
+        "200":
+          description: 任务列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskList" }
+    post:
+      tags: [tasks]
+      operationId: createTask
+      summary: 发起共创任务（登录必需；每天最多 5 个）
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskCreate" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [task]
+                properties:
+                  task: { $ref: "#/components/schemas/TaskMeta" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+
+  /tasks/{id}:
+    get:
+      tags: [tasks]
+      operationId: getTask
+      summary: 任务详情与提交作品
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 任务与作品
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /tasks/{id}/submissions:
+    post:
+      tags: [tasks]
+      operationId: submitTaskWork
+      summary: 提交自己的已发布作品（登录必需）
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [work_id]
+              properties:
+                work_id: { type: string }
+      responses:
+        "201":
+          description: 已提交（already=true 表示已提交过）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  already: { type: boolean }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /notifications:
+    get:
+      tags: [notifications]
+      operationId: listNotifications
+      summary: 当前所有者的通知（最新 50 条）
+      responses:
+        "200":
+          description: 通知列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationList" }
+
+  /notifications/{id}/read:
+    post:
+      tags: [notifications]
+      operationId: readNotification
+      summary: 标记通知已读
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 已读
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     SessionId:
@@ -312,6 +1098,11 @@ components:
       in: header
       name: X-Session-Id
       description: 游客会话 UUID（localStorage 持久）
+    QoderUserContext:
+      type: apiKey
+      in: header
+      name: x-qoder-user-context
+      description: Qoder 平台网关注入的已验证用户上下文（base64url JSON）；浏览器不可伪造，本地测试用身份夹具模拟。
 
   parameters:
     AssetId:
@@ -324,6 +1115,16 @@ components:
       in: path
       required: true
       schema: { type: string }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, description: 资源 ID（a_/al_/wk_/cm_/tk_/nt_ 前缀 + 24 位 hex） }
+    Token:
+      name: token
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[0-9a-f]{32}$" }
 
   responses:
     BadInput:
@@ -343,6 +1144,16 @@ components:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     QuotaExceeded:
       description: 游客配额用尽（quota_exceeded）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    LoginRequired:
+      description: 需要登录（login_required）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Forbidden:
+      description: 无权限或作者已关闭 fork（invalid_input / 403）
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
@@ -586,3 +1397,328 @@ components:
             properties:
               temp_url: { type: string }
               expires_at: { type: string }
+
+    Health:
+      type: object
+      required: [ok, service, keys_configured]
+      properties:
+        ok: { type: boolean }
+        service: { type: string }
+        keys_configured: { type: boolean, description: 云函数是否配置了 Agnes Key }
+
+    Me:
+      type: object
+      required: [logged_in]
+      properties:
+        logged_in: { type: boolean }
+        user:
+          oneOf:
+            - type: object
+              required: [user_id, name, picture]
+              properties:
+                user_id: { type: string }
+                name: { type: string }
+                picture: { type: string }
+            - type: "null"
+        owner_key:
+          type: [string, "null"]
+          description: 当前归属键（u:<user_id> 或游客 session）
+
+    BindResult:
+      type: object
+      required: [migrated, owner_key]
+      properties:
+        migrated: { type: integer, description: 迁移的记录数（assets/skills/jobs/albums） }
+        owner_key: { type: string }
+
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+
+    Deleted:
+      type: object
+      required: [ok, deleted]
+      properties:
+        ok: { type: boolean }
+        deleted: { type: boolean }
+
+    DeletedAt:
+      type: object
+      required: [ok, deleted_at]
+      properties:
+        ok: { type: boolean }
+        deleted_at: { type: string, format: date-time }
+
+    AssetMeta:
+      type: object
+      required: [id, kind, visibility, width, height, content_type, bytes, created_at, tags, content_url]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [original, result, reference] }
+        visibility: { type: string, enum: [private, public] }
+        width: { type: integer }
+        height: { type: integer }
+        content_type: { type: string }
+        bytes: { type: integer }
+        created_at: { type: string, format: date-time }
+        tags:
+          type: array
+          items: { type: string }
+        source: { type: [string, "null"] }
+        deleted_at: { type: [string, "null"], format: date-time }
+        content_url: { type: string }
+
+    AssetList:
+      type: object
+      required: [assets, total, next_offset]
+      properties:
+        assets:
+          type: array
+          items: { $ref: "#/components/schemas/AssetMeta" }
+        total: { type: integer }
+        next_offset: { type: [integer, "null"] }
+
+    AssetTagsPatch:
+      type: object
+      required: [tags]
+      properties:
+        tags:
+          type: array
+          maxItems: 12
+          items: { type: string, maxLength: 40 }
+
+    AlbumMeta:
+      type: object
+      required: [id, title, item_ids, template_id, visibility, render_status, created_at]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        cover_asset_id: { type: [string, "null"] }
+        item_ids:
+          type: array
+          items: { type: string }
+        template_id: { type: string, description: 当前固定 3d-book }
+        visibility: { type: string, enum: [private, unlisted] }
+        render_status: { type: string }
+        share_token: { type: [string, "null"] }
+        share_expires_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+
+    AlbumList:
+      type: object
+      required: [albums]
+      properties:
+        albums:
+          type: array
+          items: { $ref: "#/components/schemas/AlbumMeta" }
+
+    AlbumCreate:
+      type: object
+      required: [title, item_ids]
+      properties:
+        title: { type: string, maxLength: 100 }
+        item_ids:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { type: string, description: 只接受 result 资产 }
+
+    AlbumPatch:
+      type: object
+      properties:
+        title: { type: string, maxLength: 100 }
+        item_ids:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { type: string }
+
+    AlbumShare:
+      type: object
+      required: [share_token, share_page, expires_at]
+      properties:
+        share_token: { type: string }
+        share_page: { type: string, description: "/api/v1/share/{token}/page" }
+        expires_at: { type: string, format: date-time }
+
+    ShareView:
+      type: object
+      required: [title, images]
+      properties:
+        title: { type: string }
+        created_at: { type: string, format: date-time }
+        images:
+          type: array
+          items: { type: string, description: "/api/v1/share/{token}/img/{assetId}" }
+
+    WorkSkillSnapshot:
+      type: object
+      required: [prompt, model, ratio]
+      properties:
+        prompt: { type: string, maxLength: 4000 }
+        negative_prompt: { type: [string, "null"] }
+        model: { type: string }
+        ratio: { type: string }
+
+    WorkCreate:
+      type: object
+      required: [result_asset_id, title, skill_snapshot]
+      properties:
+        result_asset_id: { type: string, description: 仅接受 result 资产 }
+        title: { type: string, maxLength: 100 }
+        tags:
+          type: array
+          maxItems: 12
+          items: { type: string }
+        allow_fork: { type: boolean, default: true }
+        parent_work_id: { type: string, description: fork 来源作品 }
+        skill_snapshot: { $ref: "#/components/schemas/WorkSkillSnapshot" }
+
+    WorkMeta:
+      type: object
+      required: [id, title, tags, status, allow_fork, depth, author_id, result_asset_id, image_url, created_at]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [pending, published, withdrawn, removed] }
+        allow_fork: { type: boolean }
+        parent_work_id: { type: [string, "null"] }
+        parent_skill_id: { type: [string, "null"] }
+        depth: { type: integer }
+        author_credit: { type: [string, "null"] }
+        author_id: { type: string }
+        result_asset_id: { type: string }
+        skill_snapshot:
+          oneOf:
+            - $ref: "#/components/schemas/WorkSkillSnapshot"
+            - type: "null"
+        image_url: { type: string }
+        created_at: { type: string, format: date-time }
+        like_count: { type: integer }
+        comment_count: { type: integer }
+        fork_count: { type: integer }
+        is_owner: { type: boolean }
+
+    WorkList:
+      type: object
+      required: [works]
+      properties:
+        works:
+          type: array
+          items: { $ref: "#/components/schemas/WorkMeta" }
+        total: { type: integer }
+        next_offset: { type: [integer, "null"] }
+
+    WorkFork:
+      type: object
+      required: [skill_snapshot, parent_work_id, parent_skill_id, depth, title]
+      properties:
+        skill_snapshot: { $ref: "#/components/schemas/WorkSkillSnapshot" }
+        parent_work_id: { type: string }
+        parent_skill_id: { type: string }
+        depth: { type: integer }
+        title: { type: string }
+
+    WorkStatus:
+      type: object
+      required: [ok, status]
+      properties:
+        ok: { type: boolean }
+        status: { type: string, enum: [published, withdrawn, removed] }
+
+    Comment:
+      type: object
+      required: [id, body, author_id, created_at]
+      properties:
+        id: { type: string }
+        body: { type: string }
+        author_id: { type: string }
+        created_at: { type: string, format: date-time }
+
+    CommentList:
+      type: object
+      required: [comments]
+      properties:
+        comments:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
+
+    CommentCreate:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, maxLength: 500 }
+
+    TaskMeta:
+      type: object
+      required: [id, theme, owner_id, created_at]
+      properties:
+        id: { type: string }
+        theme: { type: string }
+        constraints: { type: [string, "null"] }
+        status: { type: string, enum: [open, closed] }
+        owner_id: { type: string }
+        created_at: { type: string, format: date-time }
+
+    TaskList:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/TaskMeta" }
+
+    TaskCreate:
+      type: object
+      required: [theme]
+      properties:
+        theme: { type: string, maxLength: 100 }
+        constraints: { type: string, maxLength: 500 }
+
+    TaskDetail:
+      type: object
+      required: [task, works]
+      properties:
+        task: { $ref: "#/components/schemas/TaskMeta" }
+        works:
+          type: array
+          items: { $ref: "#/components/schemas/WorkMeta" }
+
+    NotificationMeta:
+      type: object
+      required: [id, kind, read, created_at]
+      properties:
+        id: { type: string }
+        kind: { type: string, description: fork/comment/like/submission/removed 等 }
+        work_id: { type: [string, "null"] }
+        body: { type: [string, "null"] }
+        read: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    NotificationList:
+      type: object
+      required: [notifications]
+      properties:
+        notifications:
+          type: array
+          items: { $ref: "#/components/schemas/NotificationMeta" }
+
+    ExportBundle:
+      type: object
+      required: [exported_at, works, skills, albums]
+      properties:
+        exported_at: { type: string, format: date-time }
+        works:
+          type: array
+          items: { $ref: "#/components/schemas/WorkMeta" }
+        skills:
+          type: array
+          items: { type: object }
+        albums:
+          type: array
+          items: { $ref: "#/components/schemas/AlbumMeta" }

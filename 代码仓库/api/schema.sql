@@ -8,9 +8,13 @@ CREATE TABLE app.assets (
   bytes integer NOT NULL,
   width integer NOT NULL,
   height integer NOT NULL,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  source text,
+  deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX assets_owner_idx ON app.assets (owner_session, created_at);
+CREATE INDEX assets_deleted_idx ON app.assets (deleted_at);
 CREATE TABLE app.templates (
   id text PRIMARY KEY,
   title text NOT NULL,
