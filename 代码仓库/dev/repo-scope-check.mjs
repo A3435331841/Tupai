@@ -110,7 +110,7 @@ function json(file) {
   try { return JSON.parse(blob(file).toString('utf8')); }
   catch (e) { errors.push(`无法读取暂存清单 ${file}: ${e.message}`); return null; }
 }
-const map = json('资产仓库/manifests/运行时映射.json');
+const map = json('资产仓库/90-元数据/运行时映射.json');
 if (map) {
   const seen = new Set();
   if (!Array.isArray(map.runtime) || map.count !== map.runtime.length) errors.push('运行时映射 count 与条目不一致');
@@ -128,7 +128,7 @@ if (map) {
     if (file.startsWith('代码仓库/web/public/') && !seen.has(file)) errors.push(`运行时资源缺少映射: ${file}`);
   }
 }
-const assets = json('资产仓库/manifests/资产清单.json');
+const assets = json('资产仓库/90-元数据/资产总清单.json');
 if (assets) {
   if (!Array.isArray(assets.assets) || assets.count !== assets.assets.length) errors.push('资产清单 count 与条目不一致');
   const registered = new Set();
