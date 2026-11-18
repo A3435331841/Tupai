@@ -1,0 +1,47 @@
+{
+  "generated_at": "2026-11-18",
+  "schema_version": "2.0",
+  "note": "资产总清单字段定义。中文为权威字段名，括号内为旧版英文等价字段。扩展字段用于新增属性过渡。",
+  "status_enum": ["draft", "review", "approved", "superseded", "discarded", "archived"],
+  "status_meaning": {
+    "draft": "草稿：探索中，未参与决策",
+    "review": "评审：已成形，待拍板",
+    "approved": "在用：当前采纳，单元内唯一（沿用旧 approved）",
+    "superseded": "历史：曾被采纳，被新版取代",
+    "discarded": "放弃：未选中或被否决",
+    "archived": "留档：过程证据（截图/裁切/重复副本），非设计决策"
+  },
+  "fields": {
+    "id": { "type": "string", "required": true, "desc": "稳定唯一标识，英文 slug；迁移中保持旧值不变" },
+    "名称": { "type": "string", "required": true, "desc": "中文可读名" },
+    "类型": { "type": "enum", "required": true, "values": ["品牌", "技能", "提示词", "图片", "页面设计", "模板"], "desc": "资产大类（旧 type）" },
+    "子类型": { "type": "string", "required": false, "desc": "如 标志、色彩、AI生成" },
+    "path": { "type": "string", "required": true, "desc": "相对仓库根的路径（迁移后已更新为中文目录）" },
+    "分区": { "type": "enum", "required": false, "values": ["在用", "草稿", "评审", "历史", "放弃", "留档", null], "desc": "物理状态分区目录名" },
+    "状态": { "type": "enum", "required": true, "values": ["draft", "review", "approved", "superseded", "discarded", "archived"], "desc": "六态生命周期状态（旧 status）" },
+    "版本": { "type": "string", "required": false, "desc": "vNN 或 null" },
+    "来源": { "type": "enum", "required": true, "values": ["ai-generated", "licensed", "original", "derived", "project-owned"], "desc": "来源（旧 origin）" },
+    "协议": { "type": "string", "required": false, "desc": "授权协议（旧 license）" },
+    "sha256": { "type": "string", "required": false, "desc": "文件哈希，去重与溯源" },
+    "bytes": { "type": "number", "required": false, "desc": "文件体积" },
+    "可见性": { "type": "enum", "required": true, "values": ["public", "private"], "desc": "可见性（旧 visibility）" },
+    "运行时路径": { "type": "string", "required": false, "desc": "web/public 下路径（旧 runtime_path）；保持英文" },
+    "被引用于": { "type": "array", "required": false, "desc": "使用方文件（旧 used_by）" },
+    "派生自": { "type": "string", "required": false, "desc": "源资产路径/id（旧 derivative_of）；派生图必填" },
+    "重复自": { "type": "string", "required": false, "desc": "完全同源副本的源（旧 duplicate_of）" },
+    "取代": { "type": "string", "required": false, "desc": "本版本取代的旧 id" },
+    "被取代于": { "type": "string", "required": false, "desc": "取代本版本的新 id" },
+    "标签": { "type": "object", "required": false, "desc": "六维受控标签，键见 标签词表.json" },
+    "决策": { "type": "object", "required": false, "desc": "{结果,日期,决策人,理由}；状态流转必填理由" },
+    "repository_scope": { "type": "enum", "required": false, "values": ["local-only"], "desc": "本地保留、公开克隆可缺少的条目" },
+    "扩展字段": { "type": "object", "required": false, "desc": "预留：新增属性先放这里，成熟后提升为正式字段" }
+  },
+  "图片附加字段": {
+    "尺寸": { "type": "string", "desc": "如 864x1152" },
+    "生成工具": { "type": "string", "desc": "如 agnes-image-2.5-flash" },
+    "提示词路径": { "type": "string", "desc": "对应提示词资产" },
+    "授权来源URL": { "type": "string", "desc": "授权图原始链接" },
+    "含AI标识": { "type": "boolean", "desc": "是否满足 AI 标识合规" },
+    "肖像风险": { "type": "enum", "values": ["无", "待核", "有"], "desc": "AI 人像需关注" }
+  }
+}

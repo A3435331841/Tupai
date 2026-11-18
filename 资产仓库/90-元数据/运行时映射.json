@@ -1,0 +1,163 @@
+{
+  "generated_at": "2026-11-18",
+  "count": 26,
+  "runtime": [
+    {
+      "runtime_path": "代码仓库/web/public/brand/logo-horizontal-dark.svg",
+      "source_path": "资产仓库/10-品牌资产/标志/在用/标志-横版-深色.svg",
+      "sha256": "d451be2e54196e65cfc749cd2f1fa541c4d916827c8ef9d8f687e1f2552ddd7c",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/brand/logo-horizontal.svg",
+      "source_path": "资产仓库/10-品牌资产/标志/在用/标志-横版.svg",
+      "sha256": "5ccb267d840f02a886e51b838e45cdc56f1f6549e9f8e5ee15016546536cdc24",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/brand/logo-icon.svg",
+      "source_path": "资产仓库/10-品牌资产/标志/在用/标志-图标.svg",
+      "sha256": "699b709d2f3520c34ec196f57e40f03a48bbd3f3dbdc373fb9b0404a4382f959",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/brand/logo-stacked.svg",
+      "source_path": "资产仓库/10-品牌资产/标志/在用/标志-竖版.svg",
+      "sha256": "dc751ae685dd0f46d433b4da75cca96ceecfc34858ed7a45a85679cf67f2314a",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g06-coffee.jpg",
+      "source_path": "资产仓库/40-图片资产/真实授权/咖啡午后.jpg",
+      "sha256": "b7a2965c23bdaf3c89583191b432f7db0c97b8fa56da609d5c4aa2f5bf3c3b53",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g07-food.jpg",
+      "source_path": "资产仓库/40-图片资产/真实授权/餐桌日记.jpg",
+      "sha256": "07a3fbe2c3a4763362608e61e6d68aa295e8e9b2415cb8121ebb1292e88f8ea0",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g09-street.jpg",
+      "source_path": "资产仓库/40-图片资产/真实授权/城市夜色.jpg",
+      "sha256": "3e55cf441a7c94e154508be5f86a3ba8ead06b5c181ee758ac066503e3390731",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g10-pet.jpg",
+      "source_path": "资产仓库/40-图片资产/真实授权/猫咪日常.jpg",
+      "sha256": "5580ae249fcc766ca711729385f77d597db403d02ae4c17b65a9e55ec3004e6d",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g12-beach.jpg",
+      "source_path": "资产仓库/40-图片资产/真实授权/海边黄昏.jpg",
+      "sha256": "951623035f514c612f61732454bbc90c1394d98fb4fb54fc1c0c5512969ed109",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g13-city.jpg",
+      "source_path": "资产仓库/40-图片资产/真实授权/都市天际.jpg",
+      "sha256": "a751f8b0a05a7284144471306ec5e0f8372b410a6bb6ead218c5e98e7d63f3d0",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g14-book.jpg",
+      "source_path": "资产仓库/40-图片资产/真实授权/旧书时光.jpg",
+      "sha256": "af25301a7c9efe6159f773652390382cee6e025b2868997456739ac293c72307",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g15-plant.jpg",
+      "source_path": "资产仓库/40-图片资产/真实授权/绿植静物.jpg",
+      "sha256": "4574795c2e3d375bc7ab1a79f1a5a084710de18a706ff8f7aac263637724e944",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g16-market.png",
+      "source_path": "资产仓库/40-图片资产/AI生成/在用/周末市集.png",
+      "sha256": "d018c7b18a461223617dae1a2a785712b9565ac5d67153707ca16f762b4be8cd",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g17-reading.png",
+      "source_path": "资产仓库/40-图片资产/AI生成/在用/窗边阅读.png",
+      "sha256": "882458079052cfa85dc6a51e2f0550647f816949c04af968fd97631fb8400974",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g18-bakery.png",
+      "source_path": "资产仓库/40-图片资产/AI生成/在用/暖光美食.png",
+      "sha256": "27419c5fdef6dcb74fcf975e0a7333e271610c8d880f9aee1452f5d379a09d99",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g19-street.png",
+      "source_path": "资产仓库/40-图片资产/AI生成/在用/黄昏街道.png",
+      "sha256": "b299fe4da3b0d5a209d87496115043726d356190325906ca03f39120e75fcccd",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g20-flowers.png",
+      "source_path": "资产仓库/40-图片资产/AI生成/在用/干花静物.png",
+      "sha256": "e9951cab76d4d449540b184460707874e13cb0f45f4b0615c8905f291be5d177",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g21-seaside.png",
+      "source_path": "资产仓库/40-图片资产/AI生成/在用/海边漫步.png",
+      "sha256": "b272c4d547490e99e1714b049dd1a18df089e94182a325f756b53938d1e22723",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/gallery/g22-cat.png",
+      "source_path": "资产仓库/40-图片资产/AI生成/在用/猫与午后.png",
+      "sha256": "8406d1c2e38a9f8d3598c02e49115d4070ce43036b3b512314398f7e2f6a2a8c",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/home/hero-street.webp",
+      "source_path": "资产仓库/40-图片资产/派生加工/首页主视觉.webp",
+      "sha256": "ef746b9afb2fdb1a610f9b3fcabed7a06b2b7328421a8a005f9f4a56fe8a4f3c",
+      "derived": true
+    },
+    {
+      "runtime_path": "代码仓库/web/public/samples/demo-night.jpg",
+      "source_path": "资产仓库/40-图片资产/派生加工/夜景演示原图.jpg",
+      "sha256": "277c6f1aa9191ef4ec560cfd3d3cb90ce60ccb1f13f647e17c48e77b459d6854",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/templates/clean-portrait.webp",
+      "source_path": "资产仓库/60-模板资产/clean-portrait/封面.webp",
+      "sha256": "04fbca0dd5399b8ec779bbcd086d9168cb38b91510be073e23313a9487465f42",
+      "derived": true
+    },
+    {
+      "runtime_path": "代码仓库/web/public/templates/film-daily.webp",
+      "source_path": "资产仓库/60-模板资产/film-daily/封面.webp",
+      "sha256": "0da7c671202fb033db4aa814820905ad5e74f455659a75acb215fbe63b7979c6",
+      "derived": true
+    },
+    {
+      "runtime_path": "代码仓库/web/public/templates/magazine-cover.webp",
+      "source_path": "资产仓库/60-模板资产/magazine-cover/封面.webp",
+      "sha256": "2561186f318faed63599edc8fd71784e50374f58140a97b131de643cbcaa6a86",
+      "derived": true
+    },
+    {
+      "runtime_path": "代码仓库/web/public/templates/night-bright.webp",
+      "source_path": "资产仓库/60-模板资产/night-bright/封面.webp",
+      "sha256": "85682b0a6b59ce6c09f19bf03b16deeed3f5f4136207f218f795371faf9aa585",
+      "derived": true
+    },
+    {
+      "runtime_path": "代码仓库/web/public/templates/travel-postcard.webp",
+      "source_path": "资产仓库/60-模板资产/travel-postcard/封面.webp",
+      "sha256": "57d381d6e661f6a7cf00c77a3c4f3985caddf17cd076201094eb14bc6fd8b1b1",
+      "derived": true
+    }
+  ],
+  "note": "2026-11-18 中文化迁移：source_path 已按新目录更新，runtime_path（web/public）保持英文不变。"
+}

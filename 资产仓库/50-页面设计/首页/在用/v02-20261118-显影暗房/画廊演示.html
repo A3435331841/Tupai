@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>图派 · 无限画廊（选中交互）</title>
+<style>
+:root{
+  --bg:#f7f1e7;--paper:#fffdf8;--ink:#241c16;--soft:#766b5e;
+  --accent:#bb5834;--glow:#e8a866;--line:#e5dbcd;
+  --font-serif:"Songti SC","STSong","Noto Serif SC","SimSun",serif;
+  --font-sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.wrap{width:min(1280px,94vw);margin:0 auto}
+.section{padding:56px 0 40px;position:relative;overflow:hidden}
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:6px;padding:0 6%}
+.head h2{font-family:var(--font-serif);font-size:clamp(24px,2.6vw,34px);margin:0;font-weight:700}
+.head .aside{font-size:11.5px;color:var(--soft)}
+
+.rail{position:relative;width:100vw;margin-left:calc(50% - 50vw);
+  height:clamp(430px,52vw,600px);perspective:1400px;overflow:hidden;outline:none}
+.rail::before{content:"";position:absolute;inset:0;z-index:0;
+  background:radial-gradient(ellipse 60% 70% at 50% 50%,rgba(232,168,102,.10),transparent 70%);pointer-events:none}
+.rail::after{content:"";position:absolute;left:50%;top:8%;bottom:8%;width:1px;
+  background:linear-gradient(180deg,transparent,rgba(187,88,52,.18),transparent);pointer-events:none;z-index:1}
+/* 选中态背景压暗层：盖住普通卡(z≤100)，选中卡在其上(z=200) */
+.veil{position:absolute;inset:0;z-index:150;
+  background:radial-gradient(ellipse 75% 85% at 50% 50%,rgba(28,25,23,.42),rgba(28,25,23,.18) 70%,transparent 100%);
+  opacity:0;transition:opacity .35s;pointer-events:none}
+.rail.has-selected .veil{opacity:1}
+
+.item{position:absolute;top:50%;left:50%;width:clamp(150px,15vw,210px);aspect-ratio:3/4;
+  margin:0;border-radius:6px;overflow:hidden;will-change:transform,filter,opacity;
+  transform-style:preserve-3d;background:#ddd;box-shadow:0 20px 50px -24px rgba(40,25,15,.5);
+  cursor:pointer;transition:box-shadow .25s}
+.item.is-selected{box-shadow:0 0 0 2px var(--accent),0 34px 76px -18px rgba(40,25,15,.72)!important;z-index:200!important}
+.item img{width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
+.item .shade{position:absolute;inset:0;background:#1c1917;opacity:0;pointer-events:none}
+.item .ai{position:absolute;left:8px;top:8px;font-size:9px;font-weight:700;letter-spacing:.05em;
+  background:rgba(255,253,248,.9);color:#241c16;padding:3px 7px;border-radius:3px;opacity:.9;z-index:2}
+.item .cap{position:absolute;left:0;right:0;bottom:0;padding:26px 12px 11px;
+  background:linear-gradient(180deg,transparent,rgba(20,16,12,.78));color:#fff;
+  font-size:12px;font-weight:600;letter-spacing:.03em;text-align:center;pointer-events:none}
+.item.is-selected .cap{opacity:0!important}
+/* 选中信息层 */
+.item .info{position:absolute;left:0;right:0;bottom:0;padding:38px 14px 15px;
+  background:linear-gradient(180deg,transparent,rgba(20,16,12,.94) 55%);color:#fff;
+  text-align:center;opacity:0;transform:translateY(10px);transition:opacity .32s,transform .32s;
+  pointer-events:none;z-index:3}
+.item.is-selected .info{opacity:1;transform:none;pointer-events:auto}
+.info-t{font-family:var(--font-serif);font-size:16px;font-weight:700;letter-spacing:.02em}
+.info-d{font-size:10px;opacity:.78;margin:5px 0 11px;line-height:1.45}
+.use{background:var(--accent);color:#fff;border:0;border-radius:999px;
+  padding:8px 15px;font-size:11px;font-weight:700;cursor:pointer;transition:.2s}
+.use:hover{background:#a5472a;transform:translateY(-1px)}
+/* 关闭按钮 */
+.item .close{position:absolute;right:8px;top:8px;width:25px;height:25px;border-radius:50%;
+  background:rgba(20,16,12,.62);color:#fff;font-size:16px;line-height:1;
+  display:grid;place-items:center;opacity:0;transform:scale(.8);transition:.25s;z-index:4;cursor:pointer}
+.item.is-selected .close{opacity:1;transform:scale(1)}
+.item .close:hover{background:var(--accent)}
+
+.controls{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:6px}
+.ctrl{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(255,253,248,.7);
+  display:grid;place-items:center;color:var(--ink);font-size:14px;transition:.25s;cursor:pointer}
+.ctrl:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
+.progress{position:relative;width:min(240px,40vw);height:2px;background:var(--line);border-radius:2px;overflow:hidden}
+.progress i{position:absolute;inset:0;background:var(--accent);transform-origin:left;transform:scaleX(.3)}
+.tip{text-align:center;font-size:11px;color:var(--soft);margin-top:14px;transition:opacity .3s}
+
+@media(max-width:640px){
+  .section{padding:34px 0 20px}
+  .rail{height:280px}
+  .item{width:clamp(118px,33vw,148px)}
+  .head{padding:0 5%;align-items:center}
+  .head h2{font-size:20px;white-space:nowrap}
+  .head .aside{font-size:10px;max-width:130px;text-align:right;line-height:1.4}
+  .tip{font-size:10px}
+  .info-t{font-size:13px}.info-d{font-size:9px}.use{padding:6px 11px;font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){.rail *{transition:none!important}}
+</style>
+</head>
+<body>
+<section class="section">
+  <div class="wrap head">
+    <h2>从一张照片开始</h2>
+    <span class="aside">20 种生活瞬间 · 点击查看细节</span>
+  </div>
+  <div class="rail" id="rail" tabindex="0" aria-label="模板作品无限画廊">
+    <div class="veil" id="veil"></div>
+  </div>
+  <div class="wrap controls">
+    <button class="ctrl" id="prev" aria-label="上一个">←</button>
+    <div class="progress"><i id="bar"></i></div>
+    <button class="ctrl" id="next" aria-label="下一个">→</button>
+    <button class="ctrl" id="toggle" aria-label="暂停或继续">⏸</button>
+  </div>
+  <div class="wrap tip" id="tip">点击任意图片查看详情 · 再用「做同款」开始创作 · Esc 或点空白返回</div>
+</section>
+
+<script>
+const IMGS=[
+  ['../../../../60-模板资产/film-daily/封面原图.jpg','胶片日常','普通街拍变 Portra 胶片，暖光与颗粒感。','film-daily'],
+  ['../../../../60-模板资产/night-bright/封面原图.jpg','夜景提亮','暗光聚餐照救星，含雨夜霓虹变体。','night-bright'],
+  ['../../../../60-模板资产/clean-portrait/封面原图.jpg','清透人像','柔和自然光，干净通透的肤色。','clean-portrait'],
+  ['../../../../60-模板资产/travel-postcard/封面原图.jpg','旅行明信片','随手拍变通透度假大片。','travel-postcard'],
+  ['../../../../60-模板资产/magazine-cover/封面原图.jpg','杂志封面','黑白高对比，编辑级人像。','magazine-cover'],
+  ['../../../../40-图片资产/真实授权/咖啡午后.jpg','咖啡午后','窗边咖啡与绿植的温柔午后。',''],
+  ['../../../../40-图片资产/真实授权/餐桌日记.jpg','餐桌日记','一桌好饭的暖色记录。',''],
+  ['../../../../40-图片资产/真实授权/城市夜色.jpg','城市夜色','暮色里的城市轮廓。',''],
+  ['../../../../40-图片资产/真实授权/猫咪日常.jpg','猫咪日常','毛孩子的慵懒时刻。',''],
+  ['../../../../40-图片资产/真实授权/海边黄昏.jpg','海边黄昏','金色海边与细浪。',''],
+  ['../../../../40-图片资产/真实授权/都市天际.jpg','都市天际','黄昏时分的城市天际线。',''],
+  ['../../../../40-图片资产/真实授权/旧书时光.jpg','旧书时光','书架前的安静光斑。',''],
+  ['../../../../40-图片资产/真实授权/绿植静物.jpg','绿植静物','窗台上的一抹绿意。',''],
+  ['../../../../40-图片资产/AI生成/在用/周末市集.png','周末市集','花摊前的笑容与鲜花。',''],
+  ['../../../../40-图片资产/AI生成/在用/窗边阅读.png','窗边阅读','阳光里的阅读时光。',''],
+  ['../../../../40-图片资产/AI生成/在用/暖光美食.png','暖光美食','刚出炉的面包与咖啡。',''],
+  ['../../../../40-图片资产/AI生成/在用/黄昏街道.png','黄昏街道','老城街道的暖色黄昏。',''],
+  ['../../../../40-图片资产/AI生成/在用/干花静物.png','干花静物','瓶中的干花与光影。',''],
+  ['../../../../40-图片资产/AI生成/在用/海边漫步.png','海边漫步','面朝大海的背影。',''],
+  ['../../../../40-图片资产/AI生成/在用/猫与午后.png','猫与午后','沙发上打盹的橘猫。','']
+];
+const rail=document.getElementById('rail'),bar=document.getElementById('bar'),tip=document.getElementById('tip');
+const N=IMGS.length,nodes=[];
+for(let i=0;i<N;i++){
+  const el=document.createElement('div');
+  el.className='item';
+  el.dataset.i=i;
+  el.innerHTML=`<img src="${IMGS[i][0]}" alt="${IMGS[i][1]}" draggable="false">
+    <span class="shade"></span><span class="ai">AI 示意</span>
+    <span class="cap">${IMGS[i][1]}</span>
+    <button class="close" aria-label="关闭详情">×</button>
+    <div class="info"><div class="info-t">${IMGS[i][1]}</div><div class="info-d">${IMGS[i][2]}</div>
+    <button class="use">用这张做同款 →</button></div>`;
+  rail.appendChild(el);
+  nodes.push({el,shade:el.querySelector('.shade'),cap:el.querySelector('.cap'),info:el.querySelector('.info')});
+}
+
+/* ---- 状态 ---- */
+let offset=0;             // 连续滚动位置（索引单位）
+let targetOffset=0;       // 选中时的归位目标
+let selected=null;        // 选中索引；null=浏览态
+let hoverIndex=null;
+let dir=1,playing=true;
+let mouseX=0,mouseY=0,targetX=0,targetY=0;
+let gDragging=false,gLastX=0,gVel=0,downX=0,downY=0,moved=false;
+let downHit=null;   // 按下瞬间锁定的命中目标，避免 ui 变化后 elementFromPoint 漂移
+
+const wrapD=d=>((d+N/2)%N+N)%N-N/2;             // 到中心的最短循环距离
+const GAP=()=>{const w=nodes[0].el.offsetWidth||180;return Math.max(w*1.22,w+26);};
+
+function select(i){
+  if(selected===i){deselect();return;}           // 再点同一张 = 关闭
+  const d=wrapD(i-offset);
+  targetOffset=offset+d;                          // 归位目标（基于当前滚动位置）
+  if(selected!==null)nodes[selected].el.classList.remove('is-selected');
+  selected=i;
+  nodes[i].el.classList.add('is-selected');
+  rail.classList.add('has-selected');
+  targetX=0;targetY=0;                            // 视差归零，避免居中后偏移
+  tip.style.opacity='.55';
+}
+function deselect(){
+  if(selected===null)return;
+  nodes[selected].el.classList.remove('is-selected');
+  selected=null;rail.classList.remove('has-selected');
+  tip.style.opacity='1';
+}
+function step(delta){
+  if(selected!==null){select((selected+delta+N)%N);}  // 选中态：切换选中项
+  else{offset+=delta;gVel=0;}
+}
+function goStudio(idx){
+  const slug=IMGS[idx][3];
+  const url='/studio'+(slug?'?template='+slug:'');
+  if(window.__TUPAI_ROUTER__)window.__TUPAI_ROUTER__.navigate(url);
+  else location.href=url;
+}
+
+function tick(){
+  if(selected===null){
+    if(playing && !gDragging){offset+=dir*0.0022+gVel;gVel*=0.94;}
+  }else{
+    offset+=(targetOffset-offset)*0.14;            // 平滑归位（快速连点会追随最新目标）
+    if(Math.abs(targetOffset-offset)<0.0008)offset=targetOffset;
+  }
+  mouseX+=(targetX-mouseX)*0.06;mouseY+=(targetY-mouseY)*0.06;
+
+  const railW=rail.clientWidth,gap=GAP(),spread=railW*0.62/gap;
+  for(let i=0;i<N;i++){
+    const d=wrapD(i-offset),ad=Math.abs(d),norm=Math.min(ad/spread,1);
+    let scale=1-norm*0.42,bright=1-norm*0.55,blur=norm*2.4,op=1-norm*0.72;
+    let z=Math.round(100-ad*10),px=0,py=0,rotY=0,rotX=0;
+    const isSel=selected===i;
+    const isHover=selected===null&&hoverIndex===i&&ad<0.85;
+    if(selected!==null){
+      if(isSel){scale=1.2;bright=1;blur=0;op=1;z=200;}   // 选中：居中放大、最亮最清晰、置顶
+      else{scale*=0.93;z=Math.min(z,80);px=mouseX*4;py=mouseY*3;}
+    }else{
+      const pf=isHover?1:0.75;                            // 视差强度
+      px=mouseX*(16+norm*26)*(1-norm*0.4)*pf;
+      py=mouseY*(10+norm*8)*pf;
+      rotY=mouseX*(4+norm*6)*pf;rotX=-mouseY*3*pf;
+      if(isHover){scale+=0.07;bright=Math.min(1,bright+0.12);z=Math.max(z,92);}
+    }
+    const el=nodes[i].el;
+    el.style.transform=`translate(-50%,-50%) translate(${px+d*gap}px,${py}px) scale(${scale}) rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+    el.style.filter=`brightness(${bright}) blur(${blur}px)`;
+    el.style.opacity=op;el.style.zIndex=z;
+    nodes[i].shade.style.opacity=isSel?0:norm*0.18;
+    nodes[i].cap.style.opacity=(selected===null&&norm<0.35)?1:0;
+    el.classList.toggle('focus',selected===null&&norm<0.2);
+  }
+  const center=((offset%N)+N)%N;
+  bar.style.transform=`scaleX(${center/N})`;
+  requestAnimationFrame(tick);
+}
+tick();
+
+/* 视差 + 悬停检测 */
+rail.addEventListener('pointermove',e=>{
+  const r=rail.getBoundingClientRect();
+  targetX=((e.clientX-r.left)/r.width-0.5)*2;
+  targetY=((e.clientY-r.top)/r.height-0.5)*2;
+  if(!gDragging){
+    const it=e.target.closest('.item');
+    hoverIndex=it?+it.dataset.i:null;
+    rail.style.cursor=it?'pointer':'default';
+  }
+});
+rail.addEventListener('pointerleave',()=>{targetX=0;targetY=0;hoverIndex=null;});
+
+/* 按下：锁定命中目标，区分点击与拖拽 */
+rail.addEventListener('pointerdown',e=>{
+  gDragging=true;gLastX=e.clientX;downX=e.clientX;downY=e.clientY;moved=false;
+  const t=e.target;
+  const it=t.closest('.item');
+  downHit={isUse:!!t.closest('.use'),isClose:!!t.closest('.close'),
+    idx:it?+it.dataset.i:(t.id==='rail'||t.classList.contains('veil')?null:null)};
+  rail.setPointerCapture(e.pointerId);
+});
+rail.addEventListener('pointermove',e=>{
+  if(!gDragging)return;
+  const dx=e.clientX-gLastX;gLastX=e.clientX;
+  if(Math.abs(e.clientX-downX)>4||Math.abs(e.clientY-downY)>4)moved=true;
+  if(moved){if(selected!==null)deselect();offset-=dx/GAP();gVel=-dx/GAP()*0.5;}
+});
+rail.addEventListener('pointerup',e=>{
+  gDragging=false;
+  if(moved||!downHit){downHit=null;return;}         // 拖拽过就不当点击
+  const h=downHit;downHit=null;
+  if(h.isUse){goStudio(selected);return;}
+  if(h.isClose){deselect();return;}
+  if(h.idx!==null)select(h.idx);else deselect();     // 点空白 = 关闭
+});
+rail.addEventListener('pointercancel',()=>{gDragging=false;});
+
+/* 控制条 */
+document.getElementById('prev').addEventListener('click',()=>step(-1));
+document.getElementById('next').addEventListener('click',()=>step(1));
+const toggle=document.getElementById('toggle');
+toggle.addEventListener('click',()=>{playing=!playing;toggle.textContent=playing?'⏸':'▶';toggle.setAttribute('aria-label',playing?'暂停':'继续');});
+
+/* 键盘：Esc 关闭 / 左右切换（仅选中态）/ 回车选中中心 */
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'){deselect();return;}
+  if(selected!==null&&e.key==='ArrowLeft'){e.preventDefault();step(-1);}
+  if(selected!==null&&e.key==='ArrowRight'){e.preventDefault();step(1);}
+  if(selected===null&&e.key==='Enter'){
+    const c=((Math.round(offset)%N)+N)%N;select(c);
+  }
+});
+
+/* 滚轮横向浏览 */
+rail.addEventListener('wheel',e=>{
+  if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){
+    e.preventDefault();
+    if(selected!==null)deselect();
+    offset+=e.deltaY*0.0025;gVel=0;
+  }
+},{passive:false});
+</script>
+</body>
+</html>
