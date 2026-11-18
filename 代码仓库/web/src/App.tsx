@@ -1,7 +1,7 @@
 import { useRoute } from '@/lib/router';
 import { Toaster } from '@/components/ui/sonner';
 import Home from '@/pages/Home';
-import Studio from '@/pages/Studio';
+import Studio from '@/pages/BotStudio';
 import Legal from '@/pages/Legal';
 import Library from '@/pages/Library';
 import Community from '@/pages/Community';
