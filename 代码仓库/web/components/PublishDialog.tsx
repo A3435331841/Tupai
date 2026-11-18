@@ -50,7 +50,7 @@ export function PublishDialog({ open, onOpenChange, resultAssetId, snapshot, par
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>{parentWorkId ? '发布 fork 作品到社区' : '发布作品到社区'}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">只公开这张生成作品与配方，原图永不公开。发布前会做内容安全审核。</p>
+          <p className="text-xs text-muted-foreground">只公开这张生成作品与配方，原图不公开。发布前进行自动审核；模型不可用时会降级为规则检查。</p>
           <div>
             <Label htmlFor="pub-title" className="text-xs">标题</Label>
             <Input id="pub-title" value={title} onChange={(e) => setTitle(e.target.value.slice(0, 100))} placeholder="例如：雨夜霓虹·我的聚餐照" className="mt-1" />
@@ -61,7 +61,7 @@ export function PublishDialog({ open, onOpenChange, resultAssetId, snapshot, par
           </div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input type="checkbox" checked={allowFork} onChange={(e) => setAllowFork(e.target.checked)} />
-            允许他人 fork（套用配方再创作，署名沿链保留）
+            允许他人 fork（套用配方再创作）
           </label>
           <Button className="w-full" disabled={busy} onClick={() => void submit()}>{busy ? '审核发布中…' : '发布'}</Button>
         </div>

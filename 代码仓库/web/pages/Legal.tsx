@@ -10,14 +10,15 @@ export default function Legal() {
           <h2 className="font-semibold">原图全程私密</h2>
           <p className="mt-2 text-muted-foreground">
             你上传的原图默认私有，仅你自己的会话可访问；分析原图时以加密通道内的 base64 直传 AI 服务，
-            不在本站公开、不进入公开画廊、不用于展示。生成结果图同样默认私有，下载不需要公开原图。
+            不在本站公开、不进入公开画廊。生成结果图同样默认私有，下载不需要公开原图。
+            从链接导入的图片在继续创作时也会作为私有原图保存，当前没有针对链接素材的自动清理期限。
           </p>
         </Card>
         <Card className="p-5">
           <h2 className="font-semibold">AI 生成标识</h2>
           <p className="mt-2 text-muted-foreground">
-            所有结果图均为 AI 生成或 AI 二次创作。页面展示带「AI 生成」角标，下载的图片会合成可见标识。
-            发布到社交平台时，请遵守该平台关于 AI 生成内容的标注要求。
+            所有结果图均为 AI 生成或 AI 二次创作。创作台展示带「AI 生成」角标，从创作台下载时会合成可见标识。
+            社区和画册返回的图片未保证合成标识，发布到社交平台时请遵守相应标注要求。
           </p>
         </Card>
         <Card className="p-5">
@@ -32,7 +33,7 @@ export default function Legal() {
           <p className="mt-2 text-muted-foreground">
             出图使用 Agnes 免费图像模型（agnes-image-2.5-flash / 2.1-flash），视觉理解与提示词优化使用免费文本模型 agnes-3.0-flash。
             模板视觉语法参考 open-image-prompts 风格卡（代码 MIT，元数据 CC-BY-4.0；提示词全部为图派原创重写，未搬运第三方源提示词与图片）。
-            测试底图来自 Unsplash/Pexels 等公开授权图片。二期画册将复用 MIT 开源项目 create-photo-flipbook-ui。
+            测试底图来自 Unsplash/Pexels 等公开授权图片。画册翻页概念参考 MIT 开源项目 create-photo-flipbook-ui，当前翻页页由图派自实现。
           </p>
         </Card>
         <Card className="p-5">

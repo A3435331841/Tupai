@@ -318,7 +318,8 @@ paths:
     post:
       tags: [links]
       operationId: parseLink
-      summary: 扩展：抖音单条图文链接 → 临时图片+文案（用后即焚，不落 Asset 库）
+      summary: 扩展：尽力解析抖音单条图文链接，返回图片地址与文案
+      description: 返回的图片地址来自第三方 CDN。前端继续创作时会将取回的图片作为私有原图上传保存，当前没有专门的自动清理。
       description: 此端点失败不影响任何 MVP 路径；视频链接/风控拦截返回 422 降级引导。
       requestBody:
         required: true
@@ -333,7 +334,7 @@ paths:
                   description: 抖音分享短链或图文页链接
       responses:
         "200":
-          description: 解析成功；temp_url 生命周期 ≤ 单个 Job
+          description: 解析成功；temp_url 为第三方地址，expires_at 不保证其实际失效时间
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LinkParseResult" }

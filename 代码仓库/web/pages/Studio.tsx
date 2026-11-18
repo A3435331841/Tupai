@@ -1154,7 +1154,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
           <DialogHeader><DialogTitle>粘贴抖音图文链接</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://v.douyin.com/xxxx/" onKeyDown={(e) => { if (e.key === 'Enter') void importLink(); }} />
-            <p className="text-xs text-muted-foreground">仅支持单条图文帖；视频请截帧后上传。解析所得图文仅用于本次创作，不存储、不公开。风控或跨域受限时请手动保存图片上传。</p>
+            <p className="text-xs text-muted-foreground">仅支持单条图文帖；视频请截帧后上传。继续创作时，导入的图片会作为私有原图保存。风控或跨域受限时请手动保存图片上传。</p>
             <Button className="w-full" disabled={linkBusy} onClick={() => void importLink()}>{linkBusy ? '解析中…' : '解析并入场'}</Button>
           </div>
           <DialogFooter />

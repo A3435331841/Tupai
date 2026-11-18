@@ -130,7 +130,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
           <span className="site-trust-list flex flex-wrap gap-x-4 gap-y-1">
             <span>公开的是结果与配方</span>
             <span>原图永不公开</span>
-            <span>fork 署名沿链保留</span>
+            <span>fork 使用配方和自己的底图</span>
           </span>
         </div>
       </PageHero>
