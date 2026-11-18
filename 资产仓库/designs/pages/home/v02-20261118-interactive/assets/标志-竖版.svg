@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 250" width="220" height="250" role="img" aria-label="图派 TuPai 竖版标志">
-  <title>图派 TuPai · A1 咬合TP + 楷体字标（竖版）</title>
-  <g transform="translate(60,10) scale(1)">
-    <path fill="#1C1917" d="M30 20 H62 C82 20 92 33 92 50 C92 67 82 80 62 80 H50 V66 H62 C73 66 78 59 78 50 C78 41 73 34 62 34 H30 Z"/>
-    <path fill="#EA580C" d="M10 20 H58 V34 H50 V78 L42 92 L34 78 V34 H10 Z"/>
-  </g>
-  <text x="110" y="182" text-anchor="middle" font-family="STKaiti, KaiTi, 楷体, Kaiti SC, BiauKai, DFKai-SB, serif" font-size="52" font-weight="700" fill="#1C1917" letter-spacing="6">图派</text>
-  <text x="110" y="216" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-style="italic" fill="#EA580C" letter-spacing="2">TuPai</text>
-</svg>

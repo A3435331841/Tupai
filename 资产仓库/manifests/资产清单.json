@@ -410,7 +410,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/generated/周末市集.png"
+      "duplicate_of": "资产仓库/media/generated/周末市集.png",
+      "repository_scope": "local-only"
     },
     {
       "id": "咖啡午后-原型副本",
@@ -425,7 +426,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/licensed/咖啡午后.jpg"
+      "duplicate_of": "资产仓库/media/licensed/咖啡午后.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "城市夜色-原型副本",
@@ -440,7 +442,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/licensed/城市夜色.jpg"
+      "duplicate_of": "资产仓库/media/licensed/城市夜色.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "干花静物-原型副本",
@@ -455,7 +458,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/generated/干花静物.png"
+      "duplicate_of": "资产仓库/media/generated/干花静物.png",
+      "repository_scope": "local-only"
     },
     {
       "id": "旧书时光-原型副本",
@@ -470,7 +474,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/licensed/旧书时光.jpg"
+      "duplicate_of": "资产仓库/media/licensed/旧书时光.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "暖光美食-原型副本",
@@ -485,7 +490,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/generated/暖光美食.png"
+      "duplicate_of": "资产仓库/media/generated/暖光美食.png",
+      "repository_scope": "local-only"
     },
     {
       "id": "海边漫步-原型副本",
@@ -500,7 +506,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/generated/海边漫步.png"
+      "duplicate_of": "资产仓库/media/generated/海边漫步.png",
+      "repository_scope": "local-only"
     },
     {
       "id": "海边黄昏-原型副本",
@@ -515,7 +522,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/licensed/海边黄昏.jpg"
+      "duplicate_of": "资产仓库/media/licensed/海边黄昏.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "猫与午后-原型副本",
@@ -530,7 +538,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/generated/猫与午后.png"
+      "duplicate_of": "资产仓库/media/generated/猫与午后.png",
+      "repository_scope": "local-only"
     },
     {
       "id": "猫咪日常-原型副本",
@@ -545,7 +554,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/licensed/猫咪日常.jpg"
+      "duplicate_of": "资产仓库/media/licensed/猫咪日常.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "窗边阅读-原型副本",
@@ -560,7 +570,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/generated/窗边阅读.png"
+      "duplicate_of": "资产仓库/media/generated/窗边阅读.png",
+      "repository_scope": "local-only"
     },
     {
       "id": "绿植静物-原型副本",
@@ -575,7 +586,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/licensed/绿植静物.jpg"
+      "duplicate_of": "资产仓库/media/licensed/绿植静物.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "都市天际-原型副本",
@@ -590,7 +602,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/licensed/都市天际.jpg"
+      "duplicate_of": "资产仓库/media/licensed/都市天际.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "餐桌日记-原型副本",
@@ -605,7 +618,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/licensed/餐桌日记.jpg"
+      "duplicate_of": "资产仓库/media/licensed/餐桌日记.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "黄昏街道-原型副本",
@@ -620,7 +634,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/media/generated/黄昏街道.png"
+      "duplicate_of": "资产仓库/media/generated/黄昏街道.png",
+      "repository_scope": "local-only"
     },
     {
       "id": "主视觉-原型副本",
@@ -650,7 +665,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/brand/logo/标志-图标.svg"
+      "duplicate_of": "资产仓库/brand/logo/标志-图标.svg",
+      "repository_scope": "local-only"
     },
     {
       "id": "标志-横版-深色-原型副本",
@@ -665,7 +681,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/brand/logo/标志-横版-深色.svg"
+      "duplicate_of": "资产仓库/brand/logo/标志-横版-深色.svg",
+      "repository_scope": "local-only"
     },
     {
       "id": "标志-横版-原型副本",
@@ -682,7 +699,8 @@
         "资产仓库/designs/pages/home/v02-20261118-interactive/index.html"
       ],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/brand/logo/标志-横版.svg"
+      "duplicate_of": "资产仓库/brand/logo/标志-横版.svg",
+      "repository_scope": "local-only"
     },
     {
       "id": "标志-竖版-原型副本",
@@ -697,7 +715,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/brand/logo/标志-竖版.svg"
+      "duplicate_of": "资产仓库/brand/logo/标志-竖版.svg",
+      "repository_scope": "local-only"
     },
     {
       "id": "标志-原型副本",
@@ -727,7 +746,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/templates/night-bright/封面原图.jpg"
+      "duplicate_of": "资产仓库/templates/night-bright/封面原图.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "模板-旅行-原型副本",
@@ -757,7 +777,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/templates/travel-postcard/封面原图.jpg"
+      "duplicate_of": "资产仓库/templates/travel-postcard/封面原图.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "模板-杂志封面-原型副本",
@@ -772,7 +793,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/templates/magazine-cover/封面原图.jpg"
+      "duplicate_of": "资产仓库/templates/magazine-cover/封面原图.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "模板-清透人像-原型副本",
@@ -787,7 +809,8 @@
       "runtime_path": null,
       "used_by": [],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/templates/clean-portrait/封面原图.jpg"
+      "duplicate_of": "资产仓库/templates/clean-portrait/封面原图.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "模板-胶片-原型副本",
@@ -819,7 +842,8 @@
         "资产仓库/designs/pages/home/v02-20261118-interactive/index.html"
       ],
       "derivative_of": null,
-      "duplicate_of": "资产仓库/templates/film-daily/封面原图.jpg"
+      "duplicate_of": "资产仓库/templates/film-daily/封面原图.jpg",
+      "repository_scope": "local-only"
     },
     {
       "id": "模板-霓虹-原型副本",

@@ -1,105 +1,155 @@
-// 图派仓库范围检查：约束 GitHub 提交边界（见 docs/11-提交范围与边界.md）。
-// 用法: node 代码仓库/dev/repo-scope-check.mjs [--strict]
-// --strict 时把「告警」也视为失败（用于新批次提交前）。
+// 图派仓库范围检查：检查 Git 暂存区，而不是工作区中的其他版本。
+// 用法：node 代码仓库/dev/repo-scope-check.mjs [--strict]
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-process.chdir(ROOT);
-
-const STRICT = process.argv.includes('--strict');
-const WARN_MB = 5;
-const FAIL_MB = 50;
-
-const ALLOWED_TOP = new Set(['.gitignore', 'AGENTS.md', 'README.md', 'LICENSE', 'docs', '代码仓库', '资产仓库']);
-
-const FORBIDDEN = [
-  [/(^|\/)node_modules\//, '依赖目录 node_modules'],
-  [/(^|\/)dist\//, '构建产物 dist'],
-  [/(^|\/)\.vite\//, 'Vite 缓存'],
-  [/(^|\/)\.workbuddy\//, '本地工具状态 .workbuddy'],
-  [/(^|\/)test-images\//, '本地测试底图'],
-  [/(^|\/)media\/private\//, '私密素材 media/private'],
-  [/(^|\/)screenshots?\//, '临时截图目录'],
-  [/(^|\/)早期规划\//, '本地历史资料 早期规划'],
-  [/(^|\/)docs\/references\/agnes-api\.md$/, '含凭据的 Agnes 手册'],
-  [/^AGENTS\.md$/, '本地私有协作规则'],
-  [/^\.gitignore$/, '本地私有忽略文件'],
-  [/(^|\/)\.env($|\.)/, '环境变量文件'],
-  [/(^|\/)(agnes key\.txt|[^/]*\.key)$/, 'Key 文件'],
-  [/(^|\/)(id_rsa|id_ed25519|[^/]*\.pem)$/, 'SSH/私钥文件'],
-  [/\.log$/, '日志文件'],
-  [/\.tsbuildinfo$/, 'TypeScript 增量缓存'],
-];
-
-const IMAGE_EXT = new Set(['.webp', '.png', '.jpg', '.jpeg', '.svg']);
-
-function trackedFiles() {
-  const out = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' });
-  return out.split('\0').filter(Boolean);
-}
-
-function sha256(file) {
-  return createHash('sha256').update(readFileSync(file)).digest('hex');
-}
-
-const files = trackedFiles();
+const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+process.chdir(root);
+const strict = process.argv.includes('--strict');
 const errors = [];
 const warnings = [];
-const large = [];
-const images = new Map();
+const git = (args, options = {}) => execFileSync('git', args, { encoding: 'utf8', ...options });
+const parts = (text) => text.split('\0').filter(Boolean);
+const entries = new Map();
 
-for (const file of files) {
-  const normalized = file.split(path.sep).join('/');
-  const top = normalized.split('/')[0];
-  if (!ALLOWED_TOP.has(top)) errors.push(`未知顶层路径: ${normalized}`);
-
-  for (const [re, label] of FORBIDDEN) {
-    if (re.test(normalized)) errors.push(`禁止提交（${label}）: ${normalized}`);
+for (const record of parts(git(['ls-files', '--stage', '-z']))) {
+  const match = record.match(/^(\d+) ([0-9a-f]+) (\d)\t([\s\S]+)$/);
+  if (!match || match[3] !== '0') {
+    errors.push('暂存区存在未解决的冲突');
+    continue;
   }
+  entries.set(match[4], { mode: match[1], oid: match[2] });
+}
+const headRecords = parts(git(['ls-tree', '-r', '-z', '--full-tree', 'HEAD']));
+const head = new Map();
+for (const record of headRecords) {
+  const match = record.match(/^(\d+) blob ([0-9a-f]+)\t([\s\S]+)$/);
+  if (match) head.set(match[3], { mode: match[1], oid: match[2] });
+}
+const allowedTop = new Set(['.gitignore.example', 'README.md', 'LICENSE', 'docs', '代码仓库', '资产仓库']);
+const forbidden = [
+  [/(^|\/)node_modules\//i, '依赖目录'],
+  [/(^|\/)dist\//i, '构建产物'],
+  [/(^|\/)\.vite\//i, 'Vite 缓存'],
+  [/(^|\/)(\.workbuddy|\.qoder|\.idea|\.vscode)\//i, '本地工具状态'],
+  [/(^|\/)test-images\//i, '本地测试底图'],
+  [/(^|\/)media\/private\//i, '私密素材'],
+  [/(^|\/)screenshots?\//i, '临时截图'],
+  [/(^|\/)早期规划\//, '本地历史资料'],
+  [/^docs\/references\/agnes-api\.md$/i, '含凭据的 Agnes 手册'],
+  [/^AGENTS\.md$/i, '本地私有协作规则'],
+  [/^\.gitignore$/i, '本地私有忽略文件'],
+  [/(^|\/)\.env[^/]*$/i, '环境变量文件'],
+  [/(^|\/)(agnes key\.txt|[^/]*\.(key|pem))$/i, '密钥文件'],
+  [/(^|\/)(id_rsa|id_ed25519)$/i, 'SSH 私钥'],
+  [/\.(log|tsbuildinfo)$/i, '日志或增量缓存'],
+];
+const localOnlyNew = [
+  [/^资产仓库\/designs\/.*\/assets\//, '原型素材副本'],
+  [/^资产仓库\/designs\/archive\//, '设计过程归档'],
+  [/^资产仓库\/designs\/pages\/.*\/archive\//, '页面历史参考'],
+  [/^资产仓库\/designs\/pages\/.*\/explorations\//, '设计探索'],
+  [/^资产仓库\/designs\/pages\/.*\/预览-[^/]+\.(png|jpe?g|webp)$/i, '批量过程预览'],
+  [/^资产仓库\/media\/generated\/brand-explorations\//, '品牌探索原图'],
+  [/^资产仓库\/brand\/explorations\//, '品牌探索'],
+  [/^资产仓库\/templates\/[^/]+\/samples\//, '模板回归样片'],
+  [/\.(psd|ai|zip|mp4)$/i, '大型过程文件'],
+];
+const imageExt = new Set(['.webp', '.png', '.jpg', '.jpeg', '.svg']);
+const isAssetImage = (file) => file.startsWith('资产仓库/') && imageExt.has(path.posix.extname(file).toLowerCase());
 
-  let size = 0;
-  try { size = statSync(file).size; } catch { errors.push(`文件缺失: ${normalized}`); continue; }
-  const mb = size / 1048576;
-  if (mb > FAIL_MB) errors.push(`超大文件 >${FAIL_MB}MB: ${normalized} (${mb.toFixed(1)}MB)`);
-  else if (mb > WARN_MB) warnings.push(`大文件 >${WARN_MB}MB: ${normalized} (${mb.toFixed(1)}MB)`);
-  if (mb > WARN_MB) large.push([mb, normalized]);
-
-  if (IMAGE_EXT.has(path.extname(normalized).toLowerCase()) && normalized.startsWith('资产仓库/')) {
-    try {
-      const hash = sha256(file);
-      if (!images.has(hash)) images.set(hash, []);
-      images.get(hash).push(normalized);
-    } catch { /* 已在上方记录缺失 */ }
+const uniqueOids = [...new Set([...entries.values()].map((entry) => entry.oid))];
+const sizes = new Map();
+if (uniqueOids.length) {
+  const output = git(['cat-file', '--batch-check=%(objectname) %(objectsize)'], { input: uniqueOids.join('\n') + '\n' });
+  for (const line of output.trim().split('\n')) {
+    const match = line.match(/^([0-9a-f]+) (\d+)$/);
+    if (!match) throw new Error(`无法读取暂存对象大小：${line}`);
+    sizes.set(match[1], Number(match[2]));
   }
 }
-
-const duplicateGroups = [...images.values()].filter((group) => group.length > 1);
-if (duplicateGroups.length) {
-  warnings.push(`重复图片 ${duplicateGroups.length} 组（历史原型/派生副本；新增资产应先查 sha256）`);
+const imageGroups = new Map();
+for (const [file, entry] of entries) {
+  const top = file.split('/')[0];
+  if (!allowedTop.has(top)) errors.push(`未知或禁止的顶层路径: ${file}`);
+  for (const [pattern, label] of forbidden) if (pattern.test(file)) errors.push(`禁止提交（${label}）: ${file}`);
+  if (!head.has(file)) {
+    for (const [pattern, label] of localOnlyNew) if (pattern.test(file)) errors.push(`新增文件应仅留本地（${label}）: ${file}`);
+  }
+  if (entry.mode !== '100644' && entry.mode !== '100755') errors.push(`不支持的文件类型: ${file}`);
+  const mb = (sizes.get(entry.oid) || 0) / 1048576;
+  if (mb > 50) errors.push(`超大文件 >50 MiB: ${file} (${mb.toFixed(1)} MiB)`);
+  else if (mb > 5) warnings.push(`大文件 >5 MiB: ${file} (${mb.toFixed(1)} MiB)`);
+  if (isAssetImage(file)) {
+    if (!imageGroups.has(entry.oid)) imageGroups.set(entry.oid, []);
+    imageGroups.get(entry.oid).push(file);
+  }
 }
-
-large.sort((a, b) => b[0] - a[0]);
-if (large.length) {
-  console.log('最大的已跟踪文件：');
-  for (const [mb, file] of large.slice(0, 8)) console.log(`  ${mb.toFixed(2)} MB  ${file}`);
+const headCounts = new Map();
+for (const [file, entry] of head) {
+  if (isAssetImage(file)) headCounts.set(entry.oid, (headCounts.get(entry.oid) || 0) + 1);
 }
-if (duplicateGroups.length) {
-  console.log('重复图片组（前 5 组）：');
-  for (const group of duplicateGroups.slice(0, 5)) console.log(`  - ${group.join('  <=>  ')}`);
+let historicalDuplicates = 0;
+for (const [oid, files] of imageGroups) {
+  if (files.length < 2) continue;
+  if (files.length > (headCounts.get(oid) || 0)) errors.push(`新增重复图片: ${files.join(' <=> ')}`);
+  else historicalDuplicates++;
 }
+if (historicalDuplicates) warnings.push(`历史重复图片 ${historicalDuplicates} 组（新增副本会阻断）`);
 
-console.log('\n仓库范围检查');
-console.log(`  跟踪文件: ${files.length}`);
-console.log(`  禁止/未知路径: ${errors.filter((x) => !x.startsWith('超大文件')).length}`);
-console.log(`  超大文件: ${errors.filter((x) => x.startsWith('超大文件')).length}`);
-console.log(`  告警: ${warnings.length}`);
-
+const blobCache = new Map();
+function blob(file) {
+  const entry = entries.get(file);
+  if (!entry) throw new Error(`缺少暂存文件: ${file}`);
+  if ((sizes.get(entry.oid) || 0) > 50 * 1048576) throw new Error(`对象超过 50 MiB: ${file}`);
+  if (!blobCache.has(entry.oid)) blobCache.set(entry.oid, execFileSync('git', ['cat-file', 'blob', entry.oid], { maxBuffer: 51 * 1048576 }));
+  return blobCache.get(entry.oid);
+}
+function json(file) {
+  try { return JSON.parse(blob(file).toString('utf8')); }
+  catch (e) { errors.push(`无法读取暂存清单 ${file}: ${e.message}`); return null; }
+}
+const map = json('资产仓库/manifests/运行时映射.json');
+if (map) {
+  const seen = new Set();
+  if (!Array.isArray(map.runtime) || map.count !== map.runtime.length) errors.push('运行时映射 count 与条目不一致');
+  for (const item of Array.isArray(map.runtime) ? map.runtime : []) {
+    const { runtime_path: runtime, source_path: source, sha256 } = item;
+    if (seen.has(runtime)) errors.push(`运行时映射重复: ${runtime}`);
+    seen.add(runtime);
+    if (!entries.has(runtime) || !entries.has(source)) { errors.push(`运行时映射文件未跟踪: ${runtime} → ${source}`); continue; }
+    for (const file of [runtime, source]) {
+      if ((sizes.get(entries.get(file).oid) || 0) > 50 * 1048576) continue;
+      if (createHash('sha256').update(blob(file)).digest('hex') !== sha256) errors.push(`运行时映射哈希不符: ${file}`);
+    }
+  }
+  for (const file of entries.keys()) {
+    if (file.startsWith('代码仓库/web/public/') && !seen.has(file)) errors.push(`运行时资源缺少映射: ${file}`);
+  }
+}
+const assets = json('资产仓库/manifests/资产清单.json');
+if (assets) {
+  if (!Array.isArray(assets.assets) || assets.count !== assets.assets.length) errors.push('资产清单 count 与条目不一致');
+  const registered = new Set();
+  for (const item of Array.isArray(assets.assets) ? assets.assets : []) {
+    if (registered.has(item.path)) errors.push(`资产清单路径重复: ${item.path}`);
+    registered.add(item.path);
+    if (item.repository_scope === 'local-only') {
+      if (entries.has(item.path)) errors.push(`仅本地资产仍在暂存区: ${item.path}`);
+    } else if (!entries.has(item.path)) errors.push(`资产清单路径未跟踪: ${item.path}`);
+    else if (item.sha256 && (sizes.get(entries.get(item.path).oid) || 0) <= 50 * 1048576
+      && createHash('sha256').update(blob(item.path)).digest('hex') !== item.sha256) {
+      errors.push(`资产清单哈希不符: ${item.path}`);
+    }
+  }
+  for (const file of entries.keys()) {
+    if (isAssetImage(file) && !registered.has(file)) errors.push(`图片缺少资产清单记录: ${file}`);
+  }
+}
+console.log(`仓库范围检查：暂存文件 ${entries.size}，错误 ${errors.length}，告警 ${warnings.length}`);
 for (const message of errors) console.log(`  FAIL  ${message}`);
 for (const message of warnings) console.log(`  WARN  ${message}`);
-
-const failed = errors.length > 0 || (STRICT && warnings.some((w) => !w.startsWith('重复图片')));
-console.log(`\n结果: ${failed ? 'FAIL' : 'PASS'}${STRICT ? '（strict；历史重复图片仅告警）' : ''}`);
+const failed = errors.length > 0 || (strict && warnings.some((w) => !w.startsWith('历史重复图片')));
+console.log(`结果: ${failed ? 'FAIL' : 'PASS'}${strict ? '（strict；历史重复仅告警）' : ''}`);
 process.exit(failed ? 1 : 0);

@@ -1,0 +1,44 @@
+# Copy or merge into a local .gitignore; do not commit local private rules.
+/AGENTS.md
+/.gitignore
+.env*
+*.key
+*.pem
+id_rsa
+id_ed25519
+agnes key.txt
+docs/references/agnes-api.md
+
+# Personal data, local history and tool state
+资产仓库/test-images/
+资产仓库/media/private/
+早期规划/
+.workbuddy/
+.qoder/
+.idea/
+.vscode/
+代码仓库/web/screenshots/
+
+# New process materials; existing tracked source files remain tracked.
+资产仓库/designs/**/assets/
+资产仓库/designs/**/archive/
+资产仓库/designs/archive/
+资产仓库/designs/**/explorations/
+资产仓库/designs/**/预览-*.png
+资产仓库/media/generated/brand-explorations/
+资产仓库/brand/explorations/
+资产仓库/templates/*/samples/
+*.psd
+*.ai
+*.zip
+*.mp4
+*.bak
+
+# Dependencies, build output and local diagnostics
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+*.log
+.DS_Store
+Thumbs.db

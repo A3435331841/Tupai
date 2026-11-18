@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="图派 TuPai 标志 · A1 咬合TP">
-  <title>图派 TuPai · A1 咬合TP（图标版）</title>
-  <!-- 深炭 P：顶部横 + 右侧D形碗 + 底部尖角收笔 -->
-  <path fill="#1C1917" d="M30 20 H62 C82 20 92 33 92 50 C92 67 82 80 62 80 H50 V66 H62 C73 66 78 59 78 50 C78 41 73 34 62 34 H30 Z"/>
-  <!-- 橙色 T：顶部横 + 竖笔收尖角，与P咬合 -->
-  <path fill="#EA580C" d="M10 20 H58 V34 H50 V78 L42 92 L34 78 V34 H10 Z"/>
-</svg>
