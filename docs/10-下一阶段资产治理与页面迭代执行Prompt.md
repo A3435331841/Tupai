@@ -217,11 +217,11 @@ node api/contract-test.mjs
 
 建议提交批次：
 
-1. docs(agents): establish project-level AI collaboration rules
-2. refactor(assets): consolidate source assets and add manifests
-3. refactor(web): follow canonical asset paths
+1. 文档(协作): 建立项目级 AI 协作规则
+2. 重构(资产): 统一源资产并补齐清单
+3. 重构(网页): 使用规范资产路径
 4. 每页单独提交：feat(home)、feat(studio)、feat(library)、feat(community)
-5. docs(release): sync asset guide, verification and deployment record
+5. 文档(发布): 同步资产指南、验证与部署记录
 
 提交纪律：
 
