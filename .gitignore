@@ -12,6 +12,17 @@ agnes key.txt
 # AI 协作工具本地状态与临时产物
 .workbuddy/
 代码仓库/web/screenshots/
+.qoder/
+.idea/
+.vscode/
+
+# 设计过程产物：历史已跟踪文件保留；新增默认不入库（见 docs/11-提交范围与边界.md）
+资产仓库/designs/**/assets/
+资产仓库/media/generated/brand-explorations/
+资产仓库/designs/archive/
+*.bak
+资产仓库/**/*.psd
+资产仓库/**/*.zip
 
 # 依赖与构建产物
 node_modules/
