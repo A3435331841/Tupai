@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api, apiUrl } from '@/lib/api';
 import type { Template } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -7,8 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { HomeCompare } from '@/components/HomeCompare';
 import { GalleryRail, type GalleryItem } from '@/components/GalleryRail';
+import HeroIntro from '@/components/HeroIntro';
+import WorkFlow from '@/components/WorkFlow';
 
 const HERO_IMAGE = '/home/hero-street.webp';
+/** 同一场景的「废片原图」：欠曝/低饱和/柔焦/颗粒，与成品形成强对比 */
+const HERO_RAW_IMAGE = '/home/hero-street-raw.webp';
 
 /** 无限画廊的补充作品（模板之外的日常瞬间） */
 const GALLERY_EXTRAS: GalleryItem[] = [
@@ -89,13 +93,73 @@ const FALLBACK_TEMPLATES: ShowcaseTemplate[] = [
   },
 ];
 
+const SECTION_LABELS = ['开始', '灵感画廊', '创作流程'] as const;
+const SECTION_COUNT = SECTION_LABELS.length;
+
 export default function Home({ navigate }: { navigate: (to: string) => void }) {
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [activeSection, setActiveSection] = useState(0);
+  // 连续滚动进度（0 → SECTION_COUNT-1），用于右侧导航进度线与「向下浏览」渐隐
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.templates().then((result) => setTemplates(result.templates)).catch(() => setTemplates(null));
   }, []);
+
+  // 整屏吸附：滚动容器为 main.home-snap-scroll。
+  // scroll 事件驱动连续进度与当前区块（比 IntersectionObserver 阈值更平滑、无临界抖动）；
+  // IntersectionObserver 仅负责给区块加 is-active 触发入场动画。
+  useEffect(() => {
+    const scroller = pageRef.current?.parentElement;
+    const root = pageRef.current;
+    if (!scroller || !root) return;
+    scroller.classList.add('snap-ready');
+    const sections = Array.from(root.querySelectorAll<HTMLElement>('[data-snap]'));
+
+    const onScroll = () => {
+      const height = sections[0]?.getBoundingClientRect().height || scroller.clientHeight || 1;
+      const raw = scroller.scrollTop / height;
+      const clamped = Math.max(0, Math.min(SECTION_COUNT - 1, raw));
+      setScrollProgress(clamped);
+      setActiveSection(Math.round(clamped));
+    };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            (entry.target as HTMLElement).classList.add('is-active');
+          }
+        }
+      },
+      { root: scroller, threshold: [0.5, 0.9] },
+    );
+    sections.forEach((section) => observer.observe(section));
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+      scroller.classList.remove('snap-ready');
+    };
+  }, []);
+
+  const goToSection = useCallback((index: number) => {
+    const root = pageRef.current;
+    const target = root?.querySelectorAll<HTMLElement>('[data-snap]')[index];
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // 「向下浏览」：仅在第一屏顶部显示；滚动后淡出，回到顶部自然回归
+  const [showScrollHint, setShowScrollHint] = useState(true);
+  useEffect(() => {
+    setShowScrollHint(scrollProgress < 0.12);
+  }, [scrollProgress]);
+
+  // 右侧进度线填充比例（0% → 100%）
+  const railFill = (scrollProgress / (SECTION_COUNT - 1)) * 100;
 
   // memo：保持引用稳定，避免下游 GalleryRail 的动画循环被反复重置
   const showcase = useMemo<ShowcaseTemplate[]>(
@@ -150,88 +214,115 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
   }, [previewIndex, showcase.length]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pb-16">
-      <section className="grid gap-8 py-8 sm:py-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-12 lg:py-14">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-primary">AI 影像二次创作 · 原图可留私</p>
-          <h1 className="mt-4 max-w-xl text-[3.3rem] font-bold leading-[1.08] tracking-tight sm:text-[4.25rem]">
-            废片变作品，<br />原图可以<br /><span className="text-primary">只留给自己。</span>
-          </h1>
-          <p className="mt-6 max-w-md text-base leading-7 text-muted-foreground">
-            让每一张日常，都有作品的可能。上传照片，或只说一句话，剩下的交给图派。
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Button size="lg" onClick={() => navigate('/studio')}>
-              开始创作 <ArrowRight />
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate('/studio?demo=night&template=night-bright')}>
-              一键试玩 · 夜景提亮
-            </Button>
+    <div ref={pageRef} className="home-snap-pages relative w-full">
+      {/* 区块一：开场文案 + 对比画面（文案为主，不以单张大图开场） */}
+      <section data-snap="0" className="home-snap-section flex min-h-full items-center" aria-label="开场介绍">
+        <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:gap-8 sm:py-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-12">
+          <div className="snap-reveal">
+            <HeroIntro navigate={navigate} />
           </div>
-          <p className="mt-5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-            <span>游客可用全流程</span>
-            <span>原图不公开</span>
-            <span>下载带 AI 标识</span>
-          </p>
-        </div>
 
-        <div className="min-w-0">
-          <HomeCompare before={HERO_IMAGE} after={HERO_IMAGE} />
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
-            <span>鼠标移入画面后左右拖动；松开后，两枚相纸会重新出现。</span>
+          <div className="snap-reveal min-w-0" style={{ transitionDelay: '120ms' }}>
+            <div className="mx-auto max-w-[520px] lg:max-w-none">
+              <HomeCompare before={HERO_RAW_IMAGE} after={HERO_IMAGE} />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                onClick={() => navigate('/studio?demo=night&template=night-bright')}
+              >
+                用这张样例试玩 <ArrowRight className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => goToSection(1)}
+          className={`home-snap-next absolute bottom-5 left-1/2 flex items-center gap-2 rounded-full border border-border/70 bg-card/85 px-4 py-1.5 text-[11px] text-muted-foreground shadow-[0_8px_24px_-14px_rgba(73,50,30,.5)] backdrop-blur ${showScrollHint ? 'is-visible' : ''}`}
+          aria-label="前往灵感画廊"
+          aria-hidden={!showScrollHint}
+          tabIndex={showScrollHint ? 0 : -1}
+        >
+          向下浏览 <ArrowDown className="home-snap-next-arrow size-3.5" />
+        </button>
+      </section>
+
+      {/* 区块二：灵感画廊（无限循环，横向滚轮/拖动浏览） */}
+      <section id="templates" data-snap="1" className="home-snap-section flex min-h-full items-center border-t border-border/70" aria-labelledby="templates-title">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10">
+          <div className="snap-reveal flex items-center gap-4">
+            <h2 id="templates-title" className="whitespace-nowrap font-display text-2xl sm:text-[2rem]">从一张照片开始</h2>
+            <div className="h-px flex-1 bg-border" />
+            <span className="hidden text-[11px] text-muted-foreground sm:block">点图片查看，选一个方向</span>
+          </div>
+
+          {/* 无限循环画廊：拖动/横向滚轮浏览，点卡片居中放大，Esc 或点空白恢复 */}
+          <div className="snap-reveal mt-4 -mx-4 sm:-mx-6" style={{ transitionDelay: '120ms' }}>
+            <GalleryRail items={galleryItems} onUse={handleGalleryUse} />
+          </div>
+
+          <p className="snap-reveal mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground" style={{ transitionDelay: '200ms' }}>
+            <span>拖动或横向滚动浏览</span>
+            <span className="hidden sm:inline">点图片放大 · Esc 恢复</span>
             <button
               type="button"
               className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-              onClick={() => navigate('/studio?demo=night&template=night-bright')}
+              onClick={() => navigate('/studio')}
             >
-              用这张样例试玩 <ArrowRight className="size-3.5" />
+              直接开始创作 <ArrowRight className="size-3.5" />
             </button>
-          </div>
+          </p>
         </div>
       </section>
 
-      <section id="templates" className="mt-8 border-t border-border/70 pt-8 sm:mt-10" aria-labelledby="templates-title">
-        <div className="flex items-center gap-4">
-          <h2 id="templates-title" className="whitespace-nowrap font-display text-2xl sm:text-[2rem]">从一张照片开始</h2>
-          <div className="h-px flex-1 bg-border" />
-          <span className="hidden text-[11px] text-muted-foreground sm:block">点图片查看，选一个方向</span>
+      {/* 区块三：创作流程 + 收尾入口 */}
+      <section data-snap="2" className="home-snap-section flex min-h-full items-center border-t border-border/70" aria-label="创作流程">
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:py-10">
+          <WorkFlow navigate={navigate} />
         </div>
-
-        {/* 无限循环画廊：拖动/滚轮浏览，点卡片居中放大，Esc 或点空白恢复 */}
-        <div className="mt-4 -mx-4 sm:-mx-6">
-          <GalleryRail items={galleryItems} onUse={handleGalleryUse} />
-        </div>
-
-        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-          <span>拖动或滚轮连续浏览</span>
-          <span className="hidden sm:inline">点图片放大 · Esc 恢复</span>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-            onClick={() => navigate('/studio')}
-          >
-            直接开始创作 <ArrowRight className="size-3.5" />
-          </button>
-        </p>
       </section>
 
-      <section className="mt-11 border-y border-border/70" aria-label="创作流程">
-        <div className="grid sm:grid-cols-3">
-          {[
-            ['01', '上传照片'],
-            ['02', '选择灵感'],
-            ['03', '收获作品'],
-          ].map(([number, label], index) => (
-            <div
-              key={number}
-              className={`flex items-center justify-center gap-4 py-5 ${index > 0 ? 'border-t border-border/70 sm:border-l sm:border-t-0' : ''}`}
+      {/* 区块导航：桌面右侧进度轨道，移动端底部胶囊 */}
+      <div className="home-snap-nav hidden md:block" aria-label="区块导航">
+        <span className="home-snap-nav-track pointer-events-none absolute left-1/2 top-4 w-px -translate-x-1/2 bg-border/80" style={{ height: 'calc(100% - 2rem)' }} aria-hidden="true">
+          <span className="home-snap-nav-fill block w-full bg-primary/65" style={{ height: `${railFill}%` }} />
+        </span>
+        {SECTION_LABELS.map((label, index) => {
+          const active = activeSection === index;
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => goToSection(index)}
+              className={`home-snap-nav-dot group relative ${active ? 'is-active' : ''}`}
+              aria-label={`前往${label}`}
+              aria-current={active ? 'true' : undefined}
             >
-              <span className="font-display text-3xl font-semibold tracking-tight text-primary">{number}</span>
-              <span className="text-base font-medium">{label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+              <span className="home-snap-nav-label pointer-events-none absolute right-full mr-2.5 whitespace-nowrap rounded-md bg-card/95 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm">{label}</span>
+              <span className="home-snap-nav-core block rounded-full" />
+            </button>
+          );
+        })}
+      </div>
+      <div className="home-snap-nav-mobile md:hidden" aria-label="区块导航">
+        {SECTION_LABELS.map((label, index) => {
+          const active = activeSection === index;
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => goToSection(index)}
+              className={`home-snap-nav-mobile-item rounded-full px-3 py-1 text-[11px] ${active ? 'is-active' : ''}`}
+              aria-label={`前往${label}`}
+              aria-current={active ? 'true' : undefined}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
 
       <Dialog open={previewIndex !== null} onOpenChange={(open) => { if (!open) setPreviewIndex(null); }}>
         <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-4xl">

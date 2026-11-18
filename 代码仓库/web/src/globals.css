@@ -526,3 +526,243 @@
   background: linear-gradient(90deg, #eee4d7 0%, #f8f1e7 48%, #eee4d7 100%);
   background-size: 200% 100%;
 }
+
+/* 首页顶部栏描边登录胶囊：仅首页使用（局部作用域，不影响其他页面） */
+[data-slot="button"].home-login-pill {
+  border-radius: 9999px;
+  border-color: #4a4036;
+  color: #241c16;
+  background: transparent;
+  box-shadow: none;
+}
+[data-slot="button"].home-login-pill:hover {
+  border-color: var(--site-accent);
+  color: var(--site-accent-strong);
+  background: rgb(245 228 214 / 0.5);
+  box-shadow: none;
+}
+
+/* 首页 Hero 黑色胶囊主按钮：仅首页使用（局部作用域，覆盖全局橙渐变按钮样式） */
+[data-slot="button"].home-hero-primary {
+  border: 1px solid #241c16;
+  border-radius: 9999px;
+  background: #241c16;
+  color: #fffaf4;
+  box-shadow: 0 8px 20px -10px rgb(36 28 22 / 0.55);
+}
+[data-slot="button"].home-hero-primary:hover {
+  background: #3a2d23;
+  color: #fffaf4;
+  transform: translateY(-1px);
+}
+
+/* ===== 首页整屏吸附分屏 ===== */
+.home-snap-scroll {
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+.home-snap-scroll::-webkit-scrollbar {
+  display: none;
+}
+.home-snap-pages {
+  height: 100%;
+}
+.home-snap-pages .home-snap-section {
+  min-height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+/* 入场动画：默认可见，JS 标记 snap-ready 后才启用位移淡入，避免首屏空白 */
+.home-snap-scroll.snap-ready .home-snap-pages .snap-reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.62s cubic-bezier(0.22, 0.7, 0.24, 1),
+    transform 0.72s cubic-bezier(0.22, 0.7, 0.24, 1);
+}
+.home-snap-scroll.snap-ready .home-snap-pages .home-snap-section.is-active .snap-reveal {
+  opacity: 1;
+  transform: none;
+}
+/* 底部「向下浏览」提示：滚动后淡出下移，回到顶部回归；箭头轻微呼吸引导 */
+.home-snap-next {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+  pointer-events: none;
+  transition:
+    opacity 0.42s ease,
+    transform 0.5s cubic-bezier(0.22, 0.7, 0.24, 1),
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+.home-snap-next.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+.home-snap-next:hover {
+  border-color: rgb(192 86 47 / 0.45);
+  color: var(--site-accent);
+}
+.home-snap-next-arrow {
+  animation: snap-hint-nudge 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes snap-hint-nudge {
+  0%, 62%, 100% { transform: translateY(0); opacity: 1; }
+  72% { transform: translateY(4px); opacity: 0.65; }
+  84% { transform: translateY(0); opacity: 1; }
+}
+
+/* 区块导航 */
+.home-snap-nav,
+.home-snap-nav-mobile {
+  position: fixed;
+  z-index: 30;
+}
+.home-snap-nav {
+  right: 1.25rem;
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  height: 8.5rem;
+  transform: translateY(-50%);
+  padding: 0.75rem 0.6rem;
+  border: 1px solid rgb(228 217 202 / 0.75);
+  border-radius: 9999px;
+  background: rgb(255 253 249 / 0.72);
+  backdrop-filter: blur(10px);
+  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.home-snap-nav:hover {
+  background: rgb(255 253 249 / 0.92);
+  border-color: rgb(192 86 47 / 0.3);
+  box-shadow: 0 10px 30px -18px rgb(73 50 30 / 0.45);
+}
+.home-snap-nav-fill {
+  transition: height 0.42s cubic-bezier(0.22, 0.7, 0.24, 1);
+}
+.home-snap-nav-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  outline: none;
+  transition: transform 0.34s cubic-bezier(0.22, 0.7, 0.24, 1), background 0.34s ease;
+}
+.home-snap-nav-dot:hover {
+  transform: scale(1.16);
+  background: rgb(192 86 47 / 0.08);
+}
+.home-snap-nav-dot:focus-visible {
+  box-shadow: 0 0 0 2px rgb(192 86 47 / 0.5);
+}
+.home-snap-nav-core {
+  width: 6px;
+  height: 6px;
+  background: #a89a8a;
+  transition:
+    width 0.4s cubic-bezier(0.22, 0.7, 0.24, 1),
+    height 0.4s cubic-bezier(0.22, 0.7, 0.24, 1),
+    background 0.4s ease,
+    box-shadow 0.4s ease;
+}
+.home-snap-nav-dot.is-active .home-snap-nav-core {
+  width: 11px;
+  height: 11px;
+  background: var(--site-accent);
+  box-shadow: 0 0 0 3px rgb(192 86 47 / 0.16), 0 0 12px rgb(192 86 47 / 0.35);
+}
+.home-snap-nav-label {
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 0.3s ease, transform 0.34s cubic-bezier(0.22, 0.7, 0.24, 1);
+}
+.home-snap-nav-dot:hover .home-snap-nav-label,
+.home-snap-nav-dot:focus-visible .home-snap-nav-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+.home-snap-nav-mobile {
+  bottom: 1.4rem;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border: 1px solid rgb(228 217 202 / 0.8);
+  border-radius: 9999px;
+  background: rgb(255 253 249 / 0.88);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px -12px rgb(73 50 30 / 0.45);
+  transform: translateX(-50%);
+}
+.home-snap-nav-mobile-item {
+  color: var(--site-muted);
+  transition:
+    background 0.38s ease,
+    color 0.38s ease,
+    transform 0.32s cubic-bezier(0.22, 0.7, 0.24, 1);
+}
+.home-snap-nav-mobile-item.is-active {
+  color: var(--site-on-accent);
+  background: var(--site-accent);
+  box-shadow: 0 4px 12px -5px rgb(192 86 47 / 0.7);
+}
+.home-snap-nav-mobile-item:active {
+  transform: scale(0.94);
+}
+/* 显隐断点：基础 display:flex 会覆盖 Tailwind 的 hidden，故用显式媒体查询兜底 */
+@media (max-width: 767px) {
+  .home-snap-nav { display: none; }
+}
+@media (min-width: 768px) {
+  .home-snap-nav-mobile { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-snap-scroll {
+    scroll-snap-type: y proximity;
+    scroll-behavior: auto;
+  }
+  .home-snap-scroll.snap-ready .home-snap-pages .snap-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .home-snap-next,
+  .home-snap-next-arrow,
+  .home-snap-nav-fill,
+  .home-snap-nav-core,
+  .home-snap-nav-label,
+  .home-snap-nav-mobile-item {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ===== 第三屏创作流程（定稿 C · 磁悬浮卡）：进入区块时浮入，悬停 3D 倾斜由内联 style 驱动 ===== */
+.flow-c-step { opacity: 0; transform: translateY(22px); }
+.home-snap-section.is-active .flow-c-step {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.65s ease,
+    transform 0.7s cubic-bezier(0.22, 0.7, 0.24, 1),
+    box-shadow 0.35s ease;
+}
+.flow-c-step:hover {
+  box-shadow: 0 24px 50px -30px rgb(73 50 30 / 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-c-step {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
