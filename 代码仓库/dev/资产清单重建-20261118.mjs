@@ -8,8 +8,10 @@ import { execFileSync } from 'node:child_process';
 const REPO = process.cwd();
 const MAP = JSON.parse(fs.readFileSync(path.join(REPO, '代码仓库/dev/资产迁移映射-20261118.json'), 'utf8'));
 const LIST = path.join(REPO, '资产仓库/90-元数据/资产总清单.json');
-// 始终以 HEAD 中的原始清单为输入，保证脚本可重复执行且不污染
-const original = execFileSync('git', ['show', 'HEAD:资产仓库/manifests/资产清单.json'], { cwd: REPO, encoding: 'utf8' });
+// 始终以迁移前基线中的原始清单为输入，保证脚本可重复执行且不污染。
+// 迁移后 HEAD 已无旧路径，故固定读基线 commit 2cd5179。
+const BASELINE = '2cd51791f564564fcd344c51bc51dd8dbb21a9fa';
+const original = execFileSync('git', ['show', `${BASELINE}:资产仓库/manifests/资产清单.json`], { cwd: REPO, encoding: 'utf8' });
 const old = JSON.parse(original);
 const assets = old.assets;
 
@@ -85,6 +87,14 @@ function locateProtoCopy(a) {
   return null;
 }
 
+// 引用字段中的旧路径必须过映射表更新，否则溯源链断裂
+const REF_FIELDS = ['重复自', '派生自', '被引用于', '运行时路径', '提示词路径', '取代', '被取代于'];
+function remapRef(v) {
+  if (typeof v === 'string') return MAP[v] || v;
+  if (Array.isArray(v)) return v.map((x) => (typeof x === 'string' ? (MAP[x] || x) : x));
+  return v;
+}
+
 let changed = 0, missingMap = 0;
 const newAssets = assets.map((a) => {
   let newPath = MAP[a.path] || a.path;
@@ -112,6 +122,8 @@ const newAssets = assets.map((a) => {
   } else if (['首页', '创作台', '资产库', '社区', '隐私页'].some((x) => newPath.includes(x)) && o.分区) {
     o.决策 = { 结果: status === 'approved' ? '采纳' : status === 'discarded' ? '否决' : status === 'superseded' ? '被取代' : '待定', 日期: '2026-11-18', 决策人: status === 'approved' ? '用户' : '项目', 理由: o.分区 + ' 分区（迁移按目录状态归类）' };
   }
+  // 所有引用字段的路径都过映射表（修复溯源链）
+  for (const f of REF_FIELDS) if (o[f] != null) o[f] = remapRef(o[f]);
   return o;
 });
 

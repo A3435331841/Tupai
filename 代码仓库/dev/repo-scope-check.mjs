@@ -142,6 +142,16 @@ if (assets) {
       && createHash('sha256').update(blob(item.path)).digest('hex') !== item.sha256) {
       errors.push(`资产清单哈希不符: ${item.path}`);
     }
+    // 引用字段不得残留迁移前旧目录（brand/designs/media/...），防止溯源链断裂
+    const OLD_DIR = /^资产仓库\/(brand|designs|media|manifests|skills|test-images|archive)\//;
+    for (const field of ['重复自', '派生自', '被引用于', '运行时路径', '提示词路径', '取代', '被取代于']) {
+      const v = item[field];
+      if (v == null) continue;
+      for (const ref of (Array.isArray(v) ? v : [v])) {
+        if (typeof ref !== 'string') continue;
+        if (OLD_DIR.test(ref)) errors.push(`资产清单 ${field} 残留旧路径: ${ref}`);
+      }
+    }
   }
   for (const file of entries.keys()) {
     if (isAssetImage(file) && !registered.has(file)) errors.push(`图片缺少资产清单记录: ${file}`);
