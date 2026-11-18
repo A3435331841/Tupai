@@ -18,7 +18,7 @@ LifeHack·图派/                    # 仓库根（git 根在此，不在 代码
 │  ├─ brand/{logo,explorations,品牌规范.md}
 │  ├─ designs/pages/{home,studio,library,community,legal}/   # 每页含 索引.md + 版本目录
 │  ├─ designs/{system,references,archive}/
-│  ├─ templates/<template-id>/{清单.json,提示词.md,封面.webp,samples/}
+│  ├─ templates/<template-id>/{清单.json,提示词.md,封面.webp,封面原图.jpg,samples/(可选)}
 │  ├─ media/{generated,licensed,derived,private}/
 │  ├─ skills/{own,third-party}/
 │  ├─ manifests/{资产清单.json,运行时映射.json}
@@ -76,7 +76,7 @@ LifeHack·图派/                    # 仓库根（git 根在此，不在 代码
 
 | 边界 | 位置 | 原因 |
 |---|---|---|
-| API 契约 | `web/lib/api.ts`、`api/openapi.yaml` | 49 个方法签名 + 错误信封 |
+| API 契约 | `web/lib/api.ts`、`api/openapi.yaml` | 52 个方法签名 + 错误信封 |
 | 五阶段状态机 | `web/pages/Studio.tsx` 的 `Stage` 与全部 `setStage` | 生成链路核心 |
 | 隐私 blob 读取 | `components/AssetImage.tsx`、`fetchAssetBlob` | 私有图裸 `<img src>` 会 401 |
 | AI 标识 | 下载 canvas 合成 + 页面角标 | 合规要求 |
@@ -130,7 +130,8 @@ LifeHack·图派/                    # 仓库根（git 根在此，不在 代码
 cd 代码仓库/web
 npm run build            # tsc --noEmit + vite build，必须通过
 cd ..
-node api/contract-test.mjs   # 契约测试，必须全绿
+node api/contract-test.mjs   # 一期契约测试，必须全绿
+node api/contract-test-extended.mjs   # 二三期契约测试（本地身份夹具），必须全绿
 ```
 
 按改动范围追加：
@@ -195,6 +196,7 @@ node api/contract-test.mjs   # 契约测试，必须全绿
 
 ## 11. 当前状态（2026-11-18）
 
-- 资产治理：源资产已统一到 `资产仓库/`，`designs/` 按页面版本归档，`manifests/` 提供 assets/runtime 双映射。详见 `资产仓库/总索引.md`。
+- 资产治理：源资产已统一到 `资产仓库/`，`designs/` 按页面版本归档，`manifests/` 提供 assets/runtime 双映射（117 条记录 / 81 唯一文件 / 26 运行时副本 / 映射缺失 0）；治理前旧清单已归档到 `资产仓库/archive/manifests-legacy-20261118/`。
+- 契约与数据层：`api/openapi.yaml` 已覆盖全部已实现端点；`api/schema.sql` 与 `api/schema-migrations.sql` 覆盖 assets 扩展列与社区/画册 9 表。
 - 页面状态：首页（已定稿，图派编辑风 + 显影对比）、创作台/资产库/社区（按设计稿复刻，功能完整）、Legal（静态）。
-- 已知限制：见 `docs/06` 部署记录与 `docs/09` 完成度说明。
+- 已知限制：见 `docs/06` 部署记录与 `docs/09` 完成度说明；P2-F4/F9/F10 与画册 zip 导出未实现。

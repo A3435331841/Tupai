@@ -1,5 +1,6 @@
 # 图派 TuPai · 下一阶段执行 Prompt（增强版）
 
+> **历史执行 Prompt（2026-11-18 资产治理轮次）**：仅作过程记录；文中路径已按当前命名同步，执行以 `AGENTS.md` 与 `资产仓库/总索引.md` 为准。
 > 用途：把本文件完整交给下一轮“主执行 Agent”。这是执行约束，不是产品说明。
 > 基线：仓库 A3435331841/Tupai，主分支 main，Qoder 公网 https://tupai-moo3r9zpvox.qoder.zone。
 
@@ -42,7 +43,7 @@ rg --files
 当前目录中的重点问题：
 
 - 设计稿是设计、原型、选稿、预览、生成原图的混合区，不是单一资产库。
-- 资产仓库已有 brand、templates、skills-source、test-images，但缺少统一下游索引。
+- 资产仓库已有 brand、templates、skills/third-party、test-images，但缺少统一下游索引。
 - 代码仓库/web/public 存在 brand、templates、home、gallery、samples 等运行时副本。
 - 根目录 web/screenshots 是历史验证产物，不是应用源码。
 - docs/09 和多个页面、服务端文件可能来自并行 Agent，不能未经审阅当成完成基线。
@@ -63,7 +64,7 @@ rg --files
 
 ```text
 资产仓库/
-├─ INDEX.md                         # 人类可读总索引
+├─ 总索引.md                         # 人类可读总索引
 ├─ brand/                           # Logo 唯一源与品牌规范
 │  ├─ logo/
 │  ├─ explorations/
@@ -71,7 +72,7 @@ rg --files
 ├─ designs/
 │  ├─ pages/
 │  │  ├─ home/
-│  │  │  ├─ INDEX.md
+│  │  │  ├─ 索引.md
 │  │  │  ├─ v01-20261117-editorial/
 │  │  │  ├─ v02-20261118-interactive/
 │  │  │  └─ archive/
@@ -96,8 +97,8 @@ rg --files
 │  ├─ own/
 │  └─ third-party/
 ├─ manifests/
-│  ├─ assets.json
-│  └─ runtime-map.json
+│  ├─ 资产清单.json
+│  └─ 运行时映射.json
 └─ archive/
 ```
 
@@ -105,7 +106,7 @@ rg --files
 
 1. 变更路径优先用 git mv，保留 Git 历史。
 2. 源资产只保留一份；代码仓库/web/public 是运行时派生副本，不是第二份源。
-3. 每个运行副本必须能由 runtime-map.json 追溯回源文件。
+3. 每个运行副本必须能由 `运行时映射.json` 追溯回源文件。
 4. 资产仓库/test-images 继续作为本地测试资产，默认不入公开仓库，保留许可证记录。
 5. .workbuddy、浏览器缓存、临时截图、验证脚本输出不得进入提交，除非进入设计验收证据并登记 manifest。
 6. 移动或重命名后立即执行引用扫描、构建和资源 404 检查。
@@ -121,7 +122,7 @@ rg --files
 - 示例：v01-20261117-editorial、v02-20261118-interactive-compare
 - 禁止：最终版、新版、最终最终、copy、old、new-new、无意义时间戳、随机 hash 目录名。
 
-每个版本目录包含 版本说明.md，状态只能是 concept、review、approved、superseded、archived。当前版本由页面 INDEX.md 指向，不通过复制成 current 或改名为 final 表达。
+每个版本目录包含 版本说明.md，状态只能是 concept、review、approved、superseded、archived。当前版本由页面 `索引.md` 指向，不通过复制成 current 或改名为 final 表达。
 
 预览文件：preview-desktop@2x.webp、preview-tablet@2x.webp、preview-mobile@2x.webp。
 
@@ -208,7 +209,7 @@ node api/contract-test.mjs
 - 交互改动：用 Playwright 实测拖动、键盘、弹窗和回退。
 - 部署前：dev/cloud-acceptance.mjs（仅 Secret 已配置时）。
 
-必须确认：页面可加载、交互可用、图片无 404；npm run build 通过；暂存区无本地测试资产、临时截图或含 Key 文件；git diff --check 无空白错误；当前设计版本与 INDEX.md 一致。
+必须确认：页面可加载、交互可用、图片无 404；npm run build 通过；暂存区无本地测试资产、临时截图或含 Key 文件；git diff --check 无空白错误；当前设计版本与 `索引.md` 一致。
 
 ## 阶段七：GitHub 分批提交
 
