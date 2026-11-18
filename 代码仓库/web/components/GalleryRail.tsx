@@ -264,11 +264,12 @@ export function GalleryRail({
     };
 
     const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      // 仅横向滚轮 / 触控板横滑驱动画廊旋转；纵向滚轮放行给页面，供首页整屏吸附切换区块
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 2) {
         e.preventDefault();
         markSliding();
         if (s.selected >= 0) deselect();
-        s.offset += e.deltaY * 0.0025;
+        s.offset += e.deltaX * 0.0025;
         s.vel = 0;
       }
     };
