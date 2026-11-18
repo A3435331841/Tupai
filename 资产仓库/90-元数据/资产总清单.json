@@ -2,7 +2,7 @@
   "generated_at": "2026-11-18",
   "schema_version": "2.0",
   "note": "全面中文化迁移后重建；状态六态（在用沿用 approved）、六维标签、目录分区/清单/版本说明三处同步。字段语义见 字段规范.json。",
-  "count": 117,
+  "count": 119,
   "status_summary": {
     "archived": 49,
     "discarded": 7,
@@ -3549,6 +3549,54 @@
       "分区": null,
       "状态": "approved",
       "标签": {}
+    },
+    {
+      "id": "标志-横版-首页",
+      "type": "vector",
+      "path": "资产仓库/10-品牌资产/标志/在用/标志-横版-首页.svg",
+      "origin": "project-owned",
+      "license": "project-owned",
+      "sha256": "b322bfda67316068304f140844e9fa3fd29aaf40c9f06900c6288e92b07db821",
+      "bytes": 1201,
+      "visibility": "public",
+      "runtime_path": "代码仓库/web/public/brand/logo-horizontal-home.svg",
+      "used_by": [],
+      "名称": "标志-横版-首页",
+      "分区": "在用",
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "页面装饰"
+        ],
+        "页面": [
+          "首页"
+        ]
+      },
+      "派生自": "资产仓库/10-品牌资产/标志/在用/标志-横版.svg"
+    },
+    {
+      "id": "首页废片原图",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/派生加工/首页废片原图.webp",
+      "origin": "project-owned",
+      "license": "project-owned",
+      "sha256": "3d099f2219a1039acd6db249c8c5741ab6df109ee2adebf4e9cb94d17816f232",
+      "bytes": 192884,
+      "visibility": "public",
+      "runtime_path": "代码仓库/web/public/home/hero-street-raw.webp",
+      "used_by": [],
+      "名称": "首页废片原图",
+      "分区": "在用",
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "页面装饰"
+        ],
+        "页面": [
+          "首页"
+        ]
+      },
+      "派生自": "资产仓库/40-图片资产/派生加工/首页主视觉.webp"
     }
   ]
 }

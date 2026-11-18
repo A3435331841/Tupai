@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-11-18",
-  "count": 26,
+  "count": 28,
   "runtime": [
     {
       "runtime_path": "代码仓库/web/public/brand/logo-horizontal-dark.svg",
@@ -157,7 +157,19 @@
       "source_path": "资产仓库/60-模板资产/travel-postcard/封面.webp",
       "sha256": "57d381d6e661f6a7cf00c77a3c4f3985caddf17cd076201094eb14bc6fd8b1b1",
       "derived": true
+    },
+    {
+      "runtime_path": "代码仓库/web/public/brand/logo-horizontal-home.svg",
+      "source_path": "资产仓库/10-品牌资产/标志/在用/标志-横版-首页.svg",
+      "sha256": "b322bfda67316068304f140844e9fa3fd29aaf40c9f06900c6288e92b07db821",
+      "derived": false
+    },
+    {
+      "runtime_path": "代码仓库/web/public/home/hero-street-raw.webp",
+      "source_path": "资产仓库/40-图片资产/派生加工/首页废片原图.webp",
+      "sha256": "3d099f2219a1039acd6db249c8c5741ab6df109ee2adebf4e9cb94d17816f232",
+      "derived": true
     }
   ],
-  "note": "2026-11-18 中文化迁移：source_path 已按新目录更新，runtime_path（web/public）保持英文不变。"
+  "note": "2026-11-19 首页改版：新增放大副文案 Logo 与首页废片原图（均含资产仓库唯一源 + 运行时映射）。2026-11-18 中文化迁移：source_path 已按新目录更新，runtime_path（web/public）保持英文不变。"
 }
