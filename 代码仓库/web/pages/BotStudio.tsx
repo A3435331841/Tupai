@@ -891,14 +891,14 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const metaOf = (name: string) => BOT_META[name] ?? { label: name, role: '', glyph: name.slice(-1), gradient: 'linear-gradient(135deg,#9A8A7A,#7A6A5A)', summary: '' };
 
   return (
-    <div className="studio-editorial mx-auto w-full max-w-[1440px] px-5 py-6 pb-16 sm:px-8">
+    <div className="studio-editorial mx-auto flex w-full max-w-[1440px] min-h-0 flex-col px-5 py-6 sm:px-8 lg:h-full">
       <input ref={importRef} type="file" accept=".json,application/json" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void importSkillFile(f); e.target.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ''; if (f) void pickFile(f); }} />
 
       {/* 页头 */}
-      <div className="mb-6 flex flex-wrap items-end gap-4">
+      <div className="mb-6 flex shrink-0 flex-wrap items-end gap-4">
         <div>
           <div className="se-eyebrow mb-3 flex items-center gap-3 text-[13px] font-semibold">
             AI 影像风格重塑 <span className="h-px w-14 bg-[#DCCDB8]" />
@@ -909,14 +909,15 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         <div className="ml-auto flex items-center gap-5">
           <button type="button" className="se-link text-sm" onClick={openMySkills}>我的配方</button>
           <button type="button" className="se-link text-sm" onClick={() => importRef.current?.click()}>导入</button>
+          <button type="button" className="se-link text-sm" onClick={() => navigate('/legal')}>隐私与 AI 说明</button>
           {stage !== 'entry' && <button type="button" className="se-link text-sm" onClick={resetAll}>重开</button>}
           <button type="button" className="se-btn-dark px-5 py-2.5 text-sm" onClick={resetAll}>＋ 新任务</button>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[264px_minmax(0,1fr)_296px]">
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[264px_minmax(0,1fr)_296px]">
         {/* ===== 左：Bot 会话列表 ===== */}
-        <aside className="flex min-w-0 flex-col gap-1.5">
+        <aside className="flex min-w-0 flex-col gap-1.5 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
           <p className="mb-2 px-1 text-[11px] font-semibold tracking-[.12em] text-[#B3A492]">BOT 团队</p>
           {BOT_ORDER.map((name) => {
             const meta = BOT_META[name];
@@ -939,9 +940,9 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         </aside>
 
         {/* ===== 中：对话工作台 ===== */}
-        <section className="flex min-w-0 flex-col gap-4">
+        <section className="flex min-w-0 min-h-0 flex-col gap-4">
           {/* 当前会话头 */}
-          <div className="se-card flex items-center gap-3 px-5 py-4">
+          <div className="se-card flex shrink-0 items-center gap-3 px-5 py-4">
             <span className="se-avatar" style={{ background: curMeta.gradient, width: 38, height: 38, fontSize: 14 }}>{curMeta.glyph}</span>
             <div>
               <div className="text-[15px] font-bold">与{curMeta.label}单独对话</div>
@@ -1086,7 +1087,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
           </div>
 
           {/* 输入条 */}
-          <div className="se-card flex items-center gap-3 px-4 py-2.5">
+          <div className="se-card flex shrink-0 items-center gap-3 px-4 py-2.5">
             <button type="button" title="上传照片" onClick={() => fileRef.current?.click()} className="text-lg text-[#6B5D52]">＋</button>
             <button type="button" className="se-link text-[12px]" onClick={() => setLinkOpen(true)}>链接</button>
             <span className="text-[#B3A492]">@</span>
@@ -1098,12 +1099,12 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
               {stage === 'generating' ? '出图…' : '派单给小绘'}
             </button>
           </div>
-          {quota && <p className="text-center text-[12px] text-[#B3A492]">今日还可生成 {quota.remaining} 次 · 原图全程私密</p>}
+          {quota && <p className="shrink-0 text-center text-[12px] text-[#B3A492]">今日还可生成 {quota.remaining} 次 · 原图全程私密</p>}
         </section>
 
         {/* ===== 右：当前 Bot 详情 ===== */}
-        <aside className="flex min-w-0 flex-col gap-4">
-          <div className="se-card flex flex-col items-center p-6 text-center">
+        <aside className="flex min-w-0 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+          <div className="se-card flex flex-col items-center p-5 text-center">
             <span className="se-avatar" style={{ background: curMeta.gradient, width: 60, height: 60, fontSize: 22 }}>{curMeta.glyph}</span>
             <div className="mt-4 font-display text-[20px] font-extrabold">{curMeta.label}</div>
             <div className="mt-1 text-[13px] text-[#6B5D52]">{curMeta.role} · {botState[focusKey]}</div>
