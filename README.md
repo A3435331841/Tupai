@@ -46,8 +46,7 @@
 
 ```text
 LifeHack·图派/                     # git 根
-├─ AGENTS.md                       # ★ 唯一 AI 协作规则（必读）
-├─ README.md / LICENSE / .gitignore
+├─ README.md / LICENSE
 ├─ docs/                           # 01–11 项目文档
 ├─ 代码仓库/
 │  ├─ web/                         # React SPA；public/ 是运行时派生副本
@@ -67,6 +66,8 @@ LifeHack·图派/                     # git 根
 ├─ 早期规划/                        # 历史资料，本地只读，不入库
 └─ .workbuddy/                     # 本地工具状态，不入库
 ```
+
+> 本地私有文件：`AGENTS.md`、`.gitignore` 保留在工作区，不随 GitHub 发布；公开边界以 [docs/11](docs/11-提交范围与边界.md) 为准。
 
 ## 快速开始
 
@@ -103,11 +104,11 @@ cd 代码仓库/web && npm run build
 
 ## 仓库范围与提交边界
 
-这里定义**什么该进 GitHub、什么只留本地**。完整规则见 [docs/11-提交范围与边界](docs/11-提交范围与边界.md) 与 [AGENTS.md §8](AGENTS.md)。
+这里定义**什么该进 GitHub、什么只留本地**。完整规则见 [docs/11-提交范围与边界](docs/11-提交范围与边界.md)；本地 `AGENTS.md` 与 `.gitignore` 不随仓库发布。
 
 ### 必须提交（产品与唯一源）
 
-- 根约定：`AGENTS.md`、`README.md`、`LICENSE`、`.gitignore`
+- 根约定：`README.md`、`LICENSE`
 - 文档：`docs/01`–`docs/11`
 - 可运行产品：`代码仓库/web/`（含 `public/` 运行时资源）、`server/`、`api/`、`dev/`、`.图派.qoder.site`
 - 资产源：`资产仓库/总索引.md`、`brand/logo/`、`brand/品牌规范.md`、`templates/<id>/{清单.json,提示词.md,封面.webp}`、`media/{licensed,generated,derived}/`、`manifests/`、`designs/pages/*/索引.md`、版本说明与系统提示词、`skills/third-party/`
@@ -143,13 +144,15 @@ git diff --cached --stat                 # 确认批次范围
 git add -- <明确路径>                     # 禁止 git add -A
 ```
 
+- **提交标题使用中文**：`中文类型(范围): 中文摘要`，如 `修复(资产): 修正清单引用`；禁止 `fix/docs/feat` 等英文类型前缀（历史提交不追溯改写）。
+- 本地 `AGENTS.md` 与 `.gitignore` 不提交；它们通过 `.git/info/exclude` 排除。
+
 ## 文档索引
 
 **必读**
 
 | 文档 | 回答什么 |
 |---|---|
-| [AGENTS.md](AGENTS.md) | 唯一 AI 协作规则：读取顺序、写作用域、资产源、验证门禁、提交与发布纪律 |
 | [01-需求文档](docs/01-需求文档.md) | 做什么：定位、三期路线、功能与验收 |
 | [02-开发文档](docs/02-开发文档.md) | 怎么做：架构、数据模型、关键设计、WBS |
 | [04-资产与数据](docs/04-资产与数据.md) | 资产目录、来源、协议、运行时映射 |

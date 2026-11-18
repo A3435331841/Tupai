@@ -25,6 +25,8 @@ const FORBIDDEN = [
   [/(^|\/)screenshots?\//, '临时截图目录'],
   [/(^|\/)早期规划\//, '本地历史资料 早期规划'],
   [/(^|\/)docs\/references\/agnes-api\.md$/, '含凭据的 Agnes 手册'],
+  [/^AGENTS\.md$/, '本地私有协作规则'],
+  [/^\.gitignore$/, '本地私有忽略文件'],
   [/(^|\/)\.env($|\.)/, '环境变量文件'],
   [/(^|\/)(agnes key\.txt|[^/]*\.key)$/, 'Key 文件'],
   [/(^|\/)(id_rsa|id_ed25519|[^/]*\.pem)$/, 'SSH/私钥文件'],
