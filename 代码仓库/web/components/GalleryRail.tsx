@@ -59,6 +59,19 @@ export function GalleryRail({
 
   const N = items.length;
 
+  // 空闲预加载：首屏只加载内圈，随后后台把其余图取完，避免循环滚入时闪白
+  useEffect(() => {
+    if (N === 0) return;
+    const timer = window.setTimeout(() => {
+      items.forEach((item) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = item.src;
+      });
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [items, N]);
+
   useEffect(() => {
     const rail = railRef.current;
     if (!rail || N === 0) return;
@@ -310,8 +323,15 @@ export function GalleryRail({
           className="absolute left-1/2 top-1/2 overflow-hidden rounded-md bg-secondary shadow-[0_20px_50px_-24px_rgba(40,25,15,.5)] will-change-transform [&.is-selected]:z-[200] [&.is-selected]:shadow-[0_0_0_2px_var(--primary),0_34px_76px_-18px_rgba(40,25,15,.72)]"
           style={{ width: CARD_W, aspectRatio: '3 / 4' }}
         >
-          <img src={item.src} alt={item.title} draggable={false} loading="lazy"
-            className="size-full object-cover" />
+          {/* 内圈卡片优先加载，避免循环滚入时闪白；远端按需加载 */}
+          <img
+            src={item.src}
+            alt={item.title}
+            draggable={false}
+            loading={i < 8 ? 'eager' : 'lazy'}
+            decoding="async"
+            className="size-full object-cover"
+          />
           <span data-shade className="pointer-events-none absolute inset-0 bg-stone-900 opacity-0" />
 
           {item.ai && (
