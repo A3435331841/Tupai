@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api, apiUrl } from '@/lib/api';
 import type { Template } from '@/lib/types';
@@ -6,8 +6,28 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { HomeCompare } from '@/components/HomeCompare';
+import { GalleryRail, type GalleryItem } from '@/components/GalleryRail';
 
 const HERO_IMAGE = '/home/hero-street.webp';
+
+/** 无限画廊的补充作品（模板之外的日常瞬间） */
+const GALLERY_EXTRAS: GalleryItem[] = [
+  { id: 'coffee', src: '/gallery/g06-coffee.jpg', title: '咖啡午后', ai: true },
+  { id: 'food', src: '/gallery/g07-food.jpg', title: '餐桌日记', ai: true },
+  { id: 'street', src: '/gallery/g09-street.jpg', title: '城市夜色', ai: true },
+  { id: 'pet', src: '/gallery/g10-pet.jpg', title: '猫咪日常', ai: true },
+  { id: 'beach', src: '/gallery/g12-beach.jpg', title: '海边黄昏', ai: true },
+  { id: 'city', src: '/gallery/g13-city.jpg', title: '都市天际', ai: true },
+  { id: 'book', src: '/gallery/g14-book.jpg', title: '旧书时光', ai: true },
+  { id: 'plant', src: '/gallery/g15-plant.jpg', title: '绿植静物', ai: true },
+  { id: 'market', src: '/gallery/g16-market.png', title: '周末市集', ai: true },
+  { id: 'reading', src: '/gallery/g17-reading.png', title: '窗边阅读', ai: true },
+  { id: 'bakery', src: '/gallery/g18-bakery.png', title: '暖光美食', ai: true },
+  { id: 'dusk', src: '/gallery/g19-street.png', title: '黄昏街道', ai: true },
+  { id: 'flowers', src: '/gallery/g20-flowers.png', title: '干花静物', ai: true },
+  { id: 'seaside', src: '/gallery/g21-seaside.png', title: '海边漫步', ai: true },
+  { id: 'cat', src: '/gallery/g22-cat.png', title: '猫与午后', ai: true },
+];
 
 const LOCAL_COVERS: Record<string, string> = {
   'film-daily': '/templates/film-daily.webp',
@@ -77,16 +97,38 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
     api.templates().then((result) => setTemplates(result.templates)).catch(() => setTemplates(null));
   }, []);
 
-  const showcase: ShowcaseTemplate[] = templates?.length
-    ? templates.map((template) => ({
-        id: template.id,
-        title: template.title,
-        description: template.description,
-        tags: template.tags || [],
-        cover: LOCAL_COVERS[template.id] || apiUrl(template.cover_url),
-        ratio: template.ratio || '3:4',
-      }))
-    : FALLBACK_TEMPLATES;
+  // memo：保持引用稳定，避免下游 GalleryRail 的动画循环被反复重置
+  const showcase = useMemo<ShowcaseTemplate[]>(
+    () =>
+      templates?.length
+        ? templates.map((template) => ({
+            id: template.id,
+            title: template.title,
+            description: template.description,
+            tags: template.tags || [],
+            cover: LOCAL_COVERS[template.id] || apiUrl(template.cover_url),
+            ratio: template.ratio || '3:4',
+          }))
+        : FALLBACK_TEMPLATES,
+    [templates],
+  );
+
+  // 画廊数据：模板在前（带 templateId 可做同款）+ 日常瞬间
+  // 必须 memo，否则每次渲染生成新数组会让 GalleryRail 的动画 effect 重跑、循环被重置
+  const galleryItems = useMemo<GalleryItem[]>(
+    () => [
+      ...showcase.map((t) => ({ id: t.id, src: t.cover, title: t.title, templateId: t.id, ai: true })),
+      ...GALLERY_EXTRAS,
+    ],
+    [showcase],
+  );
+
+  const handleGalleryUse = useCallback(
+    (item: GalleryItem) => {
+      navigate(item.templateId ? `/studio?template=${item.templateId}` : '/studio');
+    },
+    [navigate],
+  );
 
   const preview = previewIndex === null ? null : showcase[previewIndex];
 
@@ -155,32 +197,22 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
           <span className="hidden text-[11px] text-muted-foreground sm:block">点图片查看，选一个方向</span>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-5 md:gap-x-4">
-          {showcase.map((template, index) => (
-            <button
-              key={template.id}
-              type="button"
-              onClick={() => setPreviewIndex(index)}
-              aria-haspopup="dialog"
-              aria-label={'查看模板 ' + template.title + ' 大图'}
-              className="group min-w-0 text-left"
-            >
-              <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
-                <img
-                  src={template.cover}
-                  alt={template.title + ' 效果示意（AI 生成）'}
-                  loading="lazy"
-                  className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.045]"
-                />
-                <span className="absolute left-2 top-2 rounded-full bg-stone-950/55 px-2 py-0.5 text-[9px] font-semibold text-white backdrop-blur-md">AI 示意</span>
-                <span className="absolute inset-x-0 bottom-0 flex items-center justify-end bg-gradient-to-t from-stone-950/62 to-transparent px-2.5 pb-2 pt-8 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  查看 <ArrowRight className="ml-1 size-3" />
-                </span>
-              </div>
-              <p className="mt-3 text-center font-display text-base font-semibold">{template.title}</p>
-            </button>
-          ))}
+        {/* 无限循环画廊：拖动/滚轮浏览，点卡片居中放大，Esc 或点空白恢复 */}
+        <div className="mt-4 -mx-4 sm:-mx-6">
+          <GalleryRail items={galleryItems} onUse={handleGalleryUse} />
         </div>
+
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          <span>拖动或滚轮连续浏览</span>
+          <span className="hidden sm:inline">点图片放大 · Esc 恢复</span>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+            onClick={() => navigate('/studio')}
+          >
+            直接开始创作 <ArrowRight className="size-3.5" />
+          </button>
+        </p>
       </section>
 
       <section className="mt-11 border-y border-border/70" aria-label="创作流程">
