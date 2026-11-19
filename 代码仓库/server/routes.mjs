@@ -146,8 +146,9 @@ footer{text-align:center;padding:14px;font-size:.75rem;color:#a89f93}
 <script>
 const pages=[...document.querySelectorAll('.page')];let cur=0;
 function render(){pages.forEach((p,i)=>{p.style.zIndex=pages.length-i;p.classList.toggle('flipped',i<cur);});}
-document.getElementById('next').onclick=()=>{if(cur<pages.length){cur++;render();}};
+document.getElementById('next').onclick=()=>{if(cur<pages.length-1){cur++;render();}};
 document.getElementById('prev').onclick=()=>{if(cur>0){cur--;render();}};
+addEventListener('keydown',(e)=>{if(e.key==='ArrowRight'){if(cur<pages.length-1){cur++;render();}}else if(e.key==='ArrowLeft'){if(cur>0){cur--;render();}}});
 render();
 // 下载时在画布上合成「AI 生成 · 图派」标识，确保保存到本地的文件也带标识
 async function dl(i){
@@ -210,6 +211,15 @@ export function application({ db, storage, env, fetchImpl }) {
     const album = found[0];
     if (!shareActive(album)) fail('not_found', 404, '分享链接已失效或被撤回');
     return album;
+  }
+
+  // 分享页只展示仍存活（未软删、kind==='result'）的条目：一次查询过滤，保持画册原顺序
+  async function liveAlbumIds(album) {
+    const ids = albumItems(album).filter(Boolean);
+    if (!ids.length) return [];
+    const alive = rows(await db.from('assets').select('id, kind, deleted_at').in('id', ids)) || [];
+    const keep = new Set(alive.filter((a) => a.kind === 'result' && !a.deleted_at).map((a) => a.id));
+    return ids.filter((id) => keep.has(id));
   }
 
   async function loadWork(id) {
@@ -280,6 +290,7 @@ export function application({ db, storage, env, fetchImpl }) {
       comment_count: comments.get(w.id) || 0,
       fork_count: forks.get(w.id) || 0,
       liked: mine.has(w.id),
+      is_owner: Boolean(viewer) && w.owner_session === viewer,
     }));
   }
 
@@ -467,6 +478,10 @@ export function application({ db, storage, env, fetchImpl }) {
         ? await db.from('profiles').update(patch).eq('user_id', key).select()
         : await db.from('profiles').insert({ user_id: key, ...patch }).select();
       if (r.error) fail('internal', 503, '保存资料失败');
+      // 改名后同步本人作品的署名，避免历史作品仍显示旧昵称
+      if (patch.display_name && patch.display_name.trim()) {
+        await db.from('works').update({ author_credit: patch.display_name }).eq('owner_session', key);
+      }
       const row = rows(r)?.[0] || {};
       return Response.json({
         profile: { user_id: key, display_name: row.display_name || user.name, bio: row.bio || '', avatar_url: user.picture || '' },
@@ -509,24 +524,25 @@ export function application({ db, storage, env, fetchImpl }) {
       const kind = url.searchParams.get('kind') ? vOneOf(url.searchParams.get('kind'), 'kind', KIND_VALUES) : '';
       const q = (url.searchParams.get('q') || '').trim().toLowerCase();
       const tag = (url.searchParams.get('tag') || '').trim();
-      const includeDeleted = url.searchParams.get('include_deleted') === '1';
+      const onlyDeleted = url.searchParams.get('only_deleted') === '1';
+      const includeDeleted = !onlyDeleted && url.searchParams.get('include_deleted') === '1';
       const limit = vInt(url.searchParams.get('limit'), 'limit', { min: 1, max: 60, fallback: 24 });
       const offset = vInt(url.searchParams.get('offset'), 'offset', { min: 0, fallback: 0 });
       let query = db.from('assets').select('*').eq('owner_session', sid).order('created_at', { ascending: false });
-      if (!includeDeleted) query = query.is('deleted_at', null);
+      if (!includeDeleted && !onlyDeleted) query = query.is('deleted_at', null);
       if (kind) query = query.eq('kind', kind);
       const all = rows(await query.range(0, 499)) || [];
       let filtered = all;
+      if (onlyDeleted) filtered = filtered.filter((a) => Boolean(a.deleted_at));
       if (tag) filtered = filtered.filter((a) => assetTags(a).includes(tag));
       if (q) filtered = filtered.filter((a) => (a.source || '').toLowerCase().includes(q)
         || assetTags(a).some((t) => String(t).toLowerCase().includes(q)) || a.kind.includes(q));
       const page = filtered.slice(offset, offset + limit);
+      // summary 始终按「未删除」统计，回收站视图与常规视图口径一致
       const summary = {};
-      if (!includeDeleted) {
-        for (const k of KIND_VALUES) {
-          const c = await db.from('assets').select('id', { count: 'exact' }).eq('owner_session', sid).eq('kind', k).is('deleted_at', null).limit(1);
-          summary[k] = Number(c.count) || 0;
-        }
+      for (const k of KIND_VALUES) {
+        const c = await db.from('assets').select('id', { count: 'exact' }).eq('owner_session', sid).eq('kind', k).is('deleted_at', null).limit(1);
+        summary[k] = Number(c.count) || 0;
       }
       return Response.json({
         assets: page.map(assetMeta), total: filtered.length,
@@ -561,6 +577,14 @@ export function application({ db, storage, env, fetchImpl }) {
         const deleted_at = new Date().toISOString();
         const r = await db.from('assets').update({ deleted_at }).eq('id', a.id).eq('owner_session', sid).select();
         if (r.error) fail('internal', 503, '删除失败，请稍后重试');
+        // 软删后同步移除画册引用，避免分享页/画册残留已删除条目；画册清空时保留但不删
+        const albums = rows(await db.from('albums').select('*').eq('owner_session', sid).limit(200)) || [];
+        for (const al of albums) {
+          const ids = albumItems(al);
+          if (!ids.includes(a.id)) continue;
+          const next = ids.filter((x) => x !== a.id);
+          await db.from('albums').update({ item_ids: next, cover_asset_id: next[0] || null }).eq('id', al.id).eq('owner_session', sid);
+        }
         return Response.json({ ok: true, deleted_at });
       }
       // 彻底删除：只允许清理已在回收站的资产，且不得破坏已发布作品
@@ -973,7 +997,13 @@ export function application({ db, storage, env, fetchImpl }) {
       if (Array.isArray(body.item_ids)) {
         const ids = [...new Set(vStringArray(body.item_ids, 'item_ids', { max: 50, itemMax: 80 }))].map((id) => vId(id, 'item_ids', 'a'));
         if (!ids.length) fail('invalid_input', 400, '请至少保留一张作品');
-        for (const id of ids) { const a = await loadOwnedAsset(id, sid); if (a.kind !== 'result') fail('invalid_input', 400, '画册只收录生成作品'); }
+        const before = albumItems(album);
+        for (const id of ids) {
+          // 已软删但仍留在本画册的条目允许保留；新加入的已删资产仍报 400
+          const a = await loadOwnedAsset(id, sid, { allowDeleted: true });
+          if (a.deleted_at && !before.includes(id)) fail('invalid_input', 400, '资产已移入回收站，无法加入画册');
+          if (a.kind !== 'result') fail('invalid_input', 400, '画册只收录生成作品');
+        }
         patch.item_ids = ids; patch.cover_asset_id = ids[0];
       }
       const r = await db.from('albums').update(patch).eq('id', album.id).eq('owner_session', sid).select();
@@ -1011,9 +1041,10 @@ export function application({ db, storage, env, fetchImpl }) {
     const shareView = path.match(/^\/api\/v1\/share\/([0-9a-f]{32})$/);
     if (shareView && method === 'GET') {
       const album = await loadSharedAlbum(shareView[1]);
+      const ids = await liveAlbumIds(album);
       return Response.json({
         title: album.title, created_at: album.created_at,
-        images: albumItems(album).map((id) => `/api/v1/share/${shareView[1]}/img/${id}`),
+        images: ids.map((id) => `/api/v1/share/${shareView[1]}/img/${id}`),
       });
     }
     const shareImg = path.match(/^\/api\/v1\/share\/([0-9a-f]{32})\/img\/(a_[0-9a-f]{24})$/);
@@ -1021,7 +1052,7 @@ export function application({ db, storage, env, fetchImpl }) {
       const album = await loadSharedAlbum(shareImg[1]);
       if (!albumItems(album).includes(shareImg[2])) fail('not_found', 404);
       const found = rows(await db.from('assets').select('*').eq('id', shareImg[2]).limit(1));
-      if (!found?.length || found[0].kind !== 'result') fail('not_found', 404);
+      if (!found?.length || found[0].kind !== 'result' || found[0].deleted_at) fail('not_found', 404);
       const file = await storage.download(found[0].storage_key);
       if (!file.ok) fail('internal', 503, '资产读取失败');
       return new Response(file.body, { headers: { 'content-type': found[0].content_type, 'cache-control': 'private, no-store' } });
@@ -1029,7 +1060,7 @@ export function application({ db, storage, env, fetchImpl }) {
     const sharePage = path.match(/^\/api\/v1\/share\/([0-9a-f]{32})\/page$/);
     if (sharePage && method === 'GET') {
       const album = await loadSharedAlbum(sharePage[1]);
-      const ids = albumItems(album).filter(Boolean);
+      const ids = await liveAlbumIds(album);
       return new Response(albumPageHtml(album.title, ids), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     }
 
@@ -1195,14 +1226,14 @@ export function application({ db, storage, env, fetchImpl }) {
     if (userWorks && method === 'GET') {
       const owner = decodeURIComponent(userWorks[1]);
       const list = rows(await db.from('works').select('*').eq('owner_session', owner).eq('status', 'published').order('created_at', { ascending: false }).limit(60)) || [];
-      const works = await Promise.all(list.map(async (w) => workMeta(w, await workCounts(w))));
+      const works = await batchMeta(list, viewerKey(request));
       return Response.json({ works });
     }
 
     if (path === '/api/v1/me/works' && method === 'GET') {
       const sid = ownerOf(request);
       const list = rows(await db.from('works').select('*').eq('owner_session', sid).order('created_at', { ascending: false }).limit(100)) || [];
-      const works = await Promise.all(list.map(async (w) => workMeta(w, { ...(await workCounts(w)), is_owner: true })));
+      const works = await batchMeta(list, viewerKey(request));
       return Response.json({ works });
     }
 
@@ -1283,7 +1314,13 @@ export function application({ db, storage, env, fetchImpl }) {
 
     if (path === '/api/v1/tasks' && method === 'GET') {
       const viewer = viewerKey(request);
-      const list = rows(await db.from('tasks').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(50)) || [];
+      const url = new URL(request.url);
+      const includeClosed = url.searchParams.get('include_closed') === '1';
+      // 默认仅 open；include_closed=1 时追加本人发起的已关闭任务
+      const raw = includeClosed
+        ? rows(await db.from('tasks').select('*').order('created_at', { ascending: false }).limit(50)) || []
+        : rows(await db.from('tasks').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(50)) || [];
+      const list = includeClosed ? raw.filter((t) => t.status === 'open' || t.owner_session === viewer) : raw;
       const tasks = await Promise.all(list.map(async (t) => {
         const c = await db.from('submissions').select('id', { count: 'exact' }).eq('task_id', t.id).limit(1);
         return {
@@ -1313,17 +1350,20 @@ export function application({ db, storage, env, fetchImpl }) {
       if (!f?.length) fail('not_found', 404);
       const t = f[0];
       const subs = rows(await db.from('submissions').select('*').eq('task_id', t.id).limit(100)) || [];
-      const works = await Promise.all(subs.map(async (s) => {
+      const published = [];
+      for (const s of subs) {
         const wf = rows(await db.from('works').select('*').eq('id', s.work_id).limit(1));
-        return wf?.length && wf[0].status === 'published' ? workMeta(wf[0]) : null;
-      }));
+        if (wf?.length && wf[0].status === 'published') published.push(wf[0]);
+      }
+      // 一次补齐点赞/评论/fork 计数与本人态，避免每件作品多次查询
+      const works = await batchMeta(published, viewerKey(request));
       return Response.json({
         task: {
           id: t.id, theme: t.theme, constraints: t.constraints, status: t.status,
           owner_id: t.owner_session, submission_count: subs.length,
           is_owner: t.owner_session === viewerKey(request),
         },
-        works: works.filter(Boolean),
+        works,
       });
     }
     if (taskMatch && method === 'PATCH') {

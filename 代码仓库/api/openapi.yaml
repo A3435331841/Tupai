@@ -48,6 +48,10 @@ paths:
         - name: include_deleted
           in: query
           schema: { type: string, enum: ["1"] }
+        - name: only_deleted
+          in: query
+          description: 仅返回回收站资产（deleted_at 非空）；与 include_deleted 同时出现时以本参数为准
+          schema: { type: string, enum: ["1"] }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 60, default: 24 }
@@ -717,6 +721,7 @@ paths:
       tags: [share]
       operationId: getShareView
       summary: 只读分享视图（无需登录）
+      description: 仅返回仍存活（未软删且 kind=result）的条目，保持画册原顺序
       parameters:
         - $ref: "#/components/parameters/Token"
       responses:
@@ -732,6 +737,7 @@ paths:
       tags: [share]
       operationId: getShareImage
       summary: 分享作品图（只读、仅 result 资产）
+      description: 资产被软删（deleted_at 非空）或不在该画册中时返回 404
       parameters:
         - $ref: "#/components/parameters/Token"
         - name: assetId
@@ -751,6 +757,7 @@ paths:
       tags: [share]
       operationId: getSharePage
       summary: 自包含只读翻页画册页（HTML）
+      description: 与 /share/{token} 相同，仅渲染仍存活（未软删且 kind=result）的条目
       parameters:
         - $ref: "#/components/parameters/Token"
       responses:
@@ -997,6 +1004,12 @@ paths:
       summary: 评论列表（隐藏评论不返回）
       parameters:
         - $ref: "#/components/parameters/Id"
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
       responses:
         "200":
           description: 评论列表
@@ -1073,6 +1086,7 @@ paths:
                 required: [liked]
                 properties:
                   liked: { type: boolean }
+                  like_count: { type: integer, description: 当前作品点赞总数 }
         "401": { $ref: "#/components/responses/LoginRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -1118,7 +1132,12 @@ paths:
     get:
       tags: [tasks]
       operationId: listTasks
-      summary: 进行中的共创任务
+      summary: 共创任务列表（默认仅进行中；include_closed=1 额外含本人已关闭）
+      parameters:
+        - name: include_closed
+          in: query
+          description: 传 1 时额外返回当前用户自己发起的已关闭任务
+          schema: { type: string, enum: ["1"] }
       responses:
         "200":
           description: 任务列表
@@ -1624,8 +1643,13 @@ components:
             - $ref: "#/components/schemas/JobResult"
             - type: "null"
         error:
+          description: 失败时的错误体，与实现一致为 {code, message}
           oneOf:
-            - $ref: "#/components/schemas/ErrorEnvelope"
+            - type: object
+              required: [code, message]
+              properties:
+                code: { type: string }
+                message: { type: string }
             - type: "null"
 
     TupaiSkill:
@@ -1959,7 +1983,8 @@ components:
 
     TaskMeta:
       type: object
-      required: [id, theme, owner_id, created_at]
+      description: 列表/详情返回完整字段；POST/PATCH 仅回 id/theme/status
+      required: [id, theme]
       properties:
         id: { type: string }
         theme: { type: string }

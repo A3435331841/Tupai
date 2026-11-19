@@ -73,12 +73,13 @@ export const api = {
   updateProfile: (patch: { display_name?: string; bio?: string }) =>
     request<{ profile: import('./types').ProfileInfo }>('PATCH', '/api/v1/me/profile', patch),
   bind: () => request<{ migrated: number; owner_key: string }>('POST', '/api/v1/auth/bind', {}),
-  assets: (params: { kind?: string; q?: string; tag?: string; include_deleted?: boolean; limit?: number; offset?: number } = {}) => {
+  assets: (params: { kind?: string; q?: string; tag?: string; include_deleted?: boolean; only_deleted?: boolean; limit?: number; offset?: number } = {}) => {
     const qs = new URLSearchParams();
     if (params.kind) qs.set('kind', params.kind);
     if (params.q) qs.set('q', params.q);
     if (params.tag) qs.set('tag', params.tag);
     if (params.include_deleted) qs.set('include_deleted', '1');
+    if (params.only_deleted) qs.set('only_deleted', '1');
     if (params.limit) qs.set('limit', String(params.limit));
     if (params.offset) qs.set('offset', String(params.offset));
     const suffix = qs.toString() ? '?' + qs.toString() : '';
@@ -111,7 +112,7 @@ export const api = {
     request<{ work: import('./types').WorkMeta }>('PATCH', `/api/v1/works/${id}`, patch),
   publishWork: (body: { result_asset_id: string; title: string; tags?: string[]; allow_fork?: boolean; parent_work_id?: string; skill_snapshot: { prompt: string; negative_prompt?: string; model: string; ratio: string } }) =>
     request<{ work: import('./types').WorkMeta }>('POST', '/api/v1/works', body),
-  forkWork: (id: string) => request<{ skill_snapshot: { prompt: string; negative_prompt?: string; model: string; ratio: string }; parent_work_id: string; title: string }>('POST', `/api/v1/works/${id}/fork`, {}),
+  forkWork: (id: string) => request<{ skill_snapshot: { prompt: string; negative_prompt?: string; model: string; ratio: string }; parent_work_id: string; parent_skill_id?: string; depth?: number; title: string }>('POST', `/api/v1/works/${id}/fork`, {}),
   withdrawWork: (id: string) => request<{ ok: boolean }>('POST', `/api/v1/works/${id}/withdraw`, {}),
   republishWork: (id: string) => request<{ ok: boolean; status: string }>('POST', `/api/v1/works/${id}/publish`, {}),
   deleteWork: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/works/${id}`),
@@ -127,11 +128,11 @@ export const api = {
   addComment: (id: string, body: string) => request<{ comment: import('./types').WorkComment }>('POST', `/api/v1/works/${id}/comments`, { body }),
   deleteComment: (id: string) => request<{ ok: boolean; hidden?: boolean }>('DELETE', `/api/v1/comments/${id}`),
   like: (id: string) => request<{ liked: boolean; like_count: number }>('POST', `/api/v1/works/${id}/like`, {}),
-  tasks: () => request<{ tasks: import('./types').TaskItem[] }>('GET', '/api/v1/tasks'),
+  tasks: (include_closed = false) => request<{ tasks: import('./types').TaskItem[] }>('GET', '/api/v1/tasks' + (include_closed ? '?include_closed=1' : '')),
   createTask: (theme: string, constraints?: string) => request<{ task: { id: string } }>('POST', '/api/v1/tasks', { theme, constraints }),
   task: (id: string) => request<{ task: import('./types').TaskItem; works: import('./types').WorkMeta[] }>('GET', `/api/v1/tasks/${id}`),
   updateTask: (id: string, status: 'open' | 'closed') => request<{ task: import('./types').TaskItem }>('PATCH', `/api/v1/tasks/${id}`, { status }),
-  submitTask: (id: string, work_id: string) => request<{ ok: boolean }>('POST', `/api/v1/tasks/${id}/submissions`, { work_id }),
+  submitTask: (id: string, work_id: string) => request<{ ok: boolean; already?: boolean }>('POST', `/api/v1/tasks/${id}/submissions`, { work_id }),
   withdrawSubmission: (taskId: string, workId: string) => request<{ ok: boolean }>('DELETE', `/api/v1/tasks/${taskId}/submissions/${workId}`),
   notifications: () => request<{ notifications: import('./types').NotificationItem[]; unread: number }>('GET', '/api/v1/notifications'),
   readNotification: (id: string) => request<{ ok: boolean }>('POST', `/api/v1/notifications/${id}/read`, {}),
