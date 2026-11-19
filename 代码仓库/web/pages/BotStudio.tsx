@@ -769,6 +769,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const [avatars, setAvatars] = useState<Record<string, AvatarSpec>>(DEFAULT_AVATARS);
   const [editorFor, setEditorFor] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const addTurn = useCallback((turn: Omit<ChatTurn, 'id'>) => {
@@ -913,25 +914,43 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     botState[name] === '编排中' || botState[name] === '出图中' ? 'busy' : 'idle';
 
   return (
-    <div className="studio-editorial mx-auto flex w-full max-w-[1440px] min-h-0 flex-col px-5 py-4 sm:px-8 lg:h-full">
+    <div className="studio-editorial relative mx-auto flex w-full max-w-[1440px] min-h-0 flex-col px-5 py-4 sm:px-8 lg:h-full">
       <input ref={importRef} type="file" accept=".json,application/json" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void importSkillFile(f); e.target.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ''; if (f) void pickFile(f); }} />
 
-      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[264px_minmax(0,1fr)_296px]">
-        {/* ===== 左：Bot 会话列表 ===== */}
-        <aside className="flex min-w-0 flex-col gap-1.5 lg:min-h-0 lg:pr-1">
-          <p className="mb-2 px-1 text-[11px] font-semibold tracking-[.12em] text-[#B3A492]">BOT 团队</p>
-          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[264px_minmax(0,1fr)]">
+        {/* ===== 左：会话列表（Grok 式侧栏） ===== */}
+        <aside className="flex min-w-0 flex-col gap-2 lg:min-h-0 lg:pr-1">
+          {/* 顶部工具钮 */}
+          <div className="flex shrink-0 items-center justify-end gap-2 px-1">
+            <button type="button" title="搜索" className="grid size-9 place-items-center rounded-full bg-white text-[#6B5D52] shadow-sm transition hover:bg-[#F6ECDF]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            </button>
+            <button type="button" title="新建" className="grid size-9 place-items-center rounded-full bg-white text-[#6B5D52] shadow-sm transition hover:bg-[#F6ECDF]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+          </div>
+
+          {/* 用户身份卡（占位头像） */}
+          <div className="shrink-0 rounded-2xl bg-[#ECE2D4]/60 p-3">
+            <div className="mx-auto grid size-16 place-items-center">
+              <BotAvatar spec={{ variant: 0, color: '#8C7D6C' }} size={56} />
+            </div>
+            <div className="mt-1.5 text-center text-[13px] font-bold">我</div>
+          </div>
+
+          {/* Bot 会话列表 */}
+          <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
             {BOT_ORDER.map((name) => {
               const meta = BOT_META[name];
               const active = focusKey === name;
               return (
                 <button key={name} type="button" onClick={() => setFocusBot(active ? null : name)}
-                  className={`se-conv flex items-center gap-3 px-3 py-2.5 text-left ${active ? 'active' : ''}`}>
-                  <BotAvatar spec={avatarOf(name)} size={34} motion={motionFor(name)} />
-                  <span className="min-w-0">
+                  className={`se-conv flex items-center gap-3 px-2.5 py-2.5 text-left ${active ? 'active' : ''}`}>
+                  <BotAvatar spec={avatarOf(name)} size={36} motion={motionFor(name)} />
+                  <span className="min-w-0 flex-1">
                     <span className="block text-[14px] font-bold">{meta.label}</span>
                     <span className="block truncate text-[12px] text-[#8C7D6C]">{meta.summary}</span>
                   </span>
@@ -944,8 +963,8 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             </div>
           </div>
 
-          {/* 左下角任务入口：折叠收纳配方 / 导入 / 隐私 / 重开 / 新任务 */}
-          <div className="relative shrink-0 pt-2">
+          {/* 底部用户行：折叠收纳配方 / 导入 / 隐私 / 重开 / 新任务 */}
+          <div className="relative shrink-0 pt-1">
             {menuOpen && (
               <div className="se-card absolute bottom-full left-0 z-30 mb-2 w-full p-1.5 shadow-lg">
                 <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
@@ -963,29 +982,37 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
               </div>
             )}
             <button type="button" onClick={() => setMenuOpen((o) => !o)}
-              className="se-conv flex w-full items-center gap-3 px-3 py-2.5 text-left">
-              <BotAvatar spec={avatarOf('主脑')} size={34} />
+              className="flex w-full items-center gap-3 px-1 py-2 text-left">
+              <BotAvatar spec={{ variant: 0, color: '#8C7D6C' }} size={34} />
               <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-bold">当前任务</span>
-                <span className="block truncate text-[12px] text-[#8C7D6C]">
-                  {stage === 'result' ? '成品已交付' : stage === 'entry' ? '待上传照片' : '编排进行中'}
-                </span>
+                <span className="block truncate text-[13px] font-bold">jia xin xiao</span>
               </span>
-              <span className={`text-[11px] text-[#B3A492] transition-transform ${menuOpen ? 'rotate-180' : ''}`}>▾</span>
+              <span className="grid size-8 place-items-center rounded-full text-[#B3A492]">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></svg>
+              </span>
+              <span className="grid size-8 place-items-center rounded-full bg-[#2F6FA8] text-white">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4m0 0 4 4m-4-4L8 8" /><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+              </span>
             </button>
           </div>
         </aside>
 
         {/* ===== 中：对话工作台 ===== */}
         <section className="flex min-w-0 min-h-0 flex-col gap-4">
-          {/* 当前会话头 */}
-          <div className="se-card flex shrink-0 items-center gap-3 px-5 py-4">
-            <BotAvatar spec={avatarOf(focusKey)} size={38} motion={motionFor(focusKey)} />
-            <div>
-              <div className="text-[15px] font-bold">与{curMeta.label}单独对话</div>
+          {/* 当前会话头：点头像打开右侧详情抽屉 */}
+          <div className="flex shrink-0 items-center gap-3 px-1">
+            <button type="button" onClick={() => setPanelOpen(true)}
+              className="group relative rounded-full transition-transform duration-200 hover:scale-105 active:scale-95"
+              title="查看 Bot 详情">
+              <BotAvatar spec={avatarOf(focusKey)} size={40} motion={motionFor(focusKey)} />
+            </button>
+            <div className="min-w-0">
+              <div className="text-[15px] font-bold">{curMeta.label}</div>
               <div className="text-[12px] text-[#8C7D6C]">{curMeta.role} · {botState[focusKey]}</div>
             </div>
-            <span className="ml-auto rounded-full bg-[#7A5AA8]/10 px-3 py-1 text-[11px] font-semibold text-[#7A5AA8]">可直聊</span>
+            <button type="button" className="ml-auto rounded-full border border-[#EADCC8] px-3.5 py-1.5 text-[12px] text-[#6B5D52] transition hover:bg-[#F6ECDF]">
+              分享
+            </button>
           </div>
 
           {/* 消息流 */}
@@ -1139,9 +1166,20 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
           {quota && <p className="shrink-0 text-center text-[12px] text-[#B3A492]">今日还可生成 {quota.remaining} 次 · 原图全程私密</p>}
         </section>
 
-        {/* ===== 右：当前 Bot 详情 ===== */}
-        <aside className="flex min-w-0 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
-          <div className="se-card flex flex-col items-center p-5 text-center">
+        {/* ===== 右：当前 Bot 详情抽屉（默认收起，点中间头像滑出） ===== */}
+        <aside
+          className={`absolute bottom-0 right-0 top-0 z-20 flex w-[300px] flex-col gap-3 overflow-y-auto border-l border-[#EADFCF] bg-[#F7F1E8] p-4 shadow-[-12px_0_30px_rgba(120,90,60,0.10)] transition-all duration-300 ease-out ${panelOpen ? 'visible translate-x-0' : 'pointer-events-none invisible translate-x-full'}`}
+          aria-hidden={!panelOpen}
+        >
+          <button
+            type="button"
+            onClick={() => setPanelOpen(false)}
+            title="关闭详情"
+            className="absolute right-3 top-3 grid size-8 place-items-center rounded-full text-[#6B5D52] transition hover:bg-[#F1E7D9]"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+          <div className="se-card flex flex-col items-center p-5 pt-8 text-center">
             <button
               type="button"
               onClick={() => setEditorFor(focusKey)}
