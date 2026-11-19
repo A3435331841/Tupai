@@ -124,6 +124,17 @@ export function imageSize(bytes, mime) {
   return { width: 0, height: 0 };
 }
 
+// 按文件头（magic bytes）识别真实图片类型；伪造 MIME 的上传无法通过。
+export function sniffImageType(bytes) {
+  if (!bytes || bytes.length < 12) return null;
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+    && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) return 'image/png';
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+  return null;
+}
+
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 export const MODEL_WHITELIST = ['agnes-image-2.5-flash', 'agnes-image-2.1-flash'];

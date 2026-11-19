@@ -89,6 +89,8 @@ export function createAgnesProvider(scheduler, fetchImpl) {
       await key.release('ok');
       return { json: await res.json(), keyAlias: key.alias };
     }
+    // 网络不可达视为失败，避免把真实故障伪装成「演示占位图」并消耗用户信任
+    if (lastOutcome === 'network') throw new Error('upstream_network');
     return { busy: true, lastOutcome };
   }
 

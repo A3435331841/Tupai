@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 图派 TuPai API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     前后端分离的唯一通信契约（文档摘要见 docs/07-接口契约.md）。
     冻结规则：v1 只增不改不删；破坏性变更升 /api/v2。
@@ -297,6 +297,50 @@ paths:
                     properties:
                       skill_id: { type: string }
         "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [skills]
+      operationId: updateSkill
+      summary: 更新配方（标题/提示词/负向/模型/标签/备注）
+      parameters:
+        - $ref: "#/components/parameters/SkillId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, maxLength: 100 }
+                prompt: { type: string, maxLength: 4000 }
+                negative_prompt: { type: [string, "null"], maxLength: 1000 }
+                model: { type: string }
+                style_tags:
+                  type: array
+                  maxItems: 12
+                  items: { type: string, maxLength: 40 }
+                notes: { type: string, maxLength: 300 }
+      responses:
+        "200":
+          description: 更新后的配方
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TupaiSkill" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/BadInput" }
+    delete:
+      tags: [skills]
+      operationId: deleteSkill
+      summary: 删除配方（不影响已发布作品的配方快照）
+      parameters:
+        - $ref: "#/components/parameters/SkillId"
+      responses:
+        "200":
+          description: 已删除
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /skills/{id}/skill.md:
     get:
@@ -395,6 +439,54 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Deleted" }
 
+  /me/profile:
+    get:
+      tags: [account]
+      operationId: getMyProfile
+      summary: 当前登录用户的资料（昵称/简介/头像）
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      responses:
+        "200":
+          description: 资料
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [profile]
+                properties:
+                  profile: { $ref: "#/components/schemas/Profile" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+    patch:
+      tags: [account]
+      operationId: updateMyProfile
+      summary: 更新昵称 / 简介
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name: { type: string, maxLength: 30 }
+                bio: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: 更新后的资料
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [profile]
+                properties:
+                  profile: { $ref: "#/components/schemas/Profile" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+
   /auth/bind:
     post:
       tags: [account]
@@ -455,15 +547,26 @@ paths:
     delete:
       tags: [assets]
       operationId: deleteAsset
-      summary: 软删资产入回收站
+      summary: 软删资产入回收站；purge=1 时彻底删除（须已在回收站，且无关联作品）
       parameters:
         - $ref: "#/components/parameters/AssetId"
+        - name: purge
+          in: query
+          schema: { type: string, enum: ["1"] }
       responses:
         "200":
-          description: 已软删
+          description: 已软删或彻底删除
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/DeletedAt" }
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/DeletedAt"
+                  - type: object
+                    properties:
+                      ok: { type: boolean }
+                      purged: { type: boolean }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "409": { $ref: "#/components/responses/BadInput" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /assets/{id}/restore:
@@ -732,10 +835,42 @@ paths:
                 properties:
                   work: { $ref: "#/components/schemas/WorkMeta" }
         "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [community]
+      operationId: updateWork
+      summary: 作者编辑作品标题/标签/是否允许 fork（不改状态）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, maxLength: 100 }
+                tags:
+                  type: array
+                  maxItems: 12
+                  items: { type: string, maxLength: 40 }
+                allow_fork: { type: boolean }
+      responses:
+        "200":
+          description: 更新后的作品
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [work]
+                properties:
+                  work: { $ref: "#/components/schemas/WorkMeta" }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/BadInput" }
     delete:
       tags: [community]
       operationId: deleteWork
-      summary: 删除作品（标记 removed；子 fork 上游链接清空）
+      summary: 删除作品（标记 removed；保留子 fork 的来源指针，上游不可见时由前端提示）
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1030,6 +1165,36 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TaskDetail" }
         "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [tasks]
+      operationId: updateTaskStatus
+      summary: 发起人关闭/重新开放任务
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [open, closed] }
+      responses:
+        "200":
+          description: 更新后的任务
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [task]
+                properties:
+                  task: { $ref: "#/components/schemas/TaskMeta" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /tasks/{id}/submissions:
     post:
@@ -1065,6 +1230,29 @@ paths:
         "401": { $ref: "#/components/responses/LoginRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /tasks/{id}/submissions/{workId}:
+    delete:
+      tags: [tasks]
+      operationId: withdrawSubmission
+      summary: 投稿人撤回投稿（任务发起人也可移除）
+      security:
+        - SessionId: []
+          QoderUserContext: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - name: workId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 已撤回
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "401": { $ref: "#/components/responses/LoginRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /notifications:
     get:
       tags: [notifications]
@@ -1090,6 +1278,104 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Ok" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /notifications/read-all:
+    post:
+      tags: [notifications]
+      operationId: readAllNotifications
+      summary: 全部标记已读
+      responses:
+        "200":
+          description: 已全部标记
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  updated: { type: integer }
+
+  /maintenance/cleanup:
+    post:
+      tags: [account]
+      operationId: runCleanup
+      summary: 平台定时清理（需 x-maintenance-token 与 MAINTENANCE_TOKEN 环境变量一致）
+      description: 彻底删除回收站超过 7 天的资产、过期分享、30 天前的任务记录；未配置 token 时该端点返回 404。
+      parameters:
+        - name: x-maintenance-token
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 清理结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  assets_purged: { type: integer }
+                  shares_expired: { type: integer }
+                  jobs_purged: { type: integer }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /maintenance/review:
+    get:
+      tags: [account]
+      operationId: listReviewQueue
+      summary: 审核降级的人工复核队列（需 x-maintenance-token）
+      parameters:
+        - name: x-maintenance-token
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 待复核作品
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  works:
+                    type: array
+                    items: { $ref: "#/components/schemas/WorkMeta" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /maintenance/works/{id}/review:
+    post:
+      tags: [account]
+      operationId: reviewWork
+      summary: 人工复核通过或下架（需 x-maintenance-token）
+      parameters:
+        - name: x-maintenance-token
+          in: header
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [approve, remove] }
+      responses:
+        "200":
+          description: 复核结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  status: { type: string }
+        "400": { $ref: "#/components/responses/BadInput" }
         "404": { $ref: "#/components/responses/NotFound" }
 
 components:
@@ -1444,6 +1730,8 @@ components:
       properties:
         ok: { type: boolean }
         deleted: { type: boolean }
+        storage_failed: { type: integer, description: 存储对象删除失败数 }
+        partial: { type: boolean, description: 部分存储对象未删除，需后续清理 }
 
     DeletedAt:
       type: object
@@ -1469,6 +1757,7 @@ components:
           items: { type: string }
         source: { type: [string, "null"] }
         deleted_at: { type: [string, "null"], format: date-time }
+        ai_generated: { type: boolean, description: result 资产为 AI 生成结果图 }
         content_url: { type: string }
 
     AssetList:
@@ -1479,6 +1768,13 @@ components:
           type: array
           items: { $ref: "#/components/schemas/AssetMeta" }
         total: { type: integer }
+        summary:
+          type: object
+          description: 各 kind 的资产数量（回收站模式不返回）
+          properties:
+            original: { type: integer }
+            result: { type: integer }
+            reference: { type: integer }
         next_offset: { type: [integer, "null"] }
 
     AssetTagsPatch:
@@ -1603,6 +1899,9 @@ components:
         like_count: { type: integer }
         comment_count: { type: integer }
         fork_count: { type: integer }
+        liked: { type: boolean, description: 当前会话/用户是否已点赞 }
+        ai_generated: { type: boolean, description: 结果图均为 AI 生成 }
+        moderation_degraded: { type: boolean, description: 审核服务不可用时降级发布，需人工复核 }
         is_owner: { type: boolean }
 
     WorkList:
@@ -1639,6 +1938,7 @@ components:
         id: { type: string }
         body: { type: string }
         author_id: { type: string }
+        author_name: { type: string, description: 显示名，游客为「匿名用户」 }
         created_at: { type: string, format: date-time }
 
     CommentList:
@@ -1648,6 +1948,8 @@ components:
         comments:
           type: array
           items: { $ref: "#/components/schemas/Comment" }
+        has_more: { type: boolean }
+        next_offset: { type: integer }
 
     CommentCreate:
       type: object
@@ -1664,6 +1966,8 @@ components:
         constraints: { type: [string, "null"] }
         status: { type: string, enum: [open, closed] }
         owner_id: { type: string }
+        submission_count: { type: integer }
+        is_owner: { type: boolean }
         created_at: { type: string, format: date-time }
 
     TaskList:
@@ -1703,17 +2007,31 @@ components:
 
     NotificationList:
       type: object
-      required: [notifications]
+      required: [notifications, unread]
       properties:
         notifications:
           type: array
           items: { $ref: "#/components/schemas/NotificationMeta" }
+        unread: { type: integer }
+
+    Profile:
+      type: object
+      required: [user_id, display_name]
+      properties:
+        user_id: { type: string }
+        display_name: { type: string }
+        bio: { type: string }
+        avatar_url: { type: string, description: 来自 Qoder 账号头像，不接受客户端写入 }
 
     ExportBundle:
       type: object
       required: [exported_at, works, skills, albums]
       properties:
         exported_at: { type: string, format: date-time }
+        profile: { $ref: "#/components/schemas/Profile" }
+        assets:
+          type: array
+          items: { $ref: "#/components/schemas/AssetMeta" }
         works:
           type: array
           items: { $ref: "#/components/schemas/WorkMeta" }
@@ -1723,3 +2041,18 @@ components:
         albums:
           type: array
           items: { $ref: "#/components/schemas/AlbumMeta" }
+        comments:
+          type: array
+          items: { type: object }
+        likes:
+          type: array
+          items: { type: object }
+        tasks:
+          type: array
+          items: { type: object }
+        submissions:
+          type: array
+          items: { type: object }
+        notifications:
+          type: array
+          items: { type: object }

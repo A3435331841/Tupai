@@ -11,6 +11,7 @@ export function fakeDb() {
     const api = {
       select(_cols, opts) { if (opts?.count === 'exact') wantCount = true; return api; },
       eq(col, val) { filters.push((r) => r[col] === val); return api; },
+      in(col, vals) { const set = new Set(vals || []); filters.push((r) => set.has(r[col])); return api; },
       is(col, val) { filters.push((r) => (val === null ? r[col] == null : r[col] === val)); return api; },
       gte(col, val) { filters.push((r) => r[col] != null && r[col] >= val); return api; },
       order(col, opts) { orderCol = col; orderAsc = opts?.ascending !== false; return api; },
