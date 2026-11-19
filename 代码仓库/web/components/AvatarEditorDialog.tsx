@@ -130,7 +130,7 @@ export function AvatarEditorDialog({
                     className={`grid place-items-center rounded-xl border p-1 transition-colors ${draft.variant === v ? 'border-[#B4502A] bg-[#FBF4EC] ring-1 ring-[#B4502A]/30' : 'border-[#EADCC8] hover:bg-[#F6ECDF]'}`}
                     aria-label={`造型 ${v + 1}`}
                   >
-                    <BotAvatar spec={{ ...draft, variant: v }} size={34} />
+                    <BotAvatar spec={{ ...draft, variant: v }} size={34} tilt={false} />
                   </button>
                 ))}
               </div>

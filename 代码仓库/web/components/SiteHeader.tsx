@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { api, loginUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 /**
  * 主站顶部栏（设计稿定稿版，四个主页面共用）。
@@ -88,8 +92,13 @@ const NAV_ITEMS = [
 
 /* ------------------------------- 登录按钮 ------------------------------- */
 
-function HomeAuth() {
+function HomeAuth({ navigate }: { navigate: (to: string) => void }) {
   const [me, setMe] = useState<Me | null>(null);
+  const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState<{ display_name: string; bio: string } | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [nameValue, setNameValue] = useState('');
+  const [bioValue, setBioValue] = useState('');
   const bound = useRef(false);
   useEffect(() => {
     let alive = true;
@@ -97,7 +106,10 @@ function HomeAuth() {
       .then((m) => {
         if (alive) setMe(m);
         // 登录后把本会话的游客资产/配方/任务迁移到账号（幂等，迁完为 0）
-        if (m.logged_in && !bound.current) { bound.current = true; api.bind().catch(() => {}); }
+        if (m.logged_in) {
+          if (!bound.current) { bound.current = true; api.bind().catch(() => {}); }
+          api.profile().then((p) => { if (alive) setProfile(p.profile); }).catch(() => {});
+        }
       })
       .catch(() => { if (alive) setMe({ logged_in: false, user: null }); });
     return () => { alive = false; };
@@ -105,16 +117,59 @@ function HomeAuth() {
 
   const goLogin = () => { window.location.href = loginUrl(); };
 
+  async function saveProfile() {
+    if (!nameValue.trim()) { toast.error('昵称不能为空'); return; }
+    try {
+      const r = await api.updateProfile({ display_name: nameValue.trim(), bio: bioValue.trim() });
+      setProfile(r.profile);
+      setEditing(false);
+      toast.success('资料已保存');
+    } catch (e) { toast.error(e instanceof Error ? e.message : '保存失败'); }
+  }
+
   if (!me) return <span className="inline-block h-9 w-[74px]" aria-hidden="true" />;
   if (me.logged_in) {
+    const name = profile?.display_name || me.user?.name || '已登录';
     return (
-      <span
-        className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs text-muted-foreground"
-        title="已登录 Qoder 账号，资产可跨设备"
-      >
-        <span className="size-1.5 rounded-full bg-primary" />
-        已登录{me.user?.name ? ` · ${me.user.name}` : ''}
-      </span>
+      <div className="relative">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-1 pr-3 text-xs text-muted-foreground transition-colors hover:bg-[#f6ecdf]"
+          title="账号菜单"
+        >
+          {me.user?.picture
+            ? <img src={me.user.picture} alt="" className="size-7 rounded-full object-cover" />
+            : <span className="grid size-7 place-items-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">{name.slice(0, 1)}</span>}
+          <span className="max-w-[92px] truncate">{name}</span>
+        </button>
+        {open && (
+          <div role="menu" className="absolute right-0 top-11 z-50 w-40 rounded-xl border border-border bg-card p-1 text-sm shadow-lg">
+            <button role="menuitem" className="w-full rounded-lg px-3 py-2 text-left hover:bg-secondary" onClick={() => { setOpen(false); navigate('/library'); }}>我的资产</button>
+            <button role="menuitem" className="w-full rounded-lg px-3 py-2 text-left hover:bg-secondary" onClick={() => { setOpen(false); navigate('/community?tab=mine'); window.dispatchEvent(new CustomEvent('tupai:tab', { detail: 'mine' })); }}>我的作品</button>
+            <button role="menuitem" className="w-full rounded-lg px-3 py-2 text-left hover:bg-secondary" onClick={() => { setOpen(false); setNameValue(name); setBioValue(profile?.bio || ''); setEditing(true); }}>编辑资料</button>
+            <button role="menuitem" className="w-full rounded-lg px-3 py-2 text-left hover:bg-secondary" onClick={() => { setOpen(false); navigate('/legal'); }}>隐私与 AI 说明</button>
+          </div>
+        )}
+        <Dialog open={editing} onOpenChange={setEditing}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader><DialogTitle>编辑资料</DialogTitle></DialogHeader>
+            <label className="block text-xs text-muted-foreground">昵称
+              <Input value={nameValue} onChange={(e) => setNameValue(e.target.value)} maxLength={30} className="mt-1 h-9" />
+            </label>
+            <label className="block text-xs text-muted-foreground">简介
+              <Input value={bioValue} onChange={(e) => setBioValue(e.target.value)} maxLength={200} className="mt-1 h-9" placeholder="一句话介绍自己" />
+            </label>
+            <p className="text-[11px] text-muted-foreground">头像使用 Qoder 账号头像，昵称会显示在作品与评论旁。</p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditing(false)}>取消</Button>
+              <Button onClick={() => void saveProfile()} disabled={!nameValue.trim()}>保存</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     );
   }
   // 设计稿：描边圆角胶囊登录
@@ -133,6 +188,27 @@ function HomeAuth() {
 /* -------------------------------- 组件主体 ------------------------------- */
 
 export default function SiteHeader({ path, navigate }: { path: string; navigate: (to: string) => void }) {
+  const [q, setQ] = useState('');
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    api.notifications().then((r) => { if (alive) setUnread(r.unread || 0); }).catch(() => {});
+    const onUnread = (e: Event) => setUnread(Number((e as CustomEvent<number>).detail) || 0);
+    window.addEventListener('tupai:unread', onUnread as EventListener);
+    return () => { alive = false; window.removeEventListener('tupai:unread', onUnread as EventListener); };
+  }, [path]);
+
+  const submitSearch = (e: FormEvent) => {
+    e.preventDefault();
+    const keyword = q.trim();
+    if (!keyword) return;
+    navigate(`/community?q=${encodeURIComponent(keyword)}`);
+    // 已在社区时路径不变，用事件通知页面刷新 feed
+    window.dispatchEvent(new CustomEvent('tupai:search', { detail: keyword }));
+    setQ('');
+  };
+
   return (
     <header className="site-header sticky top-0 z-40 border-b border-border/70">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 md:h-[76px] md:flex-nowrap md:py-0">
@@ -174,31 +250,42 @@ export default function SiteHeader({ path, navigate }: { path: string; navigate:
 
         {/* 右侧工具区：搜索 / 铃铛 / 帮助 / 登录 */}
         <div className="ml-auto flex shrink-0 items-center gap-2.5 md:ml-0">
-          <label className="hidden h-9 w-[248px] items-center gap-2 rounded-full border border-border bg-background/70 px-3.5 transition-colors focus-within:border-primary/60 lg:flex">
+          <form onSubmit={submitSearch} className="hidden h-9 w-[248px] items-center gap-2 rounded-full border border-border bg-background/70 px-3.5 transition-colors focus-within:border-primary/60 lg:flex">
             <SearchIcon className="size-[17px] shrink-0 text-[#7d6e5e]" />
             <input
               type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
               placeholder="搜索作品、功能或案例..."
               aria-label="搜索作品、功能或案例"
               className="w-full min-w-0 bg-transparent text-[13px] text-foreground outline-none placeholder:text-[#9a8b7a]"
             />
-          </label>
+          </form>
           <button
             type="button"
-            aria-label="通知"
+            aria-label={unread > 0 ? `通知，${unread} 条未读` : '通知'}
+            onClick={() => {
+              navigate('/community?tab=notify');
+              window.dispatchEvent(new CustomEvent('tupai:tab', { detail: 'notify' }));
+            }}
             className="relative rounded-full p-1.5 text-[#6b5d4e] transition-colors hover:bg-[#f6ecdf] hover:text-[#7a6a58]"
           >
             <BellIcon className="size-[19px]" />
-            <span className="absolute right-1 top-1 size-2 rounded-full bg-[#e0342b] ring-2 ring-[#faf7f2]" aria-hidden="true" />
+            {unread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 grid min-w-[16px] place-items-center rounded-full bg-[#e0342b] px-1 text-[9px] font-semibold leading-4 text-white ring-2 ring-[#faf7f2]">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
           </button>
           <button
             type="button"
-            aria-label="帮助"
+            aria-label="帮助与隐私说明"
+            onClick={() => navigate('/legal')}
             className="hidden rounded-full p-1 text-[#6b5d4e] transition-colors hover:bg-[#f6ecdf] hover:text-[#7a6a58] sm:block"
           >
             <HelpIcon className="size-[21px]" />
           </button>
-          <HomeAuth />
+          <HomeAuth navigate={navigate} />
         </div>
       </div>
     </header>

@@ -1,16 +1,33 @@
+import { lazy, Suspense } from 'react';
 import { useRoute } from '@/lib/router';
 import { Toaster } from '@/components/ui/sonner';
 import Home from '@/pages/Home';
-import Studio from '@/pages/BotStudio';
 import Legal from '@/pages/Legal';
-import Library from '@/pages/Library';
-import Community from '@/pages/Community';
 import SiteHeader from '@/components/SiteHeader';
+
+// 重页面按需加载，首屏只保留首页与顶栏；直接访问深链时会自动拉取对应 chunk。
+const Studio = lazy(() => import('@/pages/BotStudio'));
+const Library = lazy(() => import('@/pages/Library'));
+const Community = lazy(() => import('@/pages/Community'));
+const WorkDetail = lazy(() => import('@/pages/WorkDetail'));
+const NotFound = lazy(() => import('@/pages/NotFound'));
+
+function PageFallback() {
+  return (
+    <div className="mx-auto w-full max-w-6xl px-4 py-10" aria-busy="true" aria-label="页面加载中">
+      <div className="h-6 w-40 animate-pulse rounded bg-secondary" />
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-secondary" />)}
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [path, navigate] = useRoute();
   const isHome = path === '/';
   const isStudio = path === '/studio';
+  const workId = path.match(/^\/work\/(wk_[0-9a-f]{24})$/)?.[1] || null;
   const fixed = isHome || isStudio;
 
   return (
@@ -18,7 +35,15 @@ export default function App() {
       {/* 全部页面统一主站顶部栏，选中态按 path 自动高亮 */}
       <SiteHeader path={path} navigate={navigate} />
       <main className={`w-full min-w-0 flex-1 min-h-0 ${isHome ? 'home-snap-scroll overflow-y-auto overscroll-contain' : isStudio ? 'overflow-hidden' : ''}`}>
-        {path === '/studio' ? <Studio navigate={navigate} /> : path === '/library' ? <Library navigate={navigate} /> : path === '/community' ? <Community navigate={navigate} /> : path === '/legal' ? <Legal /> : <Home navigate={navigate} />}
+        <Suspense fallback={<PageFallback />}>
+          {isStudio ? <Studio navigate={navigate} />
+            : path === '/library' ? <Library navigate={navigate} />
+              : path === '/community' ? <Community navigate={navigate} />
+                : path === '/legal' ? <Legal />
+                  : workId ? <WorkDetail key={workId} id={workId} navigate={navigate} />
+                    : isHome ? <Home navigate={navigate} />
+                      : <NotFound navigate={navigate} />}
+        </Suspense>
       </main>
       <footer className={`site-footer shrink-0 border-t border-border/70 text-center text-xs text-muted-foreground ${fixed ? 'hidden' : 'py-6'}`}>
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4">

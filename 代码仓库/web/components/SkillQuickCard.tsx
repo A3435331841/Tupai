@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { api, downloadText } from '@/lib/api';
 import type { SkillRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 /**
- * 资产库右侧「我的配方」快捷卡（纯展示 + 复用已有导出 API）
+ * 资产库右侧「我的配方」快捷卡（展示 + 导出 + 改名/删除）
  * 不改配方数据契约；JSON / SKILL.md 导出沿用 Studio 既有逻辑。
  */
 export function SkillQuickCard({
@@ -11,12 +15,38 @@ export function SkillQuickCard({
   loading,
   onUse,
   onError,
+  onChanged,
 }: {
   skills: SkillRecord[];
   loading?: boolean;
   onUse?: (skill: SkillRecord) => void;
   onError?: (e: unknown) => void;
+  onChanged?: () => void;
 }) {
+  const [renameTarget, setRenameTarget] = useState<SkillRecord | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<SkillRecord | null>(null);
+
+  async function saveRename() {
+    if (!renameTarget) return;
+    const title = renameValue.trim();
+    if (!title) { toast.error('名称不能为空'); return; }
+    try {
+      await api.updateSkill(renameTarget.skill_id, { title });
+      toast.success('配方已改名');
+      setRenameTarget(null);
+      onChanged?.();
+    } catch (e) { toast.error(e instanceof Error ? e.message : '改名失败'); }
+  }
+  async function doDelete() {
+    if (!deleteTarget) return;
+    try {
+      await api.deleteSkill(deleteTarget.skill_id);
+      toast.success('配方已删除');
+      setDeleteTarget(null);
+      onChanged?.();
+    } catch (e) { toast.error(e instanceof Error ? e.message : '删除失败'); }
+  }
   async function exportMd(skill: SkillRecord) {
     try {
       const text = await api.skillMd(skill.skill_id);
@@ -69,11 +99,39 @@ export function SkillQuickCard({
                 <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => void exportMd(skill)}>
                   SKILL.md
                 </Button>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => { setRenameTarget(skill); setRenameValue(skill.title); }}>
+                  改名
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-destructive" onClick={() => setDeleteTarget(skill)}>
+                  删除
+                </Button>
               </div>
             </li>
           ))}
         </ul>
       )}
+
+      <Dialog open={Boolean(renameTarget)} onOpenChange={(v) => { if (!v) setRenameTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>配方改名</DialogTitle></DialogHeader>
+          <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} maxLength={100} placeholder="配方名称" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameTarget(null)}>取消</Button>
+            <Button onClick={() => void saveRename()}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>删除配方？</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">「{deleteTarget?.title}」删除后不可恢复，已发布作品里的配方快照不受影响。</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+            <Button variant="destructive" onClick={() => void doDelete()}>删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

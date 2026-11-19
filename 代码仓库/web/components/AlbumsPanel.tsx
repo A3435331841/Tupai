@@ -7,7 +7,11 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+
+const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
+const shareLink = (token: string) => window.location.origin + apiUrl(`/api/v1/share/${token}/page`);
 
 export function AlbumsPanel() {
   const [albums, setAlbums] = useState<AlbumMeta[] | null>(null);
@@ -16,18 +20,24 @@ export function AlbumsPanel() {
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<AlbumMeta | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editSelected, setEditSelected] = useState<Set<string>>(new Set());
+  const [shareTarget, setShareTarget] = useState<AlbumMeta | null>(null);
+  const [shareHours, setShareHours] = useState(168);
+  const [deleteTarget, setDeleteTarget] = useState<AlbumMeta | null>(null);
 
   const load = useCallback(async () => {
     try {
       const [a, r] = await Promise.all([api.albums(), api.assets({ kind: 'result', limit: 60 })]);
       setAlbums(a.albums);
       setResults(r.assets);
-    } catch (e) { toast.error(e instanceof Error ? e.message : '加载失败'); setAlbums([]); }
+    } catch (e) { toast.error(errText(e, '加载失败')); setAlbums([]); }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
   function toggle(id: string) {
-    setSelected((old) => { const n = new Set(old); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelected((old) => { const n = new Set(old); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
 
   async function create() {
@@ -39,31 +49,60 @@ export function AlbumsPanel() {
       toast.success('画册已创建');
       setCreating(false); setTitle(''); setSelected(new Set());
       await load();
-    } catch (e) { toast.error(e instanceof Error ? e.message : '创建失败'); }
+    } catch (e) { toast.error(errText(e, '创建失败')); }
     finally { setBusy(false); }
   }
 
-  async function share(a: AlbumMeta) {
+  async function doShare() {
+    if (!shareTarget) return;
     try {
-      const r = await api.shareAlbum(a.id);
-      const link = window.location.origin + apiUrl(r.share_page);
-      await navigator.clipboard.writeText(link).catch(() => {});
-      toast.success('只读分享链接已复制（含有效期，可撤回）');
+      const r = await api.shareAlbum(shareTarget.id, shareHours);
+      const link = shareLink(r.share_token);
+      try { await navigator.clipboard.writeText(link); toast.success('只读分享链接已复制'); }
+      catch { toast.info(`请手动复制链接：${link}`); }
+      setShareTarget(null);
       await load();
-    } catch (e) { toast.error(e instanceof Error ? e.message : '分享失败'); }
+    } catch (e) { toast.error(errText(e, '分享失败')); }
   }
+
+  async function copyExisting(a: AlbumMeta) {
+    if (!a.share_token) return;
+    const link = shareLink(a.share_token);
+    try { await navigator.clipboard.writeText(link); toast.success('分享链接已复制'); }
+    catch { toast.info(`请手动复制链接：${link}`); }
+  }
+
   async function revoke(a: AlbumMeta) {
     try { await api.revokeAlbumShare(a.id); toast.success('已撤回分享'); await load(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : '撤回失败'); }
+    catch (e) { toast.error(errText(e, '撤回失败')); }
   }
-  async function remove(a: AlbumMeta) {
-    if (!window.confirm(`删除画册「${a.title}」？作品本身仍在资产库。`)) return;
-    try { await api.deleteAlbum(a.id); toast.success('画册已删除'); await load(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : '删除失败'); }
+
+  async function doDelete() {
+    if (!deleteTarget) return;
+    try { await api.deleteAlbum(deleteTarget.id); toast.success('画册已删除'); setDeleteTarget(null); await load(); }
+    catch (e) { toast.error(errText(e, '删除失败')); }
   }
+
+  function startEdit(a: AlbumMeta) {
+    setEditing(a); setEditTitle(a.title); setEditSelected(new Set(a.item_ids));
+  }
+  async function saveEdit() {
+    if (!editing) return;
+    if (!editTitle.trim()) { toast.error('画册名称不能为空'); return; }
+    if (editSelected.size === 0) { toast.error('请至少保留一张作品'); return; }
+    setBusy(true);
+    try {
+      await api.updateAlbum(editing.id, { title: editTitle.trim(), item_ids: [...editSelected] });
+      toast.success('画册已更新');
+      setEditing(null);
+      await load();
+    } catch (e) { toast.error(errText(e, '更新失败')); }
+    finally { setBusy(false); }
+  }
+
   function view(a: AlbumMeta) {
     if (!a.share_token) { toast.error('请先分享生成链接'); return; }
-    window.open(apiUrl(`/api/v1/share/${a.share_token}/page`), '_blank');
+    window.open(shareLink(a.share_token), '_blank');
   }
 
   return (
@@ -121,15 +160,77 @@ export function AlbumsPanel() {
               </div>
               <div className="flex flex-wrap gap-1 border-t border-border p-2">
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => view(a)}>查看</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => startEdit(a)}>编辑</Button>
+                {a.share_token && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void copyExisting(a)}>复制链接</Button>}
                 {a.share_token
                   ? <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void revoke(a)}>撤回</Button>
-                  : <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void share(a)}>分享</Button>}
-                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => void remove(a)}>删除</Button>
+                  : <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShareTarget(a)}>分享</Button>}
+                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => setDeleteTarget(a)}>删除</Button>
               </div>
             </Card>
           ))}
         </div>
       )}
+
+      {/* 分享有效期 */}
+      <Dialog open={Boolean(shareTarget)} onOpenChange={(v) => { if (!v) setShareTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>分享画册「{shareTarget?.title}」</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">分享链接为只读，任何人凭链接可翻页查看；到期自动失效，也可随时撤回。</p>
+          <label className="block text-xs text-muted-foreground">有效期
+            <select value={shareHours} onChange={(e) => setShareHours(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value={24}>1 天</option>
+              <option value={168}>7 天</option>
+              <option value={720}>30 天</option>
+            </select>
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareTarget(null)}>取消</Button>
+            <Button onClick={() => void doShare()}>生成并复制链接</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑画册 */}
+      <Dialog open={Boolean(editing)} onOpenChange={(v) => { if (!v) setEditing(null); }}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
+          {editing && (
+            <>
+              <DialogHeader><DialogTitle>编辑画册</DialogTitle></DialogHeader>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="画册名称" maxLength={100} />
+              <p className="text-xs text-muted-foreground">勾选要保留的作品，第一张自动作为封面。</p>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                {results.map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => setEditSelected((old) => { const n = new Set(old); if (n.has(a.id)) n.delete(a.id); else n.add(a.id); return n; })}
+                    className={`relative aspect-[3/4] overflow-hidden rounded-lg border-2 ${editSelected.has(a.id) ? 'border-primary ring-2 ring-primary/40' : 'border-border'}`}
+                  >
+                    <AssetImage path={a.content_url} alt="作品" className="size-full object-cover" />
+                    {editSelected.has(a.id) && <span className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">✓</span>}
+                  </button>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditing(null)}>取消</Button>
+                <Button disabled={busy} onClick={() => void saveEdit()}>保存</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认 */}
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>删除画册？</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">「{deleteTarget?.title}」将被删除，作品本身仍保留在资产库。</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+            <Button variant="destructive" onClick={() => void doDelete()}>删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -18,10 +18,10 @@ export type AvatarSpec = {
 
 export const AVATAR_SHAPE_COUNT = 13;
 
-/** 预设可选色板（与杂志风角色色对齐） */
+/** 预设可选色板（Grok 中性 + 亮蓝主色） */
 export const AVATAR_PALETTE = [
-  '#1C1917', '#8A5A34', '#E0342B', '#EA580C', '#D9A93F', '#2F7D5B',
-  '#2FA89A', '#2F6FA8', '#6A4A96', '#D6487E', '#8C7D6C', '#B4502A',
+  '#2F7CF6', '#1C1917', '#8A5A34', '#E0342B', '#EA580C', '#D9A93F',
+  '#2F7D5B', '#2FA89A', '#2F6FA8', '#6A4A96', '#D6487E', '#8C7D6C', '#B4502A',
 ];
 
 /* ------------------------------- 13 款柔化 blob ------------------------------- */
@@ -123,7 +123,7 @@ function DashEyes() {
       {eyes.map((e, i) => (
         <g key={i} transform={`translate(${e.cx} 44)`}>
           <g className="bot-eye">
-            <ellipse rx="3" ry="5.6" fill="#FFFFFF" transform={`rotate(${e.rot})`} />
+            <ellipse rx="4.6" ry="9.5" fill="#FFFFFF" transform={`rotate(${e.rot})`} />
           </g>
         </g>
       ))}
@@ -141,39 +141,86 @@ export function BotAvatar({
   motion = 'idle',
   className,
   style,
+  tilt = true,
+  badge,
 }: {
   spec: AvatarSpec;
   size?: number;
   motion?: BotAvatarMotion;
   className?: string;
   style?: CSSProperties;
+  /** Grok 式整体微倾斜（编辑网格可关掉） */
+  tilt?: boolean;
+  /** 右下角徽标（星形 / 在线点） */
+  badge?: 'star' | 'dot';
 }) {
+  const badgeEl = badge ? (
+    <span
+      className="absolute grid place-items-center rounded-full text-white"
+      style={{
+        right: -size * 0.06, bottom: -size * 0.02, width: size * 0.34, height: size * 0.34,
+        background: badge === 'star' ? '#F59E0B' : '#2F7CF6',
+        boxShadow: '0 0 0 2px #fff',
+      }}
+    >
+      {badge === 'star' ? (
+        <svg width={size * 0.2} height={size * 0.2} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17l-6.1 3.6 1.4-6.8L2.2 9.1l6.9-.8z" /></svg>
+      ) : null}
+    </span>
+  ) : null;
+
   if (spec.image) {
     return (
-      <img
-        src={spec.image}
-        alt="Bot 头像"
-        width={size}
-        height={size}
-        className={`bot-avatar-img ${className ?? ''}`}
-        style={{ objectFit: 'cover', borderRadius: '9999px', ...style }}
-      />
+      <span className={`relative inline-block shrink-0 ${className ?? ''}`} style={{ width: size, height: size, ...style }}>
+        <img
+          src={spec.image}
+          alt="Bot 头像"
+          width={size}
+          height={size}
+          className="bot-avatar-img size-full"
+          style={{ objectFit: 'cover', borderRadius: '9999px' }}
+        />
+        {badgeEl}
+      </span>
     );
   }
 
   return (
-    <svg
-      viewBox="0 0 100 100"
-      width={size}
-      height={size}
-      className={`bot-avatar ${className ?? ''}`}
-      data-motion={motion}
-      style={style}
-      role="img"
-      aria-label="Bot 头像"
-    >
-      <ShapeBody variant={spec.variant} color={spec.color} />
-      <DashEyes />
-    </svg>
+    <span className={`relative inline-block shrink-0 ${className ?? ''}`} style={{ width: size, height: size, ...style }}>
+      <svg
+        viewBox="0 0 100 100"
+        width={size}
+        height={size}
+        className="bot-avatar size-full"
+        data-motion={motion}
+        role="img"
+        aria-label="Bot 头像"
+      >
+        <g transform={tilt ? 'rotate(-8 50 50)' : undefined}>
+          <ShapeBody variant={spec.variant} color={spec.color} />
+          <DashEyes />
+        </g>
+      </svg>
+      {badgeEl}
+    </span>
+  );
+}
+
+/** 群会话簇头像：3 个小 blob 交叠（Grok 群聊形态） */
+export function BotGroupAvatar({ specs, size = 40 }: { specs: AvatarSpec[]; size?: number }) {
+  const mini = size * 0.62;
+  const pos = [
+    { left: 0, top: size * 0.16 },
+    { left: size * 0.36, top: 0 },
+    { left: size * 0.3, top: size * 0.4 },
+  ];
+  return (
+    <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+      {specs.slice(0, 3).map((s, i) => (
+        <span key={i} className="absolute" style={{ left: pos[i].left, top: pos[i].top, zIndex: i }}>
+          <BotAvatar spec={s} size={mini} tilt={false} />
+        </span>
+      ))}
+    </span>
   );
 }

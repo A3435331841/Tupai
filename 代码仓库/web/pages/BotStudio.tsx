@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { api, apiUrl, fetchAssetBlob, downloadBlob, downloadText, ApiRequestError } from '@/lib/api';
 import type {
@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { NativeSelect } from '@/components/ui/native-select';
 import { PublishDialog } from '@/components/PublishDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { BotAvatar } from '@/components/BotAvatar';
+import { BotAvatar, BotGroupAvatar } from '@/components/BotAvatar';
 import type { AvatarSpec } from '@/components/BotAvatar';
 import { AvatarEditorDialog } from '@/components/AvatarEditorDialog';
 import { toast } from 'sonner';
@@ -51,12 +51,12 @@ const LAST_JOB_KEY = 'tupai-last-job';
 
 // 默认拟人头像：Grok 风软胶 blob 球 + 双杠眼睛，按角色配色分配造型
 const DEFAULT_AVATARS: Record<string, AvatarSpec> = {
-  '主脑': { variant: 0, color: '#EA580C' },
-  '小光': { variant: 1, color: '#C9982F' },
-  '小染': { variant: 4, color: '#7A5AA8' },
-  '小词': { variant: 3, color: '#3F8A6B' },
-  '小绘': { variant: 6, color: '#3F7FBF' },
-  '小忆': { variant: 5, color: '#8A7A6A' },
+  '主脑': { variant: 1, color: '#2F7CF6' },
+  '小光': { variant: 0, color: '#D9A93F' },
+  '小染': { variant: 4, color: '#6A4A96' },
+  '小词': { variant: 3, color: '#2F7D5B' },
+  '小绘': { variant: 6, color: '#2FA89A' },
+  '小忆': { variant: 5, color: '#8A5A34' },
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -86,6 +86,20 @@ function writeLastJob(job: LastJob) {
 
 function clearStoredLastJob() {
   try { localStorage.removeItem(LAST_JOB_KEY); } catch { /* private mode */ }
+}
+
+// 会话（对话/头像/暂停开关）本地持久化：刷新或误关页面后恢复上下文
+const CHAT_KEY = 'tupai-studio-chat-v1';
+type StoredChat = {
+  turns?: { id: string; from: string; to: string; text: string; memory?: boolean; self?: boolean; handoff?: boolean }[];
+  avatars?: Record<string, AvatarSpec>;
+  paused?: boolean;
+};
+function readStoredChat(): StoredChat | null {
+  try {
+    const raw = localStorage.getItem(CHAT_KEY);
+    return raw ? (JSON.parse(raw) as StoredChat) : null;
+  } catch { return null; }
 }
 
 function imageMime(file: File): string {
@@ -205,6 +219,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     });
     setFile(f);
     setAssetId(null);
+    if (f) setDemoSeeded(false);
     setJob(null);
     setJobError(null);
     setResultUrl(null);
@@ -481,6 +496,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   }
 
   async function runGenerate() {
+    if (paused) { toast.info('已暂停派单：恢复后才会提交生成任务'); return; }
     if (!prompt.trim()) { toast.error('提示词不能为空'); return; }
     if (quota && quota.remaining <= 0) { toast.error('今日生成次数已用完，明天再来吧'); return; }
     setStage('generating');
@@ -755,29 +771,66 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     setLastJob(null);
     setParentWorkId(undefined);
     clearStoredLastJob();
+    try { localStorage.removeItem(CHAT_KEY); } catch { /* private mode */ }
+    setTurns(makeInitialTurns());
+    setDemoSeeded(false);
+    setFocusBot(null);
   }
 
   // ===== V3 Bot 编排层：把真实业务状态映射成多 Bot 协作对话 =====
-  type ChatTurn = { id: string; from: string; to: string; text: string; memory?: boolean; self?: boolean };
-  const [turns, setTurns] = useState<ChatTurn[]>([
+  type ChatTurn = { id: string; from: string; to: string; text: string; memory?: boolean; self?: boolean; handoff?: boolean };
+  const makeInitialTurns = (): ChatTurn[] => [
     { id: 't0', from: '你', to: '主脑', text: '帮我看看这张能不能改，想做成胶片那种感觉，别太白。', self: true },
-    { id: 't1', from: '小光', to: '小染', text: '我这边看完了：逆光、眼神光在，背景乱。你定风格时把我说的「淡化背景」带进去。' },
-    { id: 't2', from: '小染', to: '主脑', text: '收到。风格定胶片日常，暖调颗粒留阴影。按他讨厌假白的记忆，别写「磨皮、光滑、白皙」这类词。', memory: true },
-    { id: 't3', from: '小词', to: '主脑', text: '写好了，已按小染的约束改过。等你确认就派给小绘。' },
-  ]);
+    { id: 't4', from: '小忆', to: '主脑', text: '常驻记忆已加载：你讨厌假白磨皮。后续所有方案都会按这条过滤。', memory: true },
+  ];
+  const storedChat = useRef<StoredChat | null>(readStoredChat());
+  const [turns, setTurns] = useState<ChatTurn[]>(() => (
+    storedChat.current?.turns?.length ? storedChat.current.turns as ChatTurn[] : makeInitialTurns()
+  ));
   const [userInput, setUserInput] = useState('');
   const [focusBot, setFocusBot] = useState<string | null>(null);
-  const [avatars, setAvatars] = useState<Record<string, AvatarSpec>>(DEFAULT_AVATARS);
+  const [avatars, setAvatars] = useState<Record<string, AvatarSpec>>(() => storedChat.current?.avatars || DEFAULT_AVATARS);
   const [editorFor, setEditorFor] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [seen, setSeen] = useState<Record<string, boolean>>({});
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typingBot, setTypingBot] = useState<string | null>(null);
+  const [panelTab, setPanelTab] = useState<'activity' | 'library'>('activity');
+  const [paused, setPaused] = useState(() => Boolean(storedChat.current?.paused));
+  const [appsOpen, setAppsOpen] = useState(false);
+  const [demoSeeded, setDemoSeeded] = useState(false);
+  const [meName, setMeName] = useState('游客');
+
+  useEffect(() => {
+    try { localStorage.setItem(CHAT_KEY, JSON.stringify({ turns, avatars, paused })); } catch { /* private mode */ }
+  }, [turns, avatars, paused]);
+
+  useEffect(() => {
+    api.me().then((m) => {
+      if (!m.logged_in) { setMeName('游客'); return; }
+      api.profile().then((p) => setMeName(p.profile.display_name || m.user?.name || '创作者')).catch(() => setMeName(m.user?.name || '创作者'));
+    }).catch(() => {});
+  }, []);
+  const menuRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const addTurn = useCallback((turn: Omit<ChatTurn, 'id'>) => {
     setTurns((prev) => [...prev, { ...turn, id: `t${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }]);
   }, []);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [turns]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [turns, typingBot]);
+
+  // 折叠菜单 / 应用矩阵：点击外部自动收起
+  useEffect(() => {
+    if (!menuOpen && !appsOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setMenuOpen(false); setAppsOpen(false); }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen, appsOpen]);
 
   // 首屏演示态：用真实样例图 + 真实「胶片日常」模板，把编排画布预置到「4/5 步骤完成」
   // 只设置前端展示状态，不落库；用户一上传自己的图/发话即接管真实流程。
@@ -799,6 +852,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       setCurrentSummary(tpl.title);
       setOptimize({ candidates: [], recommendations: [], mode: 'img2img' });
       setStage('ready');
+      setDemoSeeded(true);
     }).catch(() => { seededRef.current = false; });
   }, [templates, stage, file]);
 
@@ -812,12 +866,14 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     '小忆': '常驻',
   };
 
-  // 用户发话：分派任务并触发真实流程
+  // 用户发话：主脑视角分派任务；单 Bot 视角直接与该 Bot 对话
   function sendToBots() {
     const raw = userInput.trim();
     if (!raw) return;
     setUserInput('');
-    addTurn({ from: '你', to: '主脑', text: raw, self: true });
+    const target = inBotThread ? focusKey : '主脑';
+    addTurn({ from: '你', to: target, text: raw, self: true });
+    if (inBotThread) { replyAsBot(focusKey, raw); return; }
     if (hasImage) {
       // 有底图：把这句话当作创作意图，走真实优化
       addTurn({ from: '主脑', to: '小光', text: '小光，先看这张画面的光线、主体和背景。' });
@@ -829,6 +885,28 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       addTurn({ from: '主脑', to: '你', text: '收到。先把想法记下——你可以上传一张照片让我分析，或在下方挑一个风格方向，我来帮你写成提示词。' });
       setText(raw);
     }
+  }
+
+  // 单 Bot 视角：按角色给出回应（小词会真实把约束补进提示词），带 typing 指示
+  function replyAsBot(name: string, raw: string) {
+    let reply: Omit<ChatTurn, 'id'>;
+    if (name === '小光') {
+      reply = { from: '小光', to: '你', text: hasImage ? '画面我又核了一遍：逆光、眼神光在、背景杂。分析产物已自动传给小染。' : '还没有底图。先上传一张照片，我才能看光线、主体和背景。' };
+    } else if (name === '小染') {
+      reply = { from: '小染', to: '你', text: `方向记下了：「${raw}」。下方挑一个模板我就按它收一版，产物会自动传给小词。` };
+    } else if (name === '小词') {
+      setPrompt((p) => `${p} ${raw}`.trim().slice(0, 4000));
+      setPromptDirty(true);
+      reply = { from: '小词', to: '你', text: `收到，已把「${raw}」补进提示词约束。产物会自动传给小绘，确认后即可派单。` };
+    } else if (name === '小绘') {
+      reply = { from: '小绘', to: '你', text: '收到。点「派单给小绘」我就出图；排队与进度看右侧详情。' };
+    } else if (name === '小忆') {
+      reply = { from: '小忆', to: '你', text: `记住了：「${raw}」。后续方案会按这条记忆过滤。`, memory: true };
+    } else {
+      reply = { from: name, to: '你', text: '收到，我记下了。' };
+    }
+    setTypingBot(name);
+    window.setTimeout(() => { setTypingBot(null); addTurn(reply); }, 650);
   }
 
   // 风格选择（真实套用模板 / 候选）
@@ -864,6 +942,20 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     }
   }, [stage, genPhase, turns, addTurn]);
 
+  // 产物自动交接：上一节点产物就绪 → 自动发给下一节点（每条边只发一次）
+  useEffect(() => {
+    const edges = [
+      { on: hasImage, from: '小光', to: '小染', memory: false, text: '画面产物已交接：逆光 / 眼神光 / 背景杂乱。定风格时带上「淡化背景」。' },
+      { on: Boolean(appliedTemplate), from: '小染', to: '小词', memory: true, text: `风格产物已交接：「${appliedTemplate?.title ?? ''}」暖调颗粒。写词避开「磨皮、光滑、白皙」。` },
+      { on: Boolean(prompt.trim()), from: '小词', to: '小绘', memory: false, text: '提示词产物已交接：保留眼神光 / 淡化背景。确认派单后即可出图。' },
+    ];
+    for (const e of edges) {
+      if (e.on && !turns.some((t) => t.handoff && t.from === e.from && t.to === e.to)) {
+        addTurn({ from: e.from, to: e.to, text: e.text, memory: e.memory, handoff: true });
+      }
+    }
+  }, [hasImage, appliedTemplate, prompt, turns, addTurn]);
+
   const styleCovers: Record<string, string> = {
     'film-daily': '/templates/film-daily.webp',
     'night-bright': '/templates/night-bright.webp',
@@ -871,13 +963,6 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     'travel-postcard': '/templates/travel-postcard.webp',
     'magazine-cover': '/templates/magazine-cover.webp',
   };
-
-  const pipeline = [
-    { name: '小光', role: '看画面', sub: '光线/主体/背景分析', state: botState['小光'], img: preview || (hasImage ? undefined : '/samples/demo-night.jpg'), hint: hasImage ? '已读取画面' : '点击上传照片', action: () => fileRef.current?.click() },
-    { name: '小染', role: '定风格', sub: '胶片日常（暖调·颗粒）', state: botState['小染'], img: appliedTemplate ? (styleCovers[appliedTemplate.id] || apiUrl(appliedTemplate.cover_url)) : '/templates/film-daily.webp', hint: appliedTemplate ? appliedTemplate.title : '待挑方向', action: () => setFocusBot('小染') },
-    { name: '小词', role: '写提示词', sub: '保留暖光·淡化背景', state: botState['小词'], text: currentSummary ? `${currentSummary} · 保留眼神光/淡化背景` : '等待风格方向', hint: prompt ? '已生成待确认' : '待命', action: () => setFocusBot('小词') },
-    { name: '小绘', role: '出图', sub: stage === 'generating' ? '排队中 · 约 15 秒' : '等待派单', state: botState['小绘'], img: resultUrl || undefined, hint: stage === 'result' ? '成品已交付' : '确认后出图', action: dispatchToArtist },
-  ];
 
   const handoff = [
     { name: '小光', state: botState['小光'], text: hasImage ? '画面分析：逆光/眼神光/背景杂乱' : '画面分析：等待上传', icon: '✓', tone: 'done' },
@@ -898,8 +983,16 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const BOT_ORDER = ['主脑', '小光', '小染', '小词', '小绘', '小忆'] as const;
   const focusKey = focusBot && BOT_META[focusBot] ? focusBot : '主脑';
   const curMeta = BOT_META[focusKey];
-  const stateDot = (state: string) =>
-    state === '已完成' || state === '已交付' ? '#2F7D5B' : state === '待命' || state === '常驻' ? '#C9B89F' : '#B4502A';
+  // 单 Bot 独立对话：非主脑视角只保留与该 Bot 相关的往来 + 用户原始诉求
+  const inBotThread = focusKey !== '主脑';
+  const threadTurns = inBotThread
+    ? turns.filter((t) => t.self || t.from === focusKey || t.to === focusKey)
+    : turns;
+  // 进入某 Bot 线程即标记已读（清 unread 蓝点）
+  useEffect(() => { setSeen((s) => ({ ...s, [focusKey]: true })); }, [focusKey]);
+  const isUnread = (name: string) =>
+    (botState[name] === '已完成' || botState[name] === '已交付') && !seen[name];
+  const listedBots = BOT_ORDER.filter((n) => !searchQuery.trim() || n.includes(searchQuery.trim()) || BOT_META[n].role.includes(searchQuery.trim()));
   const progressNote = stage === 'result'
     ? '成品已交付，可下载、存为配方或发布到社区。'
     : stage === 'generating'
@@ -909,7 +1002,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const avatarOf = (name: string): AvatarSpec => {
     const known = avatars[name] ?? DEFAULT_AVATARS[name];
     if (known) return known;
-    return { variant: 0, color: '#8C7D6C' };
+    return { variant: 0, color: '#9A9A98' };
   };
   const motionFor = (name: string): 'idle' | 'busy' =>
     botState[name] === '编排中' || botState[name] === '出图中' ? 'busy' : 'idle';
@@ -923,134 +1016,173 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
 
       <div
         className="grid min-h-0 flex-1 gap-6 transition-[grid-template-columns] duration-300 ease-out lg:grid-cols-[264px_minmax(0,1fr)_var(--drawer-w)]"
-        style={{ '--drawer-w': panelOpen ? '300px' : '0px' } as CSSProperties}
+        style={{ '--drawer-w': panelOpen ? '380px' : '0px' } as CSSProperties}
       >
-        {/* ===== 左：会话列表（Grok 式侧栏） ===== */}
-        <aside className="flex min-w-0 flex-col gap-2 lg:min-h-0 lg:pr-1">
+        {/* ===== 左：会话列表（Grok 式灰底侧栏） ===== */}
+        <aside className="flex min-w-0 flex-col gap-2 bg-[#F4F4F2] lg:min-h-0 lg:rounded-2xl lg:p-3">
           {/* 顶部工具钮 */}
           <div className="flex shrink-0 items-center justify-end gap-2 px-1">
-            <button type="button" title="搜索" className="grid size-9 place-items-center rounded-full bg-white text-[#6B5D52] shadow-sm transition hover:bg-[#F6ECDF]">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <button type="button" title="搜索" onClick={() => setSearchOpen((v) => !v)} className="grid size-9 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
             </button>
-            <button type="button" title="新建" className="grid size-9 place-items-center rounded-full bg-white text-[#6B5D52] shadow-sm transition hover:bg-[#F6ECDF]">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            <button type="button" title="新建任务" onClick={() => resetAll()} className="grid size-9 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
             </button>
           </div>
+          {searchOpen && (
+            <input autoFocus value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="搜索 Bot / 角色"
+              className="shrink-0 rounded-full border border-[#E5E5E3] bg-white px-4 py-2 text-[13px] outline-none focus:border-[#2F7CF6]" />
+          )}
 
-          {/* 用户身份卡（占位头像） */}
-          <div className="shrink-0 rounded-2xl bg-[#ECE2D4]/60 p-3">
-            <div className="mx-auto grid size-16 place-items-center">
-              <BotAvatar spec={{ variant: 0, color: '#8C7D6C' }} size={56} />
-            </div>
-            <div className="mt-1.5 text-center text-[13px] font-bold">我</div>
+          {/* 主 Bot 身份卡（居中窄卡 + 倾斜头像 + 星徽） */}
+          <div className="mx-auto flex w-[72%] shrink-0 flex-col items-center rounded-3xl bg-[#E4E4E2] p-4">
+            <BotAvatar spec={avatarOf('主脑')} size={72} badge="star" />
+            <div className="mt-2 text-[13px] font-bold">主脑</div>
           </div>
 
-          {/* Bot 会话列表 */}
-          <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
-            {BOT_ORDER.map((name) => {
+          {/* Bot 会话列表（透明行 + unread 蓝点 + 底部渐隐） */}
+          <div className="se-fade-bottom flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pt-1">
+            {listedBots.map((name) => {
               const meta = BOT_META[name];
               const active = focusKey === name;
               return (
-                <button key={name} type="button" onClick={() => setFocusBot(active ? null : name)}
+                <button key={name} type="button" onClick={() => setFocusBot(active && name !== '主脑' ? null : name)}
+                  title={`进入 ${meta.label} 单独对话`}
                   className={`se-conv flex items-center gap-3 px-2.5 py-2.5 text-left ${active ? 'active' : ''}`}>
-                  <BotAvatar spec={avatarOf(name)} size={36} motion={motionFor(name)} />
+                  {name === '主脑'
+                    ? <BotGroupAvatar specs={[avatarOf('主脑'), avatarOf('小光'), avatarOf('小染')]} size={40} />
+                    : <BotAvatar spec={avatarOf(name)} size={40} motion={motionFor(name)} />}
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[14px] font-bold">{meta.label}</span>
-                    <span className="block truncate text-[12px] text-[#8C7D6C]">{meta.summary}</span>
+                    <span className="block text-[15px] font-bold">{meta.label}</span>
+                    <span className="block truncate text-[13px] text-[#9A9A98]">{meta.summary}</span>
                   </span>
-                  <span className="se-dot ml-auto shrink-0" style={{ background: stateDot(botState[name]) }} />
+                  {isUnread(name) && <span className="se-dot ml-auto shrink-0" style={{ background: '#2F7CF6' }} />}
                 </button>
               );
             })}
-            <div className="mt-auto pt-3 text-[10.5px] leading-4 text-[#8C7D6C]">
-              点任一 Bot 进入单独对话；每个节点产物会自动传给下一个 Bot。
-            </div>
           </div>
 
-          {/* 底部用户行：折叠收纳配方 / 导入 / 隐私 / 重开 / 新任务 */}
-          <div className="relative shrink-0 pt-1">
+          {/* 底部用户行：字母头像 + 应用矩阵 / 上传 + 折叠菜单 */}
+          <div className="relative shrink-0 pt-1" ref={menuRef}>
+            {appsOpen && (
+              <div className="se-card absolute bottom-full left-0 z-30 mb-2 w-full p-3">
+                <p className="se-group-label mb-2">应用矩阵</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {['创作台', '资产库', '社区', '配方'].map((a) => (
+                    <button key={a} type="button" onClick={() => { setAppsOpen(false); if (a === '创作台') navigate('/studio'); else if (a === '资产库') navigate('/library'); else if (a === '社区') navigate('/community'); else if (a === '配方') openMySkills(); }}
+                      className="flex flex-col items-center gap-1 rounded-xl py-2 text-[11px] text-[#6E6E6C] hover:bg-[#F4F4F2]">
+                      <span className="grid size-8 place-items-center rounded-full bg-[#F4F4F2] text-[#1A1A1A]">▦</span>{a}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {menuOpen && (
-              <div className="se-card absolute bottom-full left-0 z-30 mb-2 w-full p-1.5 shadow-lg">
-                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
+              <div className="se-card absolute bottom-full left-0 z-30 mb-2 w-full p-1.5">
+                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#1A1A1A] hover:bg-[#F4F4F2]"
                   onClick={() => { openMySkills(); setMenuOpen(false); }}>我的配方</button>
-                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
+                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#1A1A1A] hover:bg-[#F4F4F2]"
                   onClick={() => { importRef.current?.click(); setMenuOpen(false); }}>导入配方</button>
-                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
+                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#1A1A1A] hover:bg-[#F4F4F2]"
                   onClick={() => { navigate('/legal'); setMenuOpen(false); }}>隐私与 AI 说明</button>
                 {stage !== 'entry' && (
-                  <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
+                  <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#1A1A1A] hover:bg-[#F4F4F2]"
                     onClick={() => { resetAll(); setMenuOpen(false); }}>重开本任务</button>
                 )}
-                <button type="button" className="se-btn-dark mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[13px]"
+                <button type="button" className="se-btn-dark mt-1 flex w-full items-center justify-center gap-1.5 px-3 py-2 text-[13px]"
                   onClick={() => { resetAll(); setMenuOpen(false); }}>＋ 新任务</button>
               </div>
             )}
-            <button type="button" onClick={() => setMenuOpen((o) => !o)}
-              className="flex w-full items-center gap-3 px-1 py-2 text-left">
-              <BotAvatar spec={{ variant: 0, color: '#8C7D6C' }} size={34} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-bold">jia xin xiao</span>
-              </span>
-              <span className="grid size-8 place-items-center rounded-full text-[#B3A492]">
+            <div className="flex w-full items-center gap-3 px-1 py-2">
+              <button type="button" onClick={() => setMenuOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#8A5A34] text-[15px] font-bold text-white">{meName.slice(0, 1)}</span>
+                <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{meName}</span>
+              </button>
+              <button type="button" title="应用矩阵" onClick={() => setAppsOpen((v) => !v)} className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></svg>
-              </span>
-              <span className="grid size-8 place-items-center rounded-full bg-[#2F6FA8] text-white">
+              </button>
+              <button type="button" title="上传照片" onClick={() => fileRef.current?.click()} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#2F7CF6] text-white shadow-sm transition hover:bg-[#2668D8]">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4m0 0 4 4m-4-4L8 8" /><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
-              </span>
-            </button>
+              </button>
+            </div>
           </div>
         </aside>
 
         {/* ===== 中：对话工作台 ===== */}
         <section className="flex min-w-0 min-h-0 flex-col gap-4">
-          {/* 当前会话头：点头像开关右侧详情抽屉（再点收起） */}
-          <div className="flex shrink-0 items-center gap-3 px-1">
+          {/* 当前会话头：居中悬浮 pill（点头像开关右栏），分享白 pill 居右 */}
+          <div className="relative flex shrink-0 items-center justify-center px-1 py-1">
             <button type="button" onClick={() => setPanelOpen((v) => !v)}
-              className={`group relative rounded-full transition-all duration-200 hover:scale-105 active:scale-95 ${panelOpen ? 'ring-2 ring-[#B4502A] ring-offset-2 ring-offset-[#F7F1E8]' : ''}`}
+              className={`se-pill flex items-center gap-2 py-1.5 pl-1.5 pr-4 transition-transform duration-200 hover:scale-[1.03] active:scale-95 ${panelOpen ? 'ring-2 ring-[#2F7CF6]/40' : ''}`}
               title={panelOpen ? '收起 Bot 详情' : '查看 Bot 详情'}
               aria-expanded={panelOpen}>
-              <BotAvatar spec={avatarOf(focusKey)} size={40} motion={motionFor(focusKey)} />
+              <BotAvatar spec={avatarOf(focusKey)} size={30} motion={motionFor(focusKey)} />
+              <span className="text-[14px] font-bold">{curMeta.label}</span>
             </button>
-            <div className="min-w-0">
-              <div className="text-[15px] font-bold">{curMeta.label}</div>
-              <div className="text-[12px] text-[#8C7D6C]">{curMeta.role} · {botState[focusKey]}</div>
-            </div>
-            <button type="button" className="ml-auto rounded-full border border-[#EADCC8] px-3.5 py-1.5 text-[12px] text-[#6B5D52] transition hover:bg-[#F6ECDF]">
+            <button
+              type="button"
+              className="se-pill absolute right-1 px-4 py-2 text-[12px] text-[#1A1A1A] transition hover:bg-[#F4F4F2]"
+              title={stage === 'result' && job?.result ? '发布到社区并分享' : '生成完成后可分享'}
+              onClick={() => {
+                if (stage === 'result' && job?.result) setPublishOpen(true);
+                else toast.info('生成完成后再分享');
+              }}
+            >
               分享
             </button>
           </div>
 
-          {/* 消息流 */}
-          <div className="se-card flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 scrollbar-thin">
-            {turns.map((t) => {
-              const m = metaOf(t.from);
+          {demoSeeded && (
+            <div className="mx-1 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-[#D9C9A9] bg-[#FDF8EC] px-3 py-2 text-[11px] text-[#8A6D3B]">
+              <span className="rounded-full bg-[#D9A93F] px-2 py-0.5 text-[10px] font-semibold text-white">演示</span>
+              当前展示的是示例废片与示例配方，不是你的照片。
+              <button type="button" className="font-semibold text-[#2F7CF6] underline" onClick={() => fileRef.current?.click()}>上传我的照片</button>
+              <button type="button" className="ml-auto text-[#8A6D3B] underline" onClick={() => resetAll()}>清空示例</button>
+            </div>
+          )}
+
+          {/* 消息流：直接铺白底，Bot 消息为整宽浅灰圆角卡 */}
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1 py-2 scrollbar-thin">
+            {threadTurns.map((t) => {
               return t.self ? (
-                <div key={t.id} className="flex justify-end">
+                <div key={t.id} className="se-msg-in flex justify-end">
                   <div className="se-bubble-user max-w-[66%] px-4 py-3 text-[13px] leading-7">{t.text}</div>
                 </div>
               ) : (
-                <div key={t.id} className="flex gap-3">
-                  <BotAvatar spec={avatarOf(t.from)} size={34} motion={motionFor(t.from)} />
-                  <div className="min-w-0">
-                    <div className="mb-1 text-[12px] text-[#8C7D6C]">{t.from} → {t.to}</div>
-                    <div className={`se-bubble-bot max-w-[70%] px-4 py-3 text-[13px] leading-7 ${t.memory ? 'se-bubble-memory' : ''}`}>
-                      {t.memory && <span className="mr-1">🧠</span>}
-                      {t.text}
+                <div key={t.id} className="se-msg-in">
+                  <div className={`se-bubble-bot w-full px-4 py-3 text-[13px] leading-7 ${t.memory ? 'se-bubble-memory' : ''}`}>
+                    <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold text-[#9A9A98]">
+                      <span>{t.from}</span>
+                      {t.handoff && <span className="rounded-full bg-[#EAF1FE] px-2 py-0.5 text-[10px] font-semibold text-[#2F7CF6]">→ {t.to} · 产物自动交接</span>}
+                      {t.memory && <span className="rounded-full bg-[#EAF1FE] px-2 py-0.5 text-[10px] font-semibold text-[#2F7CF6]">记忆</span>}
+                      {!t.memory && <span className="rounded-full bg-[#F4F4F2] px-2 py-0.5 text-[10px] text-[#9A9A98]" title="本地编排的协作演示回复，不代表模型实时输出">演示编排</span>}
                     </div>
+                    {t.text}
                   </div>
                 </div>
               );
             })}
+            {typingBot && (
+              <div className="se-msg-in flex items-center gap-2 px-1">
+                <BotAvatar spec={avatarOf(typingBot)} size={24} motion="busy" />
+                <span className="se-bubble-bot flex items-center gap-1 px-3 py-2.5">
+                  <span className="se-typing-dot" /><span className="se-typing-dot" /><span className="se-typing-dot" />
+                </span>
+              </div>
+            )}
 
             {/* 候选方案 */}
-            {optimize?.candidates?.length ? (
+            {(focusKey === '主脑' || focusKey === '小染') && optimize?.candidates?.length ? (
               <div>
-                <p className="mb-2 text-[12px] font-bold text-[#6B5D52]">候选方案 · 点选套用</p>
+                <p className="mb-2 text-[12px] font-bold text-[#6E6E6C]">候选方案 · 点选套用</p>
                 <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                   {optimize.candidates.map((c, i) => (
                     <button key={i} type="button" onClick={() => applyCandidate(c, i)}
-                      className={`se-photo w-32 shrink-0 text-left ${selectedCandidate === i ? 'ring-2 ring-[#B4502A]/40' : ''}`}>
-                      <div className="h-20 rounded-sm bg-gradient-to-br from-[#E8B98A] to-[#B4502A]" />
+                      className={`se-photo relative w-32 shrink-0 text-left ${selectedCandidate === i ? 'ring-2 ring-[#2F7CF6]' : ''}`}>
+                      <div className="h-20 rounded-xl bg-gradient-to-br from-[#E3E3E1] to-[#B9B9B7]" />
+                      {i === 2 && optimize.candidates.length > 3 && (
+                        <span className="absolute inset-0 grid place-items-center rounded-xl bg-black/45 text-[15px] font-bold text-white">+{optimize.candidates.length - 3}</span>
+                      )}
                       <div className="mt-2 truncate text-[12px] font-medium">{c.summary_zh || c.style_tags.join(' · ') || `方案 ${i + 1}`}</div>
                     </button>
                   ))}
@@ -1059,20 +1191,20 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             ) : null}
 
             {/* 相似推荐 · 一键同款 */}
-            {optimize && optimize.recommendations.length > 0 && (
+            {(focusKey === '主脑' || focusKey === '小染') && optimize && optimize.recommendations.length > 0 && (
               <div aria-label="相似推荐">
-                <p className="mb-2 text-[12px] font-bold text-[#6B5D52]">{optimize.recommendations_fallback ? '试试这些模板' : '相似模板 / Skills'}</p>
+                <p className="mb-2 text-[12px] font-bold text-[#6E6E6C]">{optimize.recommendations_fallback ? '试试这些模板' : '相似模板 / Skills'}</p>
                 <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                   {optimize.recommendations.map((rec) => (
                     <button key={rec.type + rec.id} type="button" onClick={() => applyRecommendation(rec)}
                       className="se-photo w-32 shrink-0 text-left">
-                      <div className="aspect-[4/3] overflow-hidden rounded-sm bg-[#F1E7D9]">
+                      <div className="aspect-[4/3] overflow-hidden rounded-xl bg-[#F4F4F2]">
                         {rec.cover_url
                           ? <AssetImage path={rec.cover_url} alt={`${rec.title} 预览`} className="size-full object-cover" isPublic={!rec.cover_private} />
-                          : <div className="grid size-full place-items-center text-[10px] text-[#8C7D6C]">我的配方</div>}
+                          : <div className="grid size-full place-items-center text-[10px] text-[#9A9A98]">我的配方</div>}
                       </div>
                       <div className="mt-2 truncate text-[12px] font-medium">{rec.title}</div>
-                      <span className="mt-1 inline-block rounded-md border border-[#EADCC8] px-2 py-0.5 text-[10px] text-[#6B5D52]">一键同款</span>
+                      <span className="mt-1 inline-block rounded-full bg-[#EAF1FE] px-2 py-0.5 text-[10px] font-semibold text-[#2F7CF6]">一键同款</span>
                     </button>
                   ))}
                 </div>
@@ -1080,11 +1212,11 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             )}
 
             {/* 小染 · 风格模板 */}
-            {focusBot === '小染' && (
+            {focusKey === '小染' && (
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-[12px] font-bold text-[#6B5D52]">小染 · 挑一个风格方向</p>
-                  <button type="button" className="text-[11px] text-[#8C7D6C] hover:text-[#B4502A]" onClick={() => setFocusBot(null)}>收起</button>
+                  <p className="text-[12px] font-bold text-[#6E6E6C]">小染 · 挑一个风格方向</p>
+                  <button type="button" className="text-[11px] text-[#9A9A98] hover:text-[#2F7CF6]" onClick={() => setFocusBot(null)}>收起</button>
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                   {templates.map((t) => (
@@ -1100,13 +1232,13 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             )}
 
             {/* 小词 · 提示词参数 */}
-            {(focusBot === '小词' || prompt.trim() || stage === 'ready' || stage === 'result') && (
-              <div className="rounded-2xl border border-[#EADCC8] bg-[#FBF4EC] p-4">
+            {(focusKey === '小词' || (focusKey === '主脑' && (prompt.trim() || stage === 'ready' || stage === 'result'))) && (
+              <div className="rounded-2xl border border-[#E5E5E3] bg-[#F4F4F2] p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-[12px] font-bold">小词 · 当前提示词（可改）</p>
                   <span className="flex items-center gap-3">
-                    <span className="text-[10px] text-[#8C7D6C]">正向提示词（{prompt.length}/4000）</span>
-                    <button type="button" className="text-[11px] text-[#8C7D6C] hover:text-[#B4502A]" onClick={() => setFocusBot(null)}>收起</button>
+                    <span className="text-[10px] text-[#9A9A98]">正向提示词（{prompt.length}/4000）</span>
+                    <button type="button" className="text-[11px] text-[#9A9A98] hover:text-[#2F7CF6]" onClick={() => setFocusBot(null)}>收起</button>
                   </span>
                 </div>
                 <Textarea id="prompt" value={prompt} onChange={(e) => { setPrompt(e.target.value.slice(0, 4000)); setPromptDirty(true); }} rows={3} className="text-xs" placeholder="还没有提示词：上传照片或挑一个风格方向" />
@@ -1125,7 +1257,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             )}
 
             {/* 结果操作条 */}
-            {stage === 'result' && job?.result && (
+            {(focusKey === '主脑' || focusKey === '小绘') && stage === 'result' && job?.result && (
               <div className="se-card p-4">
                 <div className="flex flex-wrap items-center gap-3">
                   {preview && resultUrl ? (
@@ -1151,101 +1283,163 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
                 {pendingJobId ? <Button variant="link" size="sm" onClick={restoreLastJob}>继续等待</Button> : <Button variant="link" size="sm" onClick={runGenerate}>重试</Button>}
               </div>
             )}
-            {stage === 'generating' && <p className="text-center text-[12px] text-muted-foreground">{genPhase}</p>}
+            {(focusKey === '主脑' || focusKey === '小绘') && stage === 'generating' && <p className="text-center text-[12px] text-muted-foreground">{genPhase}</p>}
             <div ref={chatEndRef} />
           </div>
 
-          {/* 输入条 */}
-          <div className="se-card flex shrink-0 items-center gap-3 px-4 py-2.5">
-            <button type="button" title="上传照片" onClick={() => fileRef.current?.click()} className="text-lg text-[#6B5D52]">＋</button>
-            <button type="button" className="se-link text-[12px]" onClick={() => setLinkOpen(true)}>链接</button>
-            <span className="text-[#B3A492]">@</span>
+          {/* 派单行动 row（主脑 / 小绘视角） */}
+          {(!inBotThread || focusKey === '小绘') && (prompt.trim() || stage === 'generating') && (
+            <div className="flex shrink-0 justify-center">
+              <button type="button" className="se-btn-dark px-6 py-2 text-[13px]" onClick={dispatchToArtist}
+                disabled={stage === 'generating' || paused || Boolean(quota && quota.remaining <= 0)}>
+                {stage === 'generating' ? '出图…' : '派单给小绘'}
+              </button>
+            </div>
+          )}
+
+          {/* 输入条：全圆悬浮 pill */}
+          <div className="se-pill flex shrink-0 items-center gap-1.5 px-2 py-2">
+            <button type="button" title="上传照片" onClick={() => fileRef.current?.click()} className="grid size-9 shrink-0 place-items-center rounded-full text-[#6E6E6C] transition hover:bg-[#F4F4F2]">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+            <button type="button" title="抖音链接" onClick={() => setLinkOpen(true)} className="grid size-9 shrink-0 place-items-center rounded-full text-[#6E6E6C] transition hover:bg-[#F4F4F2]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5" /><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5" /></svg>
+            </button>
             <input value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') sendToBots(); }}
-              placeholder="说一句，或 @ 某个 Bot（回车发送）" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/70" />
-            <button type="button" className="se-link text-[13px]" onClick={sendToBots}>发送</button>
-            <button type="button" className="se-btn-dark px-5 py-2.5 text-[13px]" onClick={dispatchToArtist}
-              disabled={stage === 'generating' || Boolean(quota && quota.remaining <= 0)}>
-              {stage === 'generating' ? '出图…' : '派单给小绘'}
+              placeholder={inBotThread ? `给 ${curMeta.label} 发消息` : `给 ${curMeta.label} 发消息`} className="min-w-0 flex-1 bg-transparent px-2 text-[13px] outline-none placeholder:text-[#9A9A98]" />
+            <button type="button" disabled aria-disabled="true" title="语音输入尚未开放，敬请期待" className="grid size-9 shrink-0 cursor-not-allowed place-items-center rounded-full text-[#C4C4C2]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+            </button>
+            <button type="button" title="发送" onClick={sendToBots} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#2F7CF6] text-white transition hover:bg-[#2668D8]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 12v-2m4 4V8m4 8V6m4 10v-4m4 2v-2" /></svg>
             </button>
           </div>
-          {quota && <p className="shrink-0 text-center text-[12px] text-[#B3A492]">今日还可生成 {quota.remaining} 次 · 原图全程私密</p>}
         </section>
 
         {/* ===== 右：当前 Bot 详情（栅格第三列，默认收起，点头像开关；与中栏并排不覆盖） ===== */}
         <aside
-          className={`relative flex min-h-0 min-w-0 w-full flex-col gap-3 overflow-y-auto transition-opacity duration-300 ease-out ${panelOpen ? 'visible border-l border-[#EADFCF] bg-[#F7F1E8] p-4 opacity-100' : 'pointer-events-none invisible opacity-0'}`}
+          className={`relative flex min-h-0 min-w-0 w-full flex-col gap-4 overflow-y-auto bg-white transition-opacity duration-300 ease-out ${panelOpen ? 'visible border-l border-[#E5E5E3] p-4 opacity-100' : 'pointer-events-none invisible opacity-0'}`}
           aria-hidden={!panelOpen}
         >
           <button
             type="button"
             onClick={() => setPanelOpen(false)}
             title="关闭详情"
-            className="absolute right-3 top-3 grid size-8 place-items-center rounded-full text-[#6B5D52] transition hover:bg-[#F1E7D9]"
+            className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#F4F4F2]"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
-          <div className="se-card flex flex-col items-center p-5 pt-8 text-center">
-            <button
-              type="button"
-              onClick={() => setEditorFor(focusKey)}
-              title="编辑头像"
-              className="group relative rounded-full transition-transform hover:scale-105"
-            >
-              <BotAvatar spec={avatarOf(focusKey)} size={60} motion={motionFor(focusKey)} />
+
+          {/* 大倾斜头像 + 名字 + 动态 / 资料库 Tab */}
+          <div className="flex flex-col items-center pt-6 text-center">
+            <button type="button" onClick={() => setEditorFor(focusKey)} title="编辑头像" className="group relative transition-transform hover:scale-105">
+              <BotAvatar spec={avatarOf(focusKey)} size={90} motion={motionFor(focusKey)} />
               <span className="absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:bg-black/35 group-hover:opacity-100">更换</span>
             </button>
-            <div className="mt-4 font-display text-[20px] font-extrabold">{curMeta.label}</div>
-            <div className="mt-1 text-[13px] text-[#6B5D52]">{curMeta.role} · {botState[focusKey]}</div>
-            <button type="button" className="mt-2 text-[11px] text-[#8C7D6C] hover:text-[#B4502A]" onClick={() => setEditorFor(focusKey)}>
-              编辑头像 · 预设 / 生成 / 上传
-            </button>
-          </div>
-
-          <div className="se-card p-5">
-            <p className="mb-4 text-[12px] font-bold tracking-[.1em] text-[#B3A492]">正在进行</p>
-            <div className="flex items-center">
-              {pipeline.map((node, i) => (
-                <Fragment key={node.name}>
-                  <div className="flex flex-1 flex-col items-center gap-1.5">
-                    <span className="se-dot" style={{
-                      background: stateDot(node.state),
-                      boxShadow: stateDot(node.state) === '#B4502A' ? '0 0 0 4px rgba(180,80,42,.16)' : undefined,
-                    }} />
-                    <span className={`text-[11px] ${node.state === '待命' ? 'text-[#B3A492]' : 'font-semibold text-[#1F1A17]'}`}>{node.name}</span>
-                  </div>
-                  {i < pipeline.length - 1 && <span className="h-px w-3 bg-[#EADFCF]" />}
-                </Fragment>
-              ))}
+            <div className="mt-3 text-[17px] font-bold">{curMeta.label}</div>
+            <div className="mt-3 flex items-center gap-1">
+              <button type="button" onClick={() => setPanelTab('activity')} className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition ${panelTab === 'activity' ? 'bg-[#EFEFED] text-[#1A1A1A]' : 'text-[#9A9A98] hover:text-[#1A1A1A]'}`}>动态</button>
+              <button type="button" onClick={() => setPanelTab('library')} className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition ${panelTab === 'library' ? 'bg-[#EFEFED] text-[#1A1A1A]' : 'text-[#9A9A98] hover:text-[#1A1A1A]'}`}>资料库</button>
             </div>
-            <p className="mt-4 text-[12.5px] leading-7 text-[#6B5D52]">{progressNote}</p>
           </div>
 
-          <div className="se-card p-5">
-            <p className="mb-3 text-[12px] font-bold tracking-[.1em] text-[#B3A492]">交接产物</p>
-            <div className="flex flex-col gap-3">
-              {handoff.map((h) => (
-                <div key={h.name} className="flex items-start gap-2.5">
-                  <span className="se-dot mt-1.5" style={{ background: h.tone === 'done' ? '#2F7D5B' : h.tone === 'run' ? '#B4502A' : '#C9B89F' }} />
-                  <span className="min-w-0 text-[12px] leading-5">
-                    <b>{h.name}</b>
-                    <span className="block text-[#8C7D6C]">{h.text}</span>
+          {panelTab === 'activity' ? (
+            <>
+              {/* 即将进行 */}
+              <div>
+                <p className="se-group-label mb-2">即将进行</p>
+                <div className="se-row-card flex items-center gap-3 p-3.5">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[#E5E5E3] text-[#6E6E6C]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
                   </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold">出图队列 · {botState['小绘']}</span>
+                    <span className="block text-[12px] text-[#9A9A98]">{paused ? '已暂停' : progressNote}</span>
+                  </span>
+                  <button type="button" role="switch" aria-checked={!paused} onClick={() => setPaused((v) => !v)}
+                    className={`relative h-6 w-10 shrink-0 rounded-full transition ${paused ? 'bg-[#E5E5E3]' : 'bg-[#2F7CF6]'}`}>
+                    <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${paused ? 'left-0.5' : 'left-[18px]'}`} />
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="se-bubble-memory rounded-2xl p-4 text-[12.5px] leading-7">
-            <b className="text-[#B4502A]">记忆 #07</b>　你讨厌假白磨皮，已把「清透人像」分支去掉，并把「背景虚化」写进提示词。
-          </div>
-
-          {lastJob && stage === 'entry' && (
-            <div className="se-card p-4">
-              <p className="text-[13px] font-medium">{lastJob.status === 'succeeded' ? '上次生成的作品还在' : '上次任务还没完成'}</p>
-              <div className="mt-2 flex gap-2">
-                <Button size="sm" variant="outline" onClick={restoreLastJob}>查看 / 恢复</Button>
-                <Button size="sm" variant="ghost" onClick={discardLastJob}>丢弃</Button>
               </div>
+
+              {/* 建议（交接产物，可跳转对应 Bot） */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="se-group-label">建议</p>
+                  <button type="button" className="text-[12px] text-[#9A9A98] hover:text-[#1A1A1A]" onClick={() => setPanelOpen(false)}>隐藏</button>
+                </div>
+                <div className="se-row-card divide-y divide-[#F0F0EE]">
+                  {handoff.map((h) => (
+                    <button key={h.name} type="button" onClick={() => setFocusBot(h.name)} className="flex w-full items-center gap-3 p-3.5 text-left transition hover:bg-[#FAFAF8]">
+                      <span className="se-dot shrink-0" style={{ background: h.tone === 'done' ? '#2F7D5B' : h.tone === 'run' ? '#2F7CF6' : '#C9C9C7' }} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-semibold">{h.name}</span>
+                        <span className="block truncate text-[12px] text-[#9A9A98]">{h.text}</span>
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-[#C9C9C7]"><path d="m9 6 6 6-6 6" /></svg>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 电脑 */}
+              <div>
+                <p className="se-group-label mb-2">电脑</p>
+                <div className="se-row-card flex items-center gap-3 p-3.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold">Bot 的电脑</span>
+                    <span className="block text-[12px] text-[#9A9A98]">{stage === 'generating' ? '运行中' : '休眠中'}</span>
+                  </span>
+                  <span className="grid h-10 w-14 shrink-0 place-items-center rounded-lg bg-[#EFEFED] text-[10px] text-[#9A9A98]">{stage === 'generating' ? '▣' : '▣ ᶻᶻ'}</span>
+                </div>
+              </div>
+
+              {/* 语音聊天：暂未开放，明确禁用而不是提供无效下拉 */}
+              <div>
+                <p className="se-group-label mb-2">语音聊天</p>
+                <div className="se-row-card flex items-center justify-between p-3.5">
+                  <span className="text-[13px] font-semibold text-[#9A9A98]">语音对话</span>
+                  <span className="rounded-full bg-[#F4F4F2] px-3 py-1 text-[11px] text-[#9A9A98]">尚未开放</span>
+                </div>
+              </div>
+
+              {/* 记忆 */}
+              <div className="se-bubble-memory rounded-2xl p-4 text-[12.5px] leading-7">
+                <b className="text-[#2F7CF6]">记忆 #07</b>　你讨厌假白磨皮，已把「清透人像」分支去掉，并把「背景虚化」写进提示词。
+              </div>
+
+              {lastJob && stage === 'entry' && (
+                <div className="se-row-card p-4">
+                  <p className="text-[13px] font-medium">{lastJob.status === 'succeeded' ? '上次生成的作品还在' : '上次任务还没完成'}</p>
+                  <div className="mt-2 flex gap-2">
+                    <Button size="sm" variant="outline" onClick={restoreLastJob}>查看 / 恢复</Button>
+                    <Button size="sm" variant="ghost" onClick={discardLastJob}>丢弃</Button>
+                  </div>
+                </div>
+              )}
+
+              {quota && <p className="text-center text-[12px] text-[#9A9A98]">今日还可生成 {quota.remaining} 次 · 原图全程私密</p>}
+            </>
+          ) : (
+            /* 资料库：模板 / 配方资产 */
+            <div>
+              <p className="se-group-label mb-2">风格模板</p>
+              <div className="grid grid-cols-2 gap-2">
+                {templates.map((t) => (
+                  <button key={t.id} type="button" onClick={() => { chooseStyle(t); setPanelTab('activity'); }} className="se-photo text-left">
+                    <div className="aspect-[4/3] overflow-hidden rounded-xl bg-[#F4F4F2]">
+                      <img src={styleCovers[t.id] || apiUrl(t.cover_url)} alt="" className="size-full object-cover" />
+                    </div>
+                    <div className="mt-1.5 truncate text-[12px] font-medium">{t.title}</div>
+                  </button>
+                ))}
+              </div>
+              <p className="se-group-label mb-2 mt-4">我的配方</p>
+              <button type="button" onClick={openMySkills} className="se-row-card flex w-full items-center justify-between p-3.5 text-left transition hover:bg-[#FAFAF8]">
+                <span className="text-[13px] font-semibold">打开我的配方</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-[#C9C9C7]"><path d="m9 6 6 6-6 6" /></svg>
+              </button>
             </div>
           )}
         </aside>

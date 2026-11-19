@@ -96,7 +96,14 @@ export interface AssetMeta {
   tags: string[];
   source: string | null;
   deleted_at: string | null;
+  ai_generated: boolean;
   content_url: string;
+}
+
+export interface AssetSummary {
+  original?: number;
+  result?: number;
+  reference?: number;
 }
 
 export interface AlbumMeta {
@@ -130,5 +137,43 @@ export interface WorkMeta {
   like_count?: number;
   comment_count?: number;
   fork_count?: number;
+  liked?: boolean;
   is_owner?: boolean;
+  ai_generated?: boolean;
+  moderation_degraded?: boolean;
+}
+
+export interface WorkComment {
+  id: string;
+  body: string;
+  author_id: string;
+  author_name?: string;
+  created_at: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  kind: string;
+  work_id: string | null;
+  body: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export interface TaskItem {
+  id: string;
+  theme: string;
+  constraints: string | null;
+  owner_id?: string;
+  status?: string;
+  created_at?: string;
+  submission_count?: number;
+  is_owner?: boolean;
+}
+
+export interface ProfileInfo {
+  user_id: string;
+  display_name: string;
+  bio: string;
+  avatar_url: string;
 }
