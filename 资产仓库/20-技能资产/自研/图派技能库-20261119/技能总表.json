@@ -1,22 +1,22 @@
 {
  "说明": "图派图片二次创作技能库（GitHub 多来源收集 + 规范化重写；协议与出处见各 source 字段与 20-技能资产/第三方/来源说明）",
  "更新": "2026-11-19",
- "总数": 230,
+ "总数": 266,
  "类目分布": {
-  "插画动漫": 23,
+  "插画动漫": 28,
   "城市夜景": 6,
-  "创意合成": 45,
-  "复古年代": 11,
+  "创意合成": 52,
+  "复古年代": 14,
   "胶片质感": 5,
   "老照片修复": 6,
-  "旅行风光": 13,
+  "旅行风光": 15,
   "美食饮品": 9,
-  "趣味玩具化": 28,
-  "人像风格": 28,
-  "人像美化": 9,
-  "商品静物": 15,
-  "特效光影": 13,
-  "艺术画作": 19
+  "趣味玩具化": 32,
+  "人像风格": 33,
+  "人像美化": 12,
+  "商品静物": 17,
+  "特效光影": 16,
+  "艺术画作": 21
  },
  "来源统计": [
   {
@@ -34,6 +34,10 @@
   {
    "文件": "youmind.json",
    "条数": 86
+  },
+  {
+   "文件": "extra-repos.json",
+   "条数": 36
   }
  ],
  "技能": [
@@ -5473,6 +5477,870 @@
    },
    "sort": 229,
    "来源文件": "youmind.json"
+  },
+  {
+   "id": "3d-animation-restyle",
+   "name_zh": "3D动画大片风",
+   "category": "插画动漫",
+   "desc_zh": "照片变成 3D 动画电影质感，人物化身圆润大眼卡通角色。",
+   "prompt": "Redraw this photo in the style of a modern 3D animated feature film. Keep the person's face, expression and outfit exactly unchanged, reimagined as a stylized cartoon character with slightly enlarged eyes, smooth rounded features and soft clay-like skin shading. Preserve the original scene layout, replacing real-world textures with cinematic 3D rendering: global illumination, subsurface scattering, warm rim light and shallow depth of field. Colors should be vibrant but harmonious, with film-grade color grading. no live-action texture, no uncanny realism, no watermark, text.",
+   "negative_prompt": "uncanny realism, live-action skin texture, flat 2D drawing, harsh contrast, dull colors, blurry render, deformed hands, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "3D动画",
+    "卡通",
+    "大眼",
+    "电影感"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/18 皮克斯3D风格（泛化）"
+   },
+   "sort": 230,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "anime-film-restyle",
+   "name_zh": "手绘动画电影风",
+   "category": "插画动漫",
+   "desc_zh": "把照片重绘成日式手绘动画电影画面，水彩背景配赛璐璐人物。",
+   "prompt": "Redraw this photo as a scene from a hand-drawn Japanese animated film. Keep the person's face, expression, hairstyle and outfit exactly unchanged, only restyled. Render characters with clean cel-shaded linework and soft flat colors; replace the background with painterly watercolor scenery featuring lush greens, warm sunlight and drifting clouds. Add a gentle nostalgic atmosphere with soft light bloom and delicate hand-painted texture, keeping proportions slightly stylized with larger expressive eyes. no photorealistic skin, no 3D rendering, no watermark, text.",
+   "negative_prompt": "photorealistic skin, 3D render, plastic doll face, harsh shadows, oversaturated colors, motion blur, jpeg artifacts, extra limbs, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "动漫",
+    "手绘",
+    "水彩",
+    "电影感"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/5 吉卜力风格（泛化）"
+   },
+   "sort": 231,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "manga-two-panel",
+   "name_zh": "日系双格漫画",
+   "category": "插画动漫",
+   "desc_zh": "照片人物画成日系萌系漫画，上下两格日常吐槽配对话框。",
+   "prompt": "Convert the person in this photo into a cute Japanese moe anime character, keeping their facial features, hairstyle and outfit faithfully recognizable, then arrange a vertical two-panel manga strip. Top panel: the character pouts and rests their cheek on one hand, bored, with a small speech bubble. Bottom panel: the character furiously slams a desk, face flushed, hair and objects flying, with a second speech bubble. Use clean cel shading, soft pastel tones, handwritten-style dialogue bubbles and dynamic comic expressions with generous white space. no realistic rendering, no watermark, text.",
+   "negative_prompt": "realistic rendering, 3D model, photo background, dull colors, stiff poses, empty panels, garbled lettering, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "漫画",
+    "日系",
+    "吐槽",
+    "萌系"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/40 日系双格漫画（去具体剧情）"
+   },
+   "sort": 232,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "pixel-8bit",
+   "name_zh": "8位像素画",
+   "category": "插画动漫",
+   "desc_zh": "照片主体变成 8-bit 像素艺术，复古街机配色块状造型。",
+   "prompt": "Transform the main subject of this photo into a minimalist 8-bit pixel art icon. Keep the subject's silhouette and key recognizable features exactly the same, rebuilt from clean blocky pixel clusters with sharp edges and a limited retro arcade color palette. Center the icon on a pure white background with generous negative space, clearly readable at small sizes like a classic video-game sprite. Crisp aliased pixels with flat shading and no anti-aliasing. no gradients, no 3D depth, no blur, no watermark, text.",
+   "negative_prompt": "gradients, anti-aliasing, 3D depth, blur, too many colors, busy background, drop shadow, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "1:1",
+   "tags": [
+    "像素",
+    "复古游戏",
+    "图标",
+    "8-bit"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/57 8位像素图标（改为照片主体）"
+   },
+   "sort": 233,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "vector-travel-poster",
+   "name_zh": "彩色矢量海报",
+   "category": "插画动漫",
+   "desc_zh": "旅行照片变成扁平矢量插画海报，大色块几何明快活泼。",
+   "prompt": "Redraw this photo as a colorful flat vector travel poster. Keep the scene composition and main subject recognizable, simplified into bold geometric shapes with clean lines, layered flat colors and minimal gradients. Use a vibrant summer palette of warm oranges, teals and cream tones, with stylized sun rays, simplified foliage and decorative sky. Leave a clean banner space at the top for a large title. Modern mid-century poster aesthetic, crisp edges, balanced layout. no photorealistic textures, no watermark, text.",
+   "negative_prompt": "photorealistic textures, gradients, 3D depth, muddy colors, thin lines, cluttered layout, grain, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "矢量插画",
+    "海报",
+    "旅行",
+    "扁平"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/59 彩色矢量艺术海报"
+   },
+   "sort": 234,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "balloon-float-dream",
+   "name_zh": "气球漂浮幻境",
+   "category": "创意合成",
+   "desc_zh": "人物抓着气球飘上草甸上空，过曝天空下轻盈如梦。",
+   "prompt": "Transform this photo into a floating dreamscape. Keep the person's face, expression and outfit exactly unchanged, lifted gently off the ground while holding a bundle of pastel balloons, body relaxed in a natural floating pose. Place them above a grassy meadow under a bright overexposed white sky with a clean low horizon, shot from a low side angle. Minimalist composition, ethereal soft shadows, bright daylight, muted gentle palette with a dreamlike weightless mood. no dark stormy sky, no tangled strings, no watermark, text.",
+   "negative_prompt": "dark stormy sky, tangled strings, distorted body, plastic skin, cluttered scene, harsh shadows, motion blur, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "气球",
+    "漂浮",
+    "梦幻",
+    "草地"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Floating Dreamscape"
+   },
+   "sort": 235,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "cloud-sculpture",
+   "name_zh": "天空云朵造型",
+   "category": "创意合成",
+   "desc_zh": "照片主体化身为蓝天白云中的巨型云朵雕塑，浪漫吸睛。",
+   "prompt": "Turn the main subject of this photo into a giant cloud formation floating in a bright daytime sky. Keep the subject's silhouette and recognizable features exactly the same, sculpted from scattered fluffy cumulus clouds with natural billowing volume and soft sunlit edges. Set the cloud sculpture above a wide scenic landscape horizon with drifting smaller clouds around it, photographed like a real landscape shot: natural daylight, slight atmospheric haze, crisp detail. no cartoon outlines, no surreal colors, no watermark, text.",
+   "negative_prompt": "cartoon outlines, neon colors, night sky, blurry clouds, distorted shape, city skyline, jet trails, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "16:9",
+   "tags": [
+    "云朵",
+    "天空",
+    "创意",
+    "风景"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/58 云彩艺术（改为照片主体）"
+   },
+   "sort": 236,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "double-exposure-portrait",
+   "name_zh": "双重曝光人像",
+   "category": "创意合成",
+   "desc_zh": "人像与山林飞鸟双重曝光融合，层叠光影如梦似幻。",
+   "prompt": "Transform this photo into a double-exposure artwork. Keep the person's profile and outline exactly recognizable, and blend a misty mountain forest with birds in flight inside the silhouette, fading softly into the portrait. Use an underexposed matte finish, primary color tones with gentle light leaks, layered textures and a dreamy nostalgic mood. The background stays minimal and dark so the blended landscape glows within the figure. Soft focus edges, fine art print quality. no hard cutout edges, no clutter, no watermark, text.",
+   "negative_prompt": "hard cutout edges, cluttered background, neon colors, plastic skin, flat lighting, messy blend, jpeg artifacts, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "双重曝光",
+    "剪影",
+    "风景",
+    "艺术"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Double Exposure Color Portrait"
+   },
+   "sort": 237,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "frame-breakout",
+   "name_zh": "破框而出",
+   "category": "创意合成",
+   "desc_zh": "人物从相框中破框跃出，碎片飞散，立体动感十足。",
+   "prompt": "Edit this image so the person bursts out of a framed photograph with dramatic dimensional break effects. Keep the person's face, expression and outfit exactly unchanged. The lower half stays inside the flat photo print showing the original background, while the upper body lunges forward past the broken frame in full 3D realism. The frame shatters into scattered fragments, dust and motion streaks; energy cracks glow at the rupture edges. Cinematic lighting with strong motion depth, shallow depth of field, photorealistic textures. no cartoon style, no blood, no watermark, text.",
+   "negative_prompt": "flat photo, intact frame, cartoon style, blood, low detail, static pose, blurry motion, extra limbs, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "破框",
+    "立体",
+    "动感",
+    "创意"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/2+50 拍立得破框与破坏卡片（合并）"
+   },
+   "sort": 238,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "papercraft-diorama-jamezbondo",
+   "name_zh": "纸雕立体绘本",
+   "category": "创意合成",
+   "desc_zh": "照片场景变成多层纸雕立体书页面，摊放在书桌上梦幻唯美。",
+   "prompt": "Transform the scene in this photo into a multi-layered paper-cut pop-up book spread lying open on a clean desk. Keep the scene composition and main subject recognizable, recreating every element from precisely folded and layered colored paper with visible creases and delicate paper texture. Use a frontal view of the open book, dreamy vibrant colors, soft studio lighting with gentle paper shadows, and a minimal neutral background that highlights the craft, staying true to the original photo's layout. no plastic texture, no printed lettering, no watermark, text.",
+   "negative_prompt": "plastic texture, glossy 3D render, torn paper, cluttered desk, dark lighting, blurry folds, distorted shapes, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "4:3",
+   "tags": [
+    "纸艺",
+    "立体书",
+    "手工",
+    "梦幻"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/32 折叠式纸雕立体绘本"
+   },
+   "sort": 239,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "rpg-hero-card",
+   "name_zh": "RPG冒险者卡片",
+   "category": "创意合成",
+   "desc_zh": "照片人物变成卡牌游戏职业角色卡，带技能条与称号横幅。",
+   "prompt": "Turn the person in this photo into an RPG collectible character card. Keep the person's face and hairstyle exactly unchanged, rendered in semi-realistic 3D cartoon style with dramatic soft lighting, posed confidently with gear matching their everyday role. Frame the portrait with an ornate card border, a decorative title banner across the top and a nameplate at the bottom, plus two small glowing skill bars beside the portrait. The background inside the card matches a fantasy guild hall theme with warm golden highlights. no cluttered layout, no watermark, text.",
+   "negative_prompt": "cluttered layout, photo background, blurry portrait, extra limbs, neon colors, torn edges, garbled symbols, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "卡牌",
+    "RPG",
+    "角色",
+    "复古"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/44 RPG风格角色卡片"
+   },
+   "sort": 240,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "underwater-dream-portrait",
+   "name_zh": "水下梦幻漂浮",
+   "category": "创意合成",
+   "desc_zh": "人物浸入清澈水下，发丝漂浮光束洒落，宁静梦幻。",
+   "prompt": "Transform this photo into an ethereal underwater portrait. Keep the person's face, expression and body pose exactly unchanged, submerged in clear turquoise water with hair floating and flowing gracefully upward, fabric drifting softly. Add gentle shafts of sunlight penetrating from above, tiny rising bubbles, soft caustic light patterns on skin and a dreamy serene atmosphere with soft focus edges. Cool aquatic tones with vibrant accents, 35mm lens feel, intimate contemplative mood. no murky water, no distorted face, no watermark, text.",
+   "negative_prompt": "murky water, distorted face, plastic skin, dark shadows, bubbles covering face, green cast, blur, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "水下",
+    "漂浮",
+    "光束",
+    "梦幻"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Ethereal Underwater Portrait"
+   },
+   "sort": 241,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "film-noir-1950s",
+   "name_zh": "50年代黑色电影",
+   "category": "复古年代",
+   "desc_zh": "照片变成 1950 年代黑白黑色电影，深影调复古张力十足。",
+   "prompt": "Convert this photo into a 1950s film-noir still. Keep the person's face, expression and outfit exactly unchanged, rendered in timeless black and white with deep inky shadows, sharp highlights and dramatic low-key lighting. Add period mood: soft film grain, gentle vignette, reflective wet pavement or venetian-blind shadow patterns where fitting, and a classic cinematic composition with strong contrast. The result should feel like a frame from a vintage noir detective film, elegant and mysterious. no modern colors, no flat gray, no watermark, text.",
+   "negative_prompt": "modern colors, flat gray, digital oversharpening, clean digital look, harsh flash, plastic skin, noise, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "黑色电影",
+    "黑白",
+    "复古",
+    "影调"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "1950s Cinematic Noir"
+   },
+   "sort": 242,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "passport-stamp-page",
+   "name_zh": "护照入境章",
+   "category": "复古年代",
+   "desc_zh": "照片做成复古护照内页，盖上深蓝油墨入境章，纪念感拉满。",
+   "prompt": "Turn this photo into a vintage passport page: place the subject as a formal ID portrait inside a printed passport layout with guilloche security patterns, visible paper texture and faint microprint lines. Over the page, add two angled entry stamps pressed in deep blue and red ink, one round and one oval, each reading 'ARRIVAL' and 'WELCOME' with decorative borders and a small landmark silhouette, slightly smudged for realism. Keep the subject's face exactly unchanged, aged paper tone, soft even lighting. no torn paper, no watermark, text.",
+   "negative_prompt": "torn paper, plastic sheen, cropped face, bright colors, blank page, ink smudged over face, modern fonts, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "护照",
+    "印章",
+    "复古",
+    "旅行"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/51 护照入境印章"
+   },
+   "sort": 243,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "victorian-portrait",
+   "name_zh": "维多利亚肖像",
+   "category": "复古年代",
+   "desc_zh": "换上维多利亚时代华服，古典棚拍质感庄重华丽。",
+   "prompt": "Restyle this photo as a modern Victorian-era studio portrait. Keep the person's face and expression exactly unchanged, but replace their outfit with ornate period clothing: a high-collared layered dress or waistcoat with intricate lace, embroidery and structured tailoring in rich deep colors. Set them against a painted canvas studio backdrop with dramatic warm key light, rich restrained palette, intricate textures and a dignified elegant mood, medium close-up with soft vignette. no modern garments, no flat lighting, no watermark, text.",
+   "negative_prompt": "modern garments, flat lighting, plastic skin, oversharpening, cluttered backdrop, color noise, distorted hands, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "维多利亚",
+    "华服",
+    "古典",
+    "棚拍"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Modern Victorian Portraiture"
+   },
+   "sort": 244,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "autumn-vivid-landscape",
+   "name_zh": "浓秋艳影",
+   "category": "旅行风光",
+   "desc_zh": "秋景调成 HDR 浓艳秋色，湖面倒映火烧般的层林。",
+   "prompt": "Enhance this autumn photo into a dramatic HDR landscape. Keep the scene composition and main subject recognizable. Deepen the autumn foliage into rich fiery reds, burnt oranges and golden yellows, boost contrast with a dynamic moody sky and mirror the vibrant trees in calm water reflections. Wide-angle framing, crisp intricate leaf detail, soft shadows under dramatic side light, atmospheric and evocative like a premium nature calendar shot. no washed-out colors, no haze, no motion blur, no watermark, text.",
+   "negative_prompt": "washed-out colors, haze, flat light, plastic foliage, oversharpening halos, cluttered frame, motion blur, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "16:9",
+   "tags": [
+    "秋色",
+    "HDR",
+    "倒影",
+    "风光"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Dramatic Autumn Landscape + Vibrant Autumn Landscape（合并）"
+   },
+   "sort": 245,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "mirror-glassy-landscape",
+   "name_zh": "镜面天空之镜",
+   "category": "旅行风光",
+   "desc_zh": "地面变成玻璃般镜面倒影，天空地景对称纯净如幻。",
+   "prompt": "Transform this photo so the ground becomes a flawless glassy mirror. Keep the scene's main subjects recognizable, standing or resting on a perfectly reflective surface that mirrors the sky and landscape above with crystal clarity. Keep a distinct horizon line, minimalist bright composition, clear pale sky with soft gradients, serene tranquil mood, wide-angle view and soft natural light with delicate shadows. The reflection must be symmetrical and clean like a salt-flat mirror shot. no ripples, no muddy colors, no distorted reflection, no watermark, text.",
+   "negative_prompt": "ripples, muddy colors, tilted horizon, cluttered shoreline, harsh shadows, blur, distorted reflection, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "4:3",
+   "tags": [
+    "镜面",
+    "倒影",
+    "极简",
+    "天空"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Glassy Reflective Landscape"
+   },
+   "sort": 246,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "chibi-3d-figure",
+   "name_zh": "Q版黏土小人",
+   "category": "趣味玩具化",
+   "desc_zh": "人物变成大头小身的 3D Q 版小人，保留服装与场景布置。",
+   "prompt": "Transform the person in this photo into a cute 3D chibi-style figure with an oversized head, small rounded body and big glossy eyes, while keeping their hairstyle, outfit and the original scene layout exactly the same. Render the figure with smooth matte vinyl texture, soft studio lighting and gentle pastel highlight reflections. Keep the surrounding environment photorealistic so the toy-like character pops out charmingly, and mirror the original pose. no action-figure packaging, no text labels, no watermark, text, no extra limbs.",
+   "negative_prompt": "action figure packaging, box label, realistic proportions, creepy eyes, extra limbs, rough texture, dark shadows, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "Q版",
+    "3D",
+    "玩具",
+    "可爱"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/13 3D Q版风格"
+   },
+   "sort": 247,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "fluffy-plush",
+   "name_zh": "毛绒玩偶化",
+   "category": "趣味玩具化",
+   "desc_zh": "照片主体变成蓬松柔软的毛绒玩偶，绒毛根根分明超治愈。",
+   "prompt": "Transform the main subject of this photo into a soft, fluffy 3D plush object. Keep the subject's shape and recognizable features exactly the same, but cover the whole form with hyperrealistic fur: dense fuzzy fibers, gentle color gradients and soft shadows between strands. Place the plush subject centered on a clean light-gray studio background, floating slightly with a soft drop shadow. Warm diffused studio lighting, high-resolution render, tactile and cozy mood. no hard edges, no fabric seams, no watermark, text.",
+   "negative_prompt": "hard edges, smooth plastic, visible seams, sparse fur, dark moody lighting, busy background, motion blur, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "1:1",
+   "tags": [
+    "毛绒",
+    "玩偶",
+    "治愈",
+    "3D"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/35 毛茸茸南瓜灯（泛化为任意主体）"
+   },
+   "sort": 248,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "matryoshka-family",
+   "name_zh": "俄罗斯套娃",
+   "category": "趣味玩具化",
+   "desc_zh": "人物变成一套由大到小的 Q 版套娃，摆在木桌上超可爱。",
+   "prompt": "Transform the person in this photo into a set of five cute chibi-style Russian nesting dolls arranged from largest to smallest on an elegant wooden table. Keep the person's facial features and signature clothing details recognizable, painted smoothly onto each doll's rounded wooden body in decreasing size, with the tiniest doll the most simplified. Use glossy hand-painted lacquer texture, soft warm studio lighting and shallow depth of field in a horizontal composition. no plastic sheen, no brand marks, no watermark, text.",
+   "negative_prompt": "plastic sheen, flat 2D print, brand marks, cluttered table, cold lighting, extra dolls, deformed faces, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "4:3",
+   "tags": [
+    "套娃",
+    "玩具",
+    "可爱",
+    "手绘"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/43 Q版俄罗斯套娃"
+   },
+   "sort": 249,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "succulent-planter",
+   "name_zh": "多肉盆栽化",
+   "category": "趣味玩具化",
+   "desc_zh": "照片里的动物或物品变成呆萌陶瓷花盆，种满鲜嫩多肉。",
+   "prompt": "Transform the animal or object in this photo into a cute glossy ceramic planter shaped exactly like its silhouette, keeping all recognizable features. The planter has a friendly smiling face and a soft glazed finish, filled with vibrant succulents: a spiky haworthia, a rosette echeveria and tiny delicate white flowers spilling over the rim. Place it on a soft neutral background with diffused natural lighting, fine ceramic texture and a clean minimal composition. no cracks, no plastic look, no watermark, text.",
+   "negative_prompt": "cracks, plastic look, dead leaves, dark background, cluttered props, blurry texture, scary face, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "1:1",
+   "tags": [
+    "多肉",
+    "盆栽",
+    "可爱",
+    "静物"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/55 创意绿植花盆（改为照片主体）"
+   },
+   "sort": 250,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "blockbuster-explorer",
+   "name_zh": "大片探险家",
+   "category": "人像风格",
+   "desc_zh": "扮成古庙探险大片主角，户外装备配电影级光影质感。",
+   "prompt": "Transform the person in this photo into an action-adventure film explorer. Keep the person's face and expression exactly unchanged, but replace their outfit with rugged adventure gear: a fitted field jacket, canvas satchel, fingerless gloves and a worn fedora, all in weathered earthy tones. Set the scene inside an ancient overgrown temple with carved stone walls, hanging vines and shafts of dusty golden light. Cinematic composition, dramatic shadows, epic blockbuster color grading, medium shot. no cartoon style, no weapons, no watermark, text.",
+   "negative_prompt": "cartoon style, weapons, distorted face, plastic skin, flat lighting, modern clothing, cluttered temple, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "探险家",
+    "电影感",
+    "扮装",
+    "大片"
+   ],
+   "source": {
+    "repo": "andygock/stable-diffusion-style-cheatsheet",
+    "license": "MIT",
+    "type": "重写",
+    "origin": "data/movies-f.json + movies-m.json（探险家原型深度泛化，去名人IP）"
+   },
+   "sort": 251,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "floral-fantasy-portrait",
+   "name_zh": "花冠梦境人像",
+   "category": "人像风格",
+   "desc_zh": "戴上繁花头冠置于暗调布景，浓郁华丽的花境梦幻大片。",
+   "prompt": "Turn this photo into a dramatic floral fantasy portrait. Keep the person's face and expression exactly unchanged, crowning them with an elaborate floral headdress of cascading blooms, lush greenery and delicate petals. Deepen the background into a dark moody garden setting with rich saturated colors, soft dramatic shadows and an ethereal glow on the flowers. Medium close-up framing, 85mm lens feel, elegant romantic atmosphere with painterly botanical detail. no cartoon flowers, no neon colors, no watermark, text.",
+   "negative_prompt": "cartoon flowers, neon colors, flat lighting, plastic skin, wilted petals, cluttered frame, oversaturation, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "花卉",
+    "头冠",
+    "梦幻",
+    "人像"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Floral Fantasy Portrait"
+   },
+   "sort": 252,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "glass-reflection-portrait",
+   "name_zh": "玻璃倒影人像",
+   "category": "人像风格",
+   "desc_zh": "隔着玻璃拍出倒影交叠的沉思人像，都市光影情绪浓烈。",
+   "prompt": "Restyle this photo as a pensive portrait seen through glass reflections. Keep the person's face, expression and outfit exactly unchanged. Overlay streaked glass reflections and light smudges across the frame, blending vibrant city colors with muted tones on the subject's face. Use high contrast, natural window light, deep shadows with soft highlights and close-up framing, evoking an introspective moody urban atmosphere with textured reflections, 50mm lens look at f/1.8. no flat lighting, no plastic skin, no watermark, text.",
+   "negative_prompt": "flat lighting, plastic skin, oversharpening, clean lens look, harsh HDR, dull tones, warped reflection, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "玻璃",
+    "倒影",
+    "都市",
+    "情绪"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Urban Reflections Pensive Portrait"
+   },
+   "sort": 253,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "tailored-power-suit",
+   "name_zh": "都市精英西装",
+   "category": "人像风格",
+   "desc_zh": "换上剪裁利落的细条纹西装，都市精英大片气场全开。",
+   "prompt": "Dress the person in this photo in a tailored power suit. Keep the person's face, expression and body pose exactly unchanged, only replacing their current clothing with a sharply tailored pinstripe blazer and matching trousers over a crisp white shirt, plus a subtle pocket square. The fit is structured with clean shoulder lines. Place them against a minimalist modern office backdrop with soft directional lighting, gentle shadows and a confident editorial mood, medium shot from the waist up. no casual fabric, no loose fit, no watermark, text.",
+   "negative_prompt": "casual fabric, loose fit, warped hands, plastic skin, distorted face, cluttered background, harsh flash, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "西装",
+    "职场",
+    "精英",
+    "时尚"
+   ],
+   "source": {
+    "repo": "andygock/stable-diffusion-style-cheatsheet",
+    "license": "MIT",
+    "type": "重写",
+    "origin": "data/female.json + male.json (tailored pinstripe suit)"
+   },
+   "sort": 254,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "vintage-swing-dress",
+   "name_zh": "复古摇摆裙装",
+   "category": "人像风格",
+   "desc_zh": "换上收腰复古摇摆裙与宽腰带，怀旧优雅街拍感十足。",
+   "prompt": "Dress the person in this photo in a vintage-inspired swing dress. Keep the person's face, expression and body pose exactly unchanged, only replacing their outfit with a knee-length polka-dot swing dress cinched with a wide belt, paired with vintage heeled oxfords. The skirt flares softly with mid-century elegance. Set the scene on a sunlit retro street with warm muted film tones, soft natural light and gentle grain, a candid fashion-snapshot mood. no modern clothing, no tight fit, no watermark, text.",
+   "negative_prompt": "modern clothing, tight fit, distorted body, plastic skin, oversharpening, digital oversaturation, motion blur, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "连衣裙",
+    "复古",
+    "换装",
+    "优雅"
+   ],
+   "source": {
+    "repo": "andygock/stable-diffusion-style-cheatsheet",
+    "license": "MIT",
+    "type": "重写",
+    "origin": "data/female.json (vintage swing dress + wide belt)"
+   },
+   "sort": 255,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "dapper-gentleman-grooming",
+   "name_zh": "复古绅士油头",
+   "category": "人像美化",
+   "desc_zh": "给男士照片换上复古油头与修剪精致的络腮胡，儒雅有型。",
+   "prompt": "Give the man in this photo a vintage gentleman grooming makeover. Keep the face shape, expression and identity exactly unchanged, but restyle the hair into a sleek slicked-back pompadour with natural shine, and shape the beard into a well-groomed full beard with clean cheek lines and a sculpted mustache. Add subtle warm studio lighting with a dark textured backdrop, soft rim light and a refined sartorial mood. no messy hair, no patchy beard, no watermark, text.",
+   "negative_prompt": "messy hair, patchy beard, plastic skin, flat lighting, cartoon face, overexposure, gray tones, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "绅士",
+    "油头",
+    "胡型",
+    "复古"
+   ],
+   "source": {
+    "repo": "andygock/stable-diffusion-style-cheatsheet",
+    "license": "MIT",
+    "type": "重写",
+    "origin": "data/hair-beard.json (slick back + full beard)"
+   },
+   "sort": 256,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "hollywood-vintage-glam",
+   "name_zh": "复古好莱坞妆造",
+   "category": "人像美化",
+   "desc_zh": "换上复古海浪卷发与红唇翼妆，化身黄金年代银幕明星。",
+   "prompt": "Give the person in this photo a classic Hollywood glamour makeover. Keep the person's face shape, expression and identity exactly unchanged, but restyle their hair into glossy 1930s finger waves pinned close to the head, and apply vintage makeup: cherry-red lipstick, winged eyeliner, softly flushed cheeks and defined brows. Add a subtle satin spotlight backdrop with warm low-key lighting, soft grain and gentle vignette, like a golden-era studio portrait. no modern makeup, no hairstyle change beyond the waves, no watermark, text.",
+   "negative_prompt": "modern makeup, messy hair, plastic skin, harsh flash, color cast, heavy retouch, oversharpening, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "复古",
+    "红唇",
+    "妆造",
+    "好莱坞"
+   ],
+   "source": {
+    "repo": "andygock/stable-diffusion-style-cheatsheet",
+    "license": "MIT",
+    "type": "重写",
+    "origin": "data/hair-makeup.json (finger waves + cherry red lips)"
+   },
+   "sort": 257,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "smokey-evening-look",
+   "name_zh": "烟熏派对妆",
+   "category": "人像美化",
+   "desc_zh": "换上慵懒波浪卷发与烟熏眼妆，秒变夜晚派对氛围大片。",
+   "prompt": "Restyle the person in this photo for an evening party look. Keep the face, expression and identity exactly unchanged, but transform the hair into tousled loose waves with natural volume, and apply smoky eyeliner with softly blended charcoal shadows, luminous skin and a muted rose lip. Dim the surroundings into a warm low-light scene with soft bokeh highlights and gentle rim light on the hair, evoking a stylish nighttime event. no heavy contouring, no costume change, no watermark, text.",
+   "negative_prompt": "heavy contouring, costume change, daylight, plastic skin, harsh shadows, oversaturated tones, smudged artifacts, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "烟熏妆",
+    "派对",
+    "夜色",
+    "发型"
+   ],
+   "source": {
+    "repo": "andygock/stable-diffusion-style-cheatsheet",
+    "license": "MIT",
+    "type": "重写",
+    "origin": "data/hair-makeup.json (tousled waves + smokey eyeliner)"
+   },
+   "sort": 258,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "doodle-product-ad",
+   "name_zh": "涂鸦创意广告",
+   "category": "商品静物",
+   "desc_zh": "商品照片与手绘墨水涂鸦结合，极简高对比创意广告图。",
+   "prompt": "Turn this product photo into a minimalist creative advertisement on a clean white background. Keep the real product photographed exactly as it is, seamlessly integrated into a playful black-ink hand-drawn doodle world: loose sketchy lines extend from the object, forming an imaginative scene that interacts with it, such as tiny doodled characters exploring or riding the product. High contrast between the photographic object and the flat ink doodles, clean composition, fun and smart visual concept, generous white space. no color clutter, no watermark, text.",
+   "negative_prompt": "color clutter, gray background, 3D doodle render, thick shadows, busy layout, low contrast, brand logo, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "1:1",
+   "tags": [
+    "涂鸦",
+    "广告",
+    "商品",
+    "极简"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/100 实物与手绘涂鸦创意广告"
+   },
+   "sort": 259,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "soft-3d-product",
+   "name_zh": "软萌3D商品图",
+   "category": "商品静物",
+   "desc_zh": "商品照片变成黏土质感的柔和 3D 渲染，粉彩配色极简高级。",
+   "prompt": "Turn the product in this photo into a minimalist soft-3D render. Keep the product's shape, proportions and recognizable details exactly the same, rebuilt with smooth clay-like surfaces, rounded edges and vibrant pastel colors. Present the single object centered in a clean isometric-style scene with ample negative space and a solid muted background color that complements the product. Use soft diffused lighting from above, subtle shadows with no harsh contrast, and a matte low-reflectivity finish. no glossy plastic, no clutter, no watermark, text.",
+   "negative_prompt": "glossy plastic, harsh shadows, cluttered scene, gradient background, reflections, logo, gritty texture, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "1:1",
+   "tags": [
+    "3D渲染",
+    "商品",
+    "粉彩",
+    "极简"
+   ],
+   "source": {
+    "repo": "jamez-bondos/awesome-gpt4o-images",
+    "license": "NOASSERTION（仅参考重写）",
+    "type": "重写",
+    "origin": "cases/25+37 极简3D插画与柔和3D广告（合并）"
+   },
+   "sort": 260,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "dusk-silhouette",
+   "name_zh": "暮色长曝剪影",
+   "category": "特效光影",
+   "desc_zh": "人物化作晚霞长曝光下的剪影，绚烂流云天光如油画铺展。",
+   "prompt": "Turn this photo into a long-exposure silhouette at dusk. Keep the subject's silhouette pose exactly recognizable as a dark figure against the sky, stripping interior detail into a clean profile. Replace the sky with a vibrant long-exposure skyscape: rich sunset gradients, smoothly streaked flowing clouds and glowing horizon light, with deep dramatic contrast between the black silhouette and the luminous sky. Wide dynamic composition, crisp edges, ethereal majestic mood. no gray flat sky, no face detail, no lens flare artifacts, no watermark, text.",
+   "negative_prompt": "gray flat sky, visible face detail, harsh sun, cluttered horizon, plastic skin, noise, lens flare artifacts, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "剪影",
+    "晚霞",
+    "长曝光",
+    "天空"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Long Exposure Vibrant Silhouette"
+   },
+   "sort": 261,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "infrared-dreamscape",
+   "name_zh": "红外幻彩风光",
+   "category": "特效光影",
+   "desc_zh": "绿植变成梦幻粉红，红外胶片色调超现实又浪漫。",
+   "prompt": "Restyle this photo with infrared film colorization. Keep the scene composition and main subject recognizable, but shift all green foliage into surreal vibrant pink and red hues, while the sky deepens into a moody contrasting tone. Keep grass, leaves and trees sharply detailed with an ethereal glow, high contrast and dreamlike atmosphere, as if shot on Aerochrome infrared film. Natural light, crisp focus, otherworldly yet believable color chemistry. no purple oversaturation, no hazy blur, no color fringing, no watermark, text.",
+   "negative_prompt": "purple oversaturation, hazy blur, dead foliage tones, flat light, noise, harsh HDR, color fringing, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "4:3",
+   "tags": [
+    "红外",
+    "粉红",
+    "超现实",
+    "风光"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Infrared Colorized Landscape"
+   },
+   "sort": 262,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "light-painting-trails",
+   "name_zh": "光绘轨迹",
+   "category": "特效光影",
+   "desc_zh": "人物置身夜色光绘之中，橙黄光轨环绕成流动光圈。",
+   "prompt": "Turn this photo into a long-exposure light-painting scene. Keep the person's face and pose exactly unchanged, rendered as a softly silhouetted or gently lit figure against a dark night background. Wrap the subject with vibrant glowing light trails in warm orange and yellow, drawn in smooth circular ribbons with crisp luminous edges and subtle motion energy. High contrast between the deep darkness and the radiant streaks, slight glow bloom, dynamic composition. no daylight, no cluttered lights, no lens flare, no watermark, text.",
+   "negative_prompt": "daylight, cluttered lights, thin faint trails, plastic skin, face distortion, noise, lens flare, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "光绘",
+    "光轨",
+    "夜景",
+    "动感"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Long Exposure Light Painting"
+   },
+   "sort": 263,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "etched-line-portrait",
+   "name_zh": "蚀刻线条肖像",
+   "category": "艺术画作",
+   "desc_zh": "人像化作纯黑背景上的蚀刻线条艺术，纤细雕线现代感强。",
+   "prompt": "Convert this photo into an etched-line artwork on a solid black background. Keep the person's face and flowing hair exactly recognizable, redrawn as intricate luminous etched lines and delicate engraved patterns that trace every contour. High contrast monochromatic palette with a soft luminous glow along the linework, plus abstract swirling line accents suggesting movement around the figure. Minimalist modern fine-art mood with fine engraving detail and no fill colors. no color wash, no photo background, no low contrast, no watermark, text.",
+   "negative_prompt": "color wash, photo background, thick crayon lines, flat gray fill, low contrast, blur, clutter, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "3:4",
+   "tags": [
+    "蚀刻",
+    "线条",
+    "黑白",
+    "现代艺术"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Etched Reality"
+   },
+   "sort": 264,
+   "来源文件": "extra-repos.json"
+  },
+  {
+   "id": "ukiyoe-landscape",
+   "name_zh": "浮世绘风景",
+   "category": "艺术画作",
+   "desc_zh": "风景照改绘成浮世绘版画，波浪层云与典雅和风配色。",
+   "prompt": "Redraw this photo as a stylized ukiyo-e woodblock print. Keep the scene composition and main subject recognizable, reinterpreted with flowing stylized waves, layered decorative clouds, silhouetted trees and flat color planes. Use a traditional palette of indigo, verdigris, cream and warm ochre with visible woodgrain texture and bold dark outlines. Dramatic light-and-shadow contrast with a serene poetic atmosphere, misty depth and reflective water, horizontal composition, timeless Japanese aesthetic. no photorealistic textures, no blur, no watermark, text.",
+   "negative_prompt": "photorealistic textures, gradient airbrush, neon colors, thin faint lines, modern elements, blur, watermark, text",
+   "model": "agnes-image-2.5-flash",
+   "ratio": "4:3",
+   "tags": [
+    "浮世绘",
+    "版画",
+    "日式",
+    "风景"
+   ],
+   "source": {
+    "repo": "roblaughter/style-reference",
+    "license": "未声明",
+    "type": "重写",
+    "origin": "Ukiyo-e Landscape"
+   },
+   "sort": 265,
+   "来源文件": "extra-repos.json"
   }
  ]
 }
