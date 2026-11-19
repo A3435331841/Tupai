@@ -828,3 +828,25 @@
   font-weight: 700;
   box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.25);
 }
+
+/* ---------- 拟人 Bot 头像：眼睛扫视 / 眨眼动效 ---------- */
+.bot-avatar { display: inline-block; overflow: visible; }
+.bot-avatar-img { display: inline-block; }
+.bot-eye { transform-origin: 0 0; animation: bot-blink 5s infinite; }
+.bot-pupil { transform-origin: 0 0; }
+.bot-avatar[data-motion='busy'] .bot-pupil { animation: bot-look-around 1.8s ease-in-out infinite; }
+.bot-avatar:hover .bot-eye { animation: bot-blink 1.6s infinite; }
+.bot-avatar:hover .bot-pupil { animation: bot-look-around 2.4s ease-in-out infinite; }
+
+@keyframes bot-look-around {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(2.6px, -2.2px); }
+  40% { transform: translate(-2.6px, -1.2px); }
+  60% { transform: translate(1.6px, 2.2px); }
+  80% { transform: translate(-1.6px, 1.6px); }
+}
+@keyframes bot-blink {
+  0%, 91%, 100% { transform: scaleY(1); }
+  94% { transform: scaleY(0.12); }
+  97% { transform: scaleY(1); }
+}

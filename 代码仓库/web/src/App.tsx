@@ -6,7 +6,6 @@ import Legal from '@/pages/Legal';
 import Library from '@/pages/Library';
 import Community from '@/pages/Community';
 import SiteHeader from '@/components/SiteHeader';
-import LegacyHeader from '@/components/LegacyHeader';
 
 export default function App() {
   const [path, navigate] = useRoute();
@@ -16,13 +15,8 @@ export default function App() {
 
   return (
     <div className={`flex w-full min-w-0 flex-col ${fixed ? 'h-dvh overflow-hidden' : 'min-h-dvh'}`}>
-      {path === '/legal' ? (
-        // 隐私页沿用旧的简易 header，避免法规说明页承载搜索/通知等主站功能
-        <LegacyHeader path={path} navigate={navigate} />
-      ) : (
-        // 首页 / 创作台 / 资产库 / 社区：统一使用主站顶部栏，选中态按 path 自动高亮
-        <SiteHeader path={path} navigate={navigate} />
-      )}
+      {/* 全部页面统一主站顶部栏，选中态按 path 自动高亮 */}
+      <SiteHeader path={path} navigate={navigate} />
       <main className={`w-full min-w-0 flex-1 min-h-0 ${isHome ? 'home-snap-scroll overflow-y-auto overscroll-contain' : isStudio ? 'overflow-hidden' : ''}`}>
         {path === '/studio' ? <Studio navigate={navigate} /> : path === '/library' ? <Library navigate={navigate} /> : path === '/community' ? <Community navigate={navigate} /> : path === '/legal' ? <Legal /> : <Home navigate={navigate} />}
       </main>

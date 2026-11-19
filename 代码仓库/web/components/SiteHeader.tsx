@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, loginUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 
@@ -90,10 +90,15 @@ const NAV_ITEMS = [
 
 function HomeAuth() {
   const [me, setMe] = useState<Me | null>(null);
+  const bound = useRef(false);
   useEffect(() => {
     let alive = true;
     api.me()
-      .then((m) => { if (alive) setMe(m); })
+      .then((m) => {
+        if (alive) setMe(m);
+        // 登录后把本会话的游客资产/配方/任务迁移到账号（幂等，迁完为 0）
+        if (m.logged_in && !bound.current) { bound.current = true; api.bind().catch(() => {}); }
+      })
       .catch(() => { if (alive) setMe({ logged_in: false, user: null }); });
     return () => { alive = false; };
   }, []);

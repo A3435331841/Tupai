@@ -15,6 +15,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { NativeSelect } from '@/components/ui/native-select';
 import { PublishDialog } from '@/components/PublishDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { BotAvatar } from '@/components/BotAvatar';
+import type { AvatarSpec } from '@/components/BotAvatar';
+import { AvatarEditorDialog } from '@/components/AvatarEditorDialog';
 import { toast } from 'sonner';
 
 type Stage = 'entry' | 'optimizing' | 'ready' | 'generating' | 'result';
@@ -44,6 +47,16 @@ const LOCAL_COVERS: Record<string, string> = {
 };
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const LAST_JOB_KEY = 'tupai-last-job';
+
+// 默认拟人头像：主脑复用图派标志，其余 Bot 为字母 + 预设造型
+const DEFAULT_AVATARS: Record<string, AvatarSpec> = {
+  '主脑': { kind: 'logo', variant: 0, color: '#1C1917', letter: 'T' },
+  '小光': { kind: 'letter', variant: 0, color: '#C9982F', letter: 'A' },
+  '小染': { kind: 'letter', variant: 4, color: '#7A5AA8', letter: 'B' },
+  '小词': { kind: 'letter', variant: 3, color: '#3F8A6B', letter: 'C' },
+  '小绘': { kind: 'letter', variant: 6, color: '#3F7FBF', letter: 'D' },
+  '小忆': { kind: 'letter', variant: 7, color: '#8A7A6A', letter: 'E' },
+};
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function errText(e: unknown): string {
@@ -753,6 +766,8 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   ]);
   const [userInput, setUserInput] = useState('');
   const [focusBot, setFocusBot] = useState<string | null>(null);
+  const [avatars, setAvatars] = useState<Record<string, AvatarSpec>>(DEFAULT_AVATARS);
+  const [editorFor, setEditorFor] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const addTurn = useCallback((turn: Omit<ChatTurn, 'id'>) => {
@@ -889,6 +904,14 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       ? genPhase
       : '正在衔接各环节产物；已按你的记忆剔除偏白磨皮方案。';
   const metaOf = (name: string) => BOT_META[name] ?? { label: name, role: '', glyph: name.slice(-1), gradient: 'linear-gradient(135deg,#9A8A7A,#7A6A5A)', summary: '' };
+  const avatarOf = (name: string): AvatarSpec => {
+    const known = avatars[name] ?? DEFAULT_AVATARS[name];
+    if (known) return known;
+    const letter = (/[A-Za-z]/.test(name) ? name[0] : 'Z').toUpperCase();
+    return { kind: 'letter', variant: 0, color: '#8C7D6C', letter };
+  };
+  const motionFor = (name: string): 'idle' | 'busy' =>
+    botState[name] === '编排中' || botState[name] === '出图中' ? 'busy' : 'idle';
 
   return (
     <div className="studio-editorial mx-auto flex w-full max-w-[1440px] min-h-0 flex-col px-5 py-6 sm:px-8 lg:h-full">
@@ -925,7 +948,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             return (
               <button key={name} type="button" onClick={() => setFocusBot(active ? null : name)}
                 className={`se-conv flex items-center gap-3 px-3 py-2.5 text-left ${active ? 'active' : ''}`}>
-                <span className="se-avatar" style={{ background: meta.gradient }}>{meta.glyph}</span>
+                <BotAvatar spec={avatarOf(name)} size={34} motion={motionFor(name)} />
                 <span className="min-w-0">
                   <span className="block text-[14px] font-bold">{meta.label}</span>
                   <span className="block truncate text-[12px] text-[#8C7D6C]">{meta.summary}</span>
@@ -943,7 +966,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         <section className="flex min-w-0 min-h-0 flex-col gap-4">
           {/* 当前会话头 */}
           <div className="se-card flex shrink-0 items-center gap-3 px-5 py-4">
-            <span className="se-avatar" style={{ background: curMeta.gradient, width: 38, height: 38, fontSize: 14 }}>{curMeta.glyph}</span>
+            <BotAvatar spec={avatarOf(focusKey)} size={38} motion={motionFor(focusKey)} />
             <div>
               <div className="text-[15px] font-bold">与{curMeta.label}单独对话</div>
               <div className="text-[12px] text-[#8C7D6C]">{curMeta.role} · {botState[focusKey]}</div>
@@ -961,7 +984,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
                 </div>
               ) : (
                 <div key={t.id} className="flex gap-3">
-                  <span className="se-avatar" style={{ background: m.gradient }}>{m.glyph}</span>
+                  <BotAvatar spec={avatarOf(t.from)} size={34} motion={motionFor(t.from)} />
                   <div className="min-w-0">
                     <div className="mb-1 text-[12px] text-[#8C7D6C]">{t.from} → {t.to}</div>
                     <div className={`se-bubble-bot max-w-[70%] px-4 py-3 text-[13px] leading-7 ${t.memory ? 'se-bubble-memory' : ''}`}>
@@ -1105,9 +1128,20 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         {/* ===== 右：当前 Bot 详情 ===== */}
         <aside className="flex min-w-0 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
           <div className="se-card flex flex-col items-center p-5 text-center">
-            <span className="se-avatar" style={{ background: curMeta.gradient, width: 60, height: 60, fontSize: 22 }}>{curMeta.glyph}</span>
+            <button
+              type="button"
+              onClick={() => setEditorFor(focusKey)}
+              title="编辑头像"
+              className="group relative rounded-full transition-transform hover:scale-105"
+            >
+              <BotAvatar spec={avatarOf(focusKey)} size={60} motion={motionFor(focusKey)} />
+              <span className="absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:bg-black/35 group-hover:opacity-100">更换</span>
+            </button>
             <div className="mt-4 font-display text-[20px] font-extrabold">{curMeta.label}</div>
             <div className="mt-1 text-[13px] text-[#6B5D52]">{curMeta.role} · {botState[focusKey]}</div>
+            <button type="button" className="mt-2 text-[11px] text-[#8C7D6C] hover:text-[#B4502A]" onClick={() => setEditorFor(focusKey)}>
+              编辑头像 · 预设 / 生成 / 上传
+            </button>
           </div>
 
           <div className="se-card p-5">
@@ -1224,6 +1258,17 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
           <DialogFooter />
         </DialogContent>
       </Dialog>
+
+      <AvatarEditorDialog
+        open={editorFor !== null}
+        botName={editorFor ? metaOf(editorFor).label : ''}
+        spec={editorFor ? avatarOf(editorFor) : DEFAULT_AVATARS['主脑']}
+        defaultSpec={editorFor ? (DEFAULT_AVATARS[editorFor] ?? DEFAULT_AVATARS['主脑']) : DEFAULT_AVATARS['主脑']}
+        onClose={() => setEditorFor(null)}
+        onApply={(next) => {
+          if (editorFor) setAvatars((prev) => ({ ...prev, [editorFor]: next }));
+        }}
+      />
     </div>
   );
 }
