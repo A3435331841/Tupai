@@ -63,12 +63,32 @@ function ShapeBody({ variant, color }: { variant: number; color: string }) {
       return <path d="M50 14 C70 40 78 54 78 66 A28 28 0 0 1 22 66 C22 54 30 40 50 14 Z" fill={fill} />;
     case 7: // 横胶囊
       return <rect x="19" y="35" width="62" height="30" rx="15" fill={fill} />;
-    case 8: // 软三角
-      return <path d="M50 18 C56 18 58 22 61 28 L83 74 C86 80 82 84 75 84 H25 C18 84 14 80 17 74 L39 28 C42 22 44 18 50 18 Z" fill={fill} />;
-    case 9: // 菱形
-      return <polygon points="50,16 82,50 50,84 18,50" fill={fill} />;
-    case 10: // 爆炸星
-      return <polygon points="50,12 58,34 80,26 66,46 88,54 66,62 76,84 54,70 50,90 46,70 24,84 34,62 12,54 34,46 20,26 42,34" fill={fill} />;
+    case 8: // 圆润三角
+      return (
+        <path
+          d="M50 20 C58 20 61 25 64 32 L80 68 C84 77 78 82 68 82 H32 C22 82 16 77 20 68 L36 32 C39 25 42 20 50 20 Z"
+          fill={fill}
+        />
+      );
+    case 9: // 圆角菱形
+      return (
+        <path
+          d="M50 18 C56 30 68 42 82 50 C68 58 56 70 50 82 C44 70 32 58 18 50 C32 42 44 30 50 18 Z"
+          fill={fill}
+        />
+      );
+    case 10: // 圆润六瓣星
+      return (
+        <g fill={fill}>
+          <circle cx="50" cy="50" r="15" />
+          <circle cx="50" cy="31" r="12" />
+          <circle cx="66" cy="40" r="12" />
+          <circle cx="66" cy="60" r="12" />
+          <circle cx="50" cy="69" r="12" />
+          <circle cx="34" cy="60" r="12" />
+          <circle cx="34" cy="40" r="12" />
+        </g>
+      );
     case 11: // 五瓣花
       return (
         <g fill={fill}>
@@ -79,8 +99,13 @@ function ShapeBody({ variant, color }: { variant: number; color: string }) {
           <circle cx="31" cy="45" r="15" />
         </g>
       );
-    case 12: // 盾牌
-      return <path d="M50 14 L82 26 V52 C82 72 68 84 50 90 C32 84 18 72 18 52 V26 Z" fill={fill} />;
+    case 12: // 圆润盾
+      return (
+        <path
+          d="M50 16 C62 16 74 22 80 28 V52 C80 70 66 82 50 88 C34 82 20 70 20 52 V28 C26 22 38 16 50 16 Z"
+          fill={fill}
+        />
+      );;
     default:
       return <circle cx="50" cy="50" r="38" fill={fill} />;
   }
@@ -90,15 +115,15 @@ function ShapeBody({ variant, color }: { variant: number; color: string }) {
 
 function DashEyes() {
   const eyes = [
-    { cx: 38, rot: -8 },
-    { cx: 62, rot: 8 },
+    { cx: 38, rot: -6 },
+    { cx: 62, rot: 6 },
   ];
   return (
     <g className="bot-eyes">
       {eyes.map((e, i) => (
         <g key={i} transform={`translate(${e.cx} 44)`}>
           <g className="bot-eye">
-            <ellipse rx="2.6" ry="6" fill="#FFFFFF" transform={`rotate(${e.rot})`} />
+            <ellipse rx="3" ry="5.6" fill="#FFFFFF" transform={`rotate(${e.rot})`} />
           </g>
         </g>
       ))}
