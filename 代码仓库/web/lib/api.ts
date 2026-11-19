@@ -137,6 +137,11 @@ export const api = {
   notifications: () => request<{ notifications: import('./types').NotificationItem[]; unread: number }>('GET', '/api/v1/notifications'),
   readNotification: (id: string) => request<{ ok: boolean }>('POST', `/api/v1/notifications/${id}/read`, {}),
   readAllNotifications: () => request<{ ok: boolean; updated: number }>('POST', '/api/v1/notifications/read-all', {}),
+  showcaseSkills: () => request<{ skills: import('./types').ShowcaseSkill[] }>('GET', '/api/v1/showcase/skills'),
+  showcaseSkill: (id: string) =>
+    request<{ skill: import('./types').ShowcaseSkill; pairs: { original_url: string; result_url: string; result_asset_id: string }[]; album: { share_token: string; share_page: string } | null }>(
+      'GET', `/api/v1/showcase/skills/${encodeURIComponent(id)}`,
+    ),
   myWorks: () => request<{ works: import('./types').WorkMeta[] }>('GET', '/api/v1/me/works'),
   userWorks: (id: string) => request<{ works: import('./types').WorkMeta[] }>('GET', `/api/v1/users/${encodeURIComponent(id)}/works`),
   exportMe: () => request<{ exported_at: string; works: unknown[]; skills: unknown[]; albums: unknown[]; assets?: unknown[]; comments?: unknown[]; likes?: unknown[]; tasks?: unknown[]; submissions?: unknown[]; notifications?: unknown[] }>('GET', '/api/v1/me/export'),

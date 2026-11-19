@@ -177,3 +177,17 @@ export interface ProfileInfo {
   bio: string;
   avatar_url: string;
 }
+export interface ShowcaseSkill {
+  id: string;
+  title_zh: string;
+  category: string;
+  desc_zh: string;
+  tags: string[];
+  prompt: string | null;
+  negative_prompt: string | null;
+  model: string | null;
+  ratio: string;
+  pair_count: number;
+  cover: { original_url: string; result_url: string } | null;
+  sort: number;
+}

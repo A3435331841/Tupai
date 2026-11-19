@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, apiUrl, loginUrl, ApiRequestError } from '@/lib/api';
-import type { NotificationItem, TaskItem, WorkComment, WorkMeta } from '@/lib/types';
+import type { NotificationItem, ShowcaseSkill, TaskItem, WorkComment, WorkMeta } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { PageHero } from '@/components/PageHero';
 import { SectionHeading } from '@/components/SectionHeading';
 
-type Tab = 'feed' | 'tasks' | 'notify' | 'mine';
+type Tab = 'feed' | 'showcase' | 'tasks' | 'notify' | 'mine';
 const XINYU_LOCAL_URL = 'http://127.0.0.1:8767';
 const needLogin = (e: unknown) => {
   if (e instanceof ApiRequestError && e.status === 401) { toast.error('请先登录'); window.location.href = loginUrl(); return true; }
@@ -24,7 +24,7 @@ const tasksWithClosed = api.tasks as unknown as (includeClosed?: boolean) => Pro
 
 function readInitialTab(): Tab {
   const t = new URLSearchParams(window.location.search).get('tab');
-  return t === 'tasks' || t === 'notify' || t === 'mine' ? t : 'feed';
+  return t === 'tasks' || t === 'notify' || t === 'mine' || t === 'showcase' ? t : 'feed';
 }
 function readInitialQuery(): string {
   return new URLSearchParams(window.location.search).get('q') || '';
@@ -75,6 +75,10 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   const [notices, setNotices] = useState<NotificationItem[] | null>(null);
   const [unread, setUnread] = useState(0);
   const [mine, setMine] = useState<WorkMeta[] | null>(null);
+  // 技能演示：种子技能列表 + 当前技能详情（示例对与画册入口）
+  const [showcaseList, setShowcaseList] = useState<ShowcaseSkill[] | null>(null);
+  const [showcaseDetail, setShowcaseDetail] = useState<{ skill: ShowcaseSkill; pairs: { original_url: string; result_url: string; result_asset_id: string }[]; album: { share_token: string; share_page: string } | null } | null>(null);
+  const [showcasePairIdx, setShowcasePairIdx] = useState(0);
   const [reportTarget, setReportTarget] = useState<WorkMeta | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [confirmTarget, setConfirmTarget] = useState<WorkMeta | null>(null);
@@ -148,6 +152,20 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     try { const r = await api.notifications(); setNotices(r.notifications); setUnread(r.unread); }
     catch (e) { if (!needLogin(e)) setTabError(errText(e, '加载通知失败')); }
   }, []);
+  const loadShowcaseTab = useCallback(async () => {
+    setTabError(null);
+    try {
+      const r = await api.showcaseSkills();
+      setShowcaseList(r.skills);
+    } catch (e) { setTabError(errText(e, '加载技能演示失败')); }
+  }, []);
+  const openShowcase = useCallback(async (id: string) => {
+    try {
+      const r = await api.showcaseSkill(id);
+      setShowcaseDetail(r);
+      setShowcasePairIdx(0);
+    } catch (e) { toast.error(errText(e, '加载技能详情失败')); }
+  }, []);
   const loadMineTab = useCallback(async () => {
     setTabError(null);
     try { const r = await api.myWorks(); setMine(r.works); }
@@ -159,6 +177,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     if (tab === 'feed') { setTabError(null); tasksWithClosed(true).then((r) => setTasks(r.tasks)).catch(() => {}); }
     if (tab === 'notify') void loadNoticesTab();
     if (tab === 'mine') void loadMineTab();
+    if (tab === 'showcase') void loadShowcaseTab();
   }, [tab, loadTasksTab, loadNoticesTab, loadMineTab]);
 
   async function openWork(w: WorkMeta) {
@@ -352,7 +371,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
         description="公开作品与配方，底图始终属于你。别人可以 fork 你的配方做同款，但原图永不出现。"
         aside={(
           <>
-            {([['feed', '发现'], ['tasks', '共创任务'], ['notify', '通知'], ['mine', '我的作品']] as [Tab, string][]).map(([v, l]) => (
+            {([['feed', '发现'], ['showcase', '技能演示'], ['tasks', '共创任务'], ['notify', '通知'], ['mine', '我的作品']] as [Tab, string][]).map(([v, l]) => (
               <Button key={v} size="sm" variant={tab === v ? 'secondary' : 'ghost'} onClick={() => setTab(v)}>
                 {l}{v === 'notify' && unread > 0 ? ` ${unread}` : ''}
               </Button>
@@ -467,6 +486,53 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             </section>
           )}
         </>
+      )}
+
+      {tab === 'showcase' && (
+        <div className="space-y-4">
+          <SectionHeading title="技能演示" aside="每技能一本画册" />
+          <p className="text-xs text-muted-foreground">
+            每个技能都由真实原图与生成作品成对呈现（左原图 · 右作品，AI 生成标识随图附带）；点开可翻阅全部示例并查看只读画册。
+          </p>
+          {tabError && (
+            <Card className="p-6 text-center text-sm text-muted-foreground">
+              {tabError}
+              <div className="mt-3"><Button size="sm" variant="outline" onClick={() => void loadShowcaseTab()}>重试</Button></div>
+            </Card>
+          )}
+          {showcaseList === null && !tabError && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-56 rounded-xl" />)}</div>
+          )}
+          {showcaseList !== null && showcaseList.length === 0 && (
+            <Card className="p-6 text-center text-sm text-muted-foreground">技能演示筹备中，敬请期待。</Card>
+          )}
+          {showcaseList !== null && showcaseList.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {showcaseList.map((s) => (
+                <Card key={s.id} className="cursor-pointer overflow-hidden p-0 transition-shadow hover:shadow-md" onClick={() => void openShowcase(s.id)}>
+                  <div className="relative grid aspect-[4/3] grid-cols-2 bg-secondary">
+                    {s.cover ? (
+                      <>
+                        <img src={apiUrl(s.cover.original_url)} alt={`${s.title_zh} 原图示例`} loading="lazy" className="h-full w-full object-cover" />
+                        <img src={apiUrl(s.cover.result_url)} alt={`${s.title_zh} 作品示例`} loading="lazy" className="h-full w-full object-cover" />
+                      </>
+                    ) : <div className="col-span-2 size-full" />}
+                    <span className="absolute left-1.5 top-1.5 rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white">原图</span>
+                    <span className="absolute right-1.5 top-1.5 rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white">作品 · AI</span>
+                  </div>
+                  <div className="p-3">
+                    <p className="truncate text-sm font-medium">{s.title_zh}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{s.desc_zh}</p>
+                    <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+                      <Badge variant="secondary" className="text-[10px]">{s.category}</Badge>
+                      <span>{s.pair_count} 组示例</span>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {tab === 'tasks' && (
@@ -693,6 +759,46 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                 {profile.works.length === 0 && <p className="col-span-full text-sm text-muted-foreground">暂无公开作品。</p>}
               </div>
               <DialogFooter />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(showcaseDetail)} onOpenChange={(v) => { if (!v) setShowcaseDetail(null); }}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
+          {showcaseDetail && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{showcaseDetail.skill.title_zh} · 技能演示</DialogTitle>
+              </DialogHeader>
+              <p className="text-xs text-muted-foreground">{showcaseDetail.skill.desc_zh} · 共 {showcaseDetail.pairs.length} 组示例（左原图，右作品；作品均为 AI 生成）</p>
+              {showcaseDetail.pairs.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  <img src={apiUrl(showcaseDetail.pairs[showcasePairIdx].original_url)} alt="原图" className="aspect-square w-full rounded-lg border border-border bg-secondary object-cover" />
+                  <img src={apiUrl(showcaseDetail.pairs[showcasePairIdx].result_url)} alt="AI 作品" className="aspect-square w-full rounded-lg border border-border bg-secondary object-cover" />
+                  <p className="text-center text-[10px] text-muted-foreground">原图（公开授权语料）</p>
+                  <p className="text-center text-[10px] text-muted-foreground">作品 · AI 生成</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2">
+                <Button size="sm" variant="outline" disabled={showcasePairIdx === 0} onClick={() => setShowcasePairIdx((i) => Math.max(0, i - 1))}>上一组</Button>
+                <span className="text-xs text-muted-foreground">{showcaseDetail.pairs.length ? showcasePairIdx + 1 : 0} / {showcaseDetail.pairs.length}</span>
+                <Button size="sm" variant="outline" disabled={showcasePairIdx >= showcaseDetail.pairs.length - 1} onClick={() => setShowcasePairIdx((i) => Math.min(showcaseDetail.pairs.length - 1, i + 1))}>下一组</Button>
+              </div>
+              {showcaseDetail.skill.prompt && (
+                <details className="rounded-lg border border-border/70 p-3 text-xs">
+                  <summary className="cursor-pointer text-muted-foreground">查看这个技能的配方（提示词）</summary>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-foreground/80">{showcaseDetail.skill.prompt}</p>
+                </details>
+              )}
+              <DialogFooter className="gap-2 sm:gap-0">
+                {showcaseDetail.album && (
+                  <Button variant="outline" onClick={() => window.open(apiUrl(showcaseDetail.album!.share_page), '_blank')}>
+                    打开画册（{showcaseDetail.pairs.length} 张作品）
+                  </Button>
+                )}
+                <Button onClick={() => navigate(`/studio?template=${encodeURIComponent(showcaseDetail.skill.id)}`)}>用这个技能创作</Button>
+              </DialogFooter>
             </>
           )}
         </DialogContent>
