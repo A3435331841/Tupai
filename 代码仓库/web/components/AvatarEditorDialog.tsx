@@ -8,13 +8,10 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 /**
- * Bot 头像编辑弹层：预设造型 / 颜色 / 字母，文生成像（一步到位，本地 mock，预留后端接口位），本地上传。
- * 主脑形象默认锁定为图派标志拟人脸，仅可通过生成 / 上传覆盖，或一键重置回标志。
+ * Bot 头像编辑弹层：预设 blob 造型 / 颜色，文生成像（一步到位，本地 mock，预留后端接口位），本地上传。
  */
 
 type Tab = 'preset' | 'generate' | 'upload';
-
-const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 function hashSeed(seed: string): number {
   let h = 0;
@@ -54,13 +51,11 @@ export function AvatarEditorDialog({
   useEffect(() => {
     if (open) {
       setDraft(spec);
-      setTab(spec.kind === 'logo' ? 'generate' : 'preset');
+      setTab('preset');
       setGenText('');
       setGenerating(false);
     }
   }, [open, spec]);
-
-  const isLogo = draft.kind === 'logo';
 
   function reset() {
     setDraft({ ...defaultSpec, image: null });
@@ -89,13 +84,7 @@ export function AvatarEditorDialog({
     // 当前本地 mock：按描述种子挑一个造型与配色，一步出形象，不跳多步。
     await new Promise((r) => setTimeout(r, 600));
     const picked = mockAvatar(genText || `${botName} 形象`);
-    setDraft((old) => ({
-      ...old,
-      kind: 'letter',
-      variant: picked.variant,
-      color: picked.color,
-      image: null,
-    }));
+    setDraft((old) => ({ ...old, variant: picked.variant, color: picked.color, image: null }));
     setGenerating(false);
     toast.success('已按描述生成一个形象，满意就确定');
   }
@@ -110,9 +99,7 @@ export function AvatarEditorDialog({
         {/* 预览 */}
         <div className="flex flex-col items-center gap-2 py-2">
           <BotAvatar spec={draft} size={84} motion={generating ? 'busy' : 'idle'} />
-          <span className="text-[11px] text-muted-foreground">
-            {isLogo ? '图派标志拟人脸 · 可生成或上传自定义形象' : '选中形象后点确定生效'}
-          </span>
+          <span className="text-[11px] text-muted-foreground">选中形象后点确定生效</span>
         </div>
 
         {/* Tab */}
@@ -132,53 +119,37 @@ export function AvatarEditorDialog({
 
         {tab === 'preset' && (
           <div className="space-y-4">
-            {isLogo ? (
-              <p className="py-3 text-center text-[12px] text-muted-foreground">主脑形象由标志固定，可在「生成 / 上传」中替换。</p>
-            ) : (
-              <>
-                <div>
-                  <Label className="text-xs">造型（13 款）</Label>
-                  <div className="mt-2 grid grid-cols-5 gap-2">
-                    {Array.from({ length: AVATAR_SHAPE_COUNT }, (_, v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setDraft((d) => ({ ...d, variant: v, image: null }))}
-                        className={`grid place-items-center rounded-xl border p-1 transition-colors ${draft.variant === v ? 'border-[#B4502A] bg-[#FBF4EC] ring-1 ring-[#B4502A]/30' : 'border-[#EADCC8] hover:bg-[#F6ECDF]'}`}
-                        aria-label={`造型 ${v + 1}`}
-                      >
-                        <BotAvatar spec={{ ...draft, variant: v }} size={34} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs">颜色</Label>
-                  <div className="mt-2 flex flex-wrap gap-2.5">
-                    {AVATAR_PALETTE.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setDraft((d) => ({ ...d, color: c, image: null }))}
-                        className={`size-7 rounded-full transition-transform ${draft.color === c ? 'ring-2 ring-[#1F1A17] ring-offset-2' : 'hover:scale-110'}`}
-                        style={{ background: c }}
-                        aria-label={`颜色 ${c}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="avatar-letter" className="text-xs">字母标识（A–Z）</Label>
-                  <Input
-                    id="avatar-letter"
-                    value={draft.letter}
-                    maxLength={1}
-                    onChange={(e) => setDraft((d) => ({ ...d, letter: (e.target.value || 'A').toUpperCase().replace(/[^A-Z]/g, '') }))}
-                    className="mt-1 h-9 w-20 text-center text-base font-bold"
+            <div>
+              <Label className="text-xs">造型（13 款）</Label>
+              <div className="mt-2 grid grid-cols-5 gap-2">
+                {Array.from({ length: AVATAR_SHAPE_COUNT }, (_, v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setDraft((d) => ({ ...d, variant: v, image: null }))}
+                    className={`grid place-items-center rounded-xl border p-1 transition-colors ${draft.variant === v ? 'border-[#B4502A] bg-[#FBF4EC] ring-1 ring-[#B4502A]/30' : 'border-[#EADCC8] hover:bg-[#F6ECDF]'}`}
+                    aria-label={`造型 ${v + 1}`}
+                  >
+                    <BotAvatar spec={{ ...draft, variant: v }} size={34} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">颜色</Label>
+              <div className="mt-2 flex flex-wrap gap-2.5">
+                {AVATAR_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setDraft((d) => ({ ...d, color: c, image: null }))}
+                    className={`size-7 rounded-full transition-transform ${draft.color === c ? 'ring-2 ring-[#1F1A17] ring-offset-2' : 'hover:scale-110'}`}
+                    style={{ background: c }}
+                    aria-label={`颜色 ${c}`}
                   />
-                </div>
-              </>
-            )}
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

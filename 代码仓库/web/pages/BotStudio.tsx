@@ -48,14 +48,14 @@ const LOCAL_COVERS: Record<string, string> = {
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const LAST_JOB_KEY = 'tupai-last-job';
 
-// 默认拟人头像：主脑复用图派标志，其余 Bot 为字母 + 预设造型
+// 默认拟人头像：Grok 风软胶 blob 球 + 双杠眼睛，按角色配色分配造型
 const DEFAULT_AVATARS: Record<string, AvatarSpec> = {
-  '主脑': { kind: 'logo', variant: 0, color: '#1C1917', letter: 'T' },
-  '小光': { kind: 'letter', variant: 0, color: '#C9982F', letter: 'A' },
-  '小染': { kind: 'letter', variant: 4, color: '#7A5AA8', letter: 'B' },
-  '小词': { kind: 'letter', variant: 3, color: '#3F8A6B', letter: 'C' },
-  '小绘': { kind: 'letter', variant: 6, color: '#3F7FBF', letter: 'D' },
-  '小忆': { kind: 'letter', variant: 7, color: '#8A7A6A', letter: 'E' },
+  '主脑': { variant: 0, color: '#EA580C' },
+  '小光': { variant: 1, color: '#C9982F' },
+  '小染': { variant: 4, color: '#7A5AA8' },
+  '小词': { variant: 3, color: '#3F8A6B' },
+  '小绘': { variant: 6, color: '#3F7FBF' },
+  '小忆': { variant: 5, color: '#8A7A6A' },
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -885,13 +885,13 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   ];
 
   // ===== 杂志编排台：Bot 元数据 / 焦点 / 进度备注 =====
-  const BOT_META: Record<string, { label: string; role: string; glyph: string; gradient: string; summary: string }> = {
-    '主脑': { label: '主脑', role: '编排与记忆', glyph: '脑', gradient: 'linear-gradient(135deg,#D06A45,#A84420)', summary: '拆解任务，分派给各 Bot' },
-    '小光': { label: '小光', role: '看画面', glyph: '光', gradient: 'linear-gradient(135deg,#D9A93F,#B8862A)', summary: hasImage ? '逆光 · 眼神光 · 背景杂乱' : '等待读取画面' },
-    '小染': { label: '小染', role: '定风格', glyph: '染', gradient: 'linear-gradient(135deg,#8E6CC0,#6A4A96)', summary: appliedTemplate ? `风格：${appliedTemplate.title}` : '正在收敛胶片方向' },
-    '小词': { label: '小词', role: '写提示词', glyph: '词', gradient: 'linear-gradient(135deg,#56A884,#2F7D5B)', summary: prompt.trim() ? '提示词已生成，待确认' : '等待风格方向' },
-    '小绘': { label: '小绘', role: '出图', glyph: '绘', gradient: 'linear-gradient(135deg,#4F93D1,#2F6FA8)', summary: stage === 'result' ? '成品已交付' : stage === 'generating' ? '排队出图中' : '等待派单' },
-    '小忆': { label: '小忆', role: '常驻记忆', glyph: '忆', gradient: 'linear-gradient(135deg,#9A8A7A,#7A6A5A)', summary: '记住你讨厌假白磨皮' },
+  const BOT_META: Record<string, { label: string; role: string; summary: string }> = {
+    '主脑': { label: '主脑', role: '编排与记忆', summary: '拆解任务，分派给各 Bot' },
+    '小光': { label: '小光', role: '看画面', summary: hasImage ? '逆光 · 眼神光 · 背景杂乱' : '等待读取画面' },
+    '小染': { label: '小染', role: '定风格', summary: appliedTemplate ? `风格：${appliedTemplate.title}` : '正在收敛胶片方向' },
+    '小词': { label: '小词', role: '写提示词', summary: prompt.trim() ? '提示词已生成，待确认' : '等待风格方向' },
+    '小绘': { label: '小绘', role: '出图', summary: stage === 'result' ? '成品已交付' : stage === 'generating' ? '排队出图中' : '等待派单' },
+    '小忆': { label: '小忆', role: '常驻记忆', summary: '记住你讨厌假白磨皮' },
   };
   const BOT_ORDER = ['主脑', '小光', '小染', '小词', '小绘', '小忆'] as const;
   const focusKey = focusBot && BOT_META[focusBot] ? focusBot : '主脑';
@@ -903,12 +903,11 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     : stage === 'generating'
       ? genPhase
       : '正在衔接各环节产物；已按你的记忆剔除偏白磨皮方案。';
-  const metaOf = (name: string) => BOT_META[name] ?? { label: name, role: '', glyph: name.slice(-1), gradient: 'linear-gradient(135deg,#9A8A7A,#7A6A5A)', summary: '' };
+  const metaOf = (name: string) => BOT_META[name] ?? { label: name, role: '', summary: '' };
   const avatarOf = (name: string): AvatarSpec => {
     const known = avatars[name] ?? DEFAULT_AVATARS[name];
     if (known) return known;
-    const letter = (/[A-Za-z]/.test(name) ? name[0] : 'Z').toUpperCase();
-    return { kind: 'letter', variant: 0, color: '#8C7D6C', letter };
+    return { variant: 0, color: '#8C7D6C' };
   };
   const motionFor = (name: string): 'idle' | 'busy' =>
     botState[name] === '编排中' || botState[name] === '出图中' ? 'busy' : 'idle';

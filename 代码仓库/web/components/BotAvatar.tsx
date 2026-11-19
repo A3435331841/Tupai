@@ -1,21 +1,17 @@
 import type { CSSProperties } from 'react';
 
 /**
- * 拟人化 Bot 头像（创作台多 Bot 编排台专用）。
- * - 主脑（kind=logo）：复用图派 P/T 咬合标志作脸，叠加一对小眼睛。
- * - 其他 Bot（kind=letter）：13 种预设造型之一 + A–Z 字母 + 一对小眼睛。
- * - 眼睛动效：干活（busy）时瞳孔四处扫视；待命偶尔眨眼；鼠标悬浮时眨眼并轻微打量。
+ * Grok 风拟人 Bot 头像：软胶 blob 球 + 一对白色竖杠眼睛。
+ * - 13 款柔化造型，单色填充；眼睛为两条白色圆角短杠（无瞳孔、无字母）。
+ * - 干活（busy）时双杠轻微扫视；待命偶尔眨眼；鼠标悬浮时眨眼并打量。
  * - image 存在时按上传 / 文生头像渲染，不再绘制造型与眼睛。
  */
 
 export type AvatarSpec = {
-  kind: 'logo' | 'letter';
   /** 预设造型 0–12 */
   variant: number;
   /** 造型主色 */
   color: string;
-  /** 字母标识（A–Z），letter 造型使用 */
-  letter: string;
   /** 上传 / 文生头像 URL，存在即覆盖造型 */
   image?: string | null;
 };
@@ -28,41 +24,59 @@ export const AVATAR_PALETTE = [
   '#2FA89A', '#2F6FA8', '#6A4A96', '#D6487E', '#8C7D6C', '#B4502A',
 ];
 
-/* ------------------------------- 13 种造型 ------------------------------- */
+/* ------------------------------- 13 款柔化 blob ------------------------------- */
 
 function ShapeBody({ variant, color }: { variant: number; color: string }) {
   const fill = color;
   switch (variant % AVATAR_SHAPE_COUNT) {
-    case 0: // 圆
+    case 0: // 正圆
       return <circle cx="50" cy="50" r="38" fill={fill} />;
-    case 1: // 圆角方块
-      return <rect x="15" y="15" width="70" height="70" rx="24" fill={fill} />;
-    case 2: // 三角
-      return <polygon points="50,18 86,80 14,80" fill={fill} />;
-    case 3: // 菱形
-      return <polygon points="50,14 84,50 50,86 16,50" fill={fill} />;
-    case 4: // 五角星
-      return <polygon points="50,14 61,38 87,40 67,57 74,83 50,69 26,83 33,57 13,40 39,38" fill={fill} />;
-    case 5: // 水滴
-      return <path d="M50 14 C70 40 78 54 78 66 A28 28 0 0 1 22 66 C22 54 30 40 50 14 Z" fill={fill} />;
-    case 6: // 云朵
-      return <path d="M31 73 a17 17 0 0 1 -3-33 20 20 0 0 1 38-7 16 16 0 0 1 21 15 14 14 0 0 1 -9 25 Z" fill={fill} />;
-    case 7: // 心形
-      return <path d="M50 80 C20 58 14 37 26 26 C36 18 48 24 50 34 C52 24 64 18 74 26 C86 37 80 58 50 80 Z" fill={fill} />;
-    case 8: // 六边形
-      return <polygon points="50,14 82,32 82,68 50,86 18,68 18,32" fill={fill} />;
-    case 9: // 高圆角方块
-      return <rect x="18" y="18" width="64" height="64" rx="32" fill={fill} />;
-    case 10: // 爆炸星
-      return <polygon points="50,12 58,34 80,26 66,46 88,54 66,62 76,84 54,70 50,90 46,70 24,84 34,62 12,54 34,46 20,26 42,34" fill={fill} />;
-    case 11: // 花瓣
+    case 1: // 软方块
+      return <rect x="17" y="17" width="66" height="66" rx="28" fill={fill} />;
+    case 2: // 云团
+      return (
+        <path
+          d="M32 74 a17 17 0 0 1 -3-33 20 20 0 0 1 38-7 16 16 0 0 1 21 15 14 14 0 0 1 -9 25 Z"
+          fill={fill}
+        />
+      );
+    case 3: // 四瓣花
       return (
         <g fill={fill}>
-          <circle cx="50" cy="30" r="16" />
-          <circle cx="70" cy="45" r="16" />
-          <circle cx="62" cy="70" r="16" />
-          <circle cx="38" cy="70" r="16" />
-          <circle cx="30" cy="45" r="16" />
+          <circle cx="50" cy="33" r="17" />
+          <circle cx="67" cy="50" r="17" />
+          <circle cx="50" cy="67" r="17" />
+          <circle cx="33" cy="50" r="17" />
+        </g>
+      );
+    case 4: // 三瓣花
+      return (
+        <g fill={fill}>
+          <circle cx="50" cy="34" r="17" />
+          <circle cx="35" cy="63" r="17" />
+          <circle cx="65" cy="63" r="17" />
+        </g>
+      );
+    case 5: // 心形
+      return <path d="M50 80 C20 58 14 37 26 26 C36 18 48 24 50 34 C52 24 64 18 74 26 C86 37 80 58 50 80 Z" fill={fill} />;
+    case 6: // 水滴
+      return <path d="M50 14 C70 40 78 54 78 66 A28 28 0 0 1 22 66 C22 54 30 40 50 14 Z" fill={fill} />;
+    case 7: // 横胶囊
+      return <rect x="19" y="35" width="62" height="30" rx="15" fill={fill} />;
+    case 8: // 软三角
+      return <path d="M50 18 C56 18 58 22 61 28 L83 74 C86 80 82 84 75 84 H25 C18 84 14 80 17 74 L39 28 C42 22 44 18 50 18 Z" fill={fill} />;
+    case 9: // 菱形
+      return <polygon points="50,16 82,50 50,84 18,50" fill={fill} />;
+    case 10: // 爆炸星
+      return <polygon points="50,12 58,34 80,26 66,46 88,54 66,62 76,84 54,70 50,90 46,70 24,84 34,62 12,54 34,46 20,26 42,34" fill={fill} />;
+    case 11: // 五瓣花
+      return (
+        <g fill={fill}>
+          <circle cx="50" cy="30" r="15" />
+          <circle cx="69" cy="45" r="15" />
+          <circle cx="62" cy="69" r="15" />
+          <circle cx="38" cy="69" r="15" />
+          <circle cx="31" cy="45" r="15" />
         </g>
       );
     case 12: // 盾牌
@@ -72,51 +86,24 @@ function ShapeBody({ variant, color }: { variant: number; color: string }) {
   }
 }
 
-/* ------------------------------- 主脑标志脸 ------------------------------- */
+/* --------------------------------- 双杠眼睛 --------------------------------- */
 
-function LogoFace() {
-  return (
-    <g>
-      {/* 深炭 P */}
-      <path fill="#1C1917" d="M30 20 H62 C82 20 92 33 92 50 C92 67 82 80 62 80 H50 V66 H62 C73 66 78 59 78 50 C78 41 73 34 62 34 H30 Z" />
-      {/* 橙色 T */}
-      <path fill="#EA580C" d="M10 20 H58 V34 H50 V78 L42 92 L34 78 V34 H10 Z" />
-    </g>
-  );
-}
-
-/* --------------------------------- 眼睛 --------------------------------- */
-
-function Eyes({ color }: { color: string }) {
-  // 眼白固定白色，瞳孔固定深色；浅底色板靠深色描边勾勒眼白边缘
-  const pupil = '#1F1A17';
-  const eyeFill = '#FFFFFF';
+function DashEyes() {
   const eyes = [
-    { cx: 39, cy: 42 },
-    { cx: 61, cy: 42 },
+    { cx: 38, rot: -8 },
+    { cx: 62, rot: 8 },
   ];
   return (
     <g className="bot-eyes">
       {eyes.map((e, i) => (
-        <g key={i} transform={`translate(${e.cx} ${e.cy})`}>
+        <g key={i} transform={`translate(${e.cx} 44)`}>
           <g className="bot-eye">
-            <ellipse rx="7.5" ry="9.5" fill={eyeFill} stroke={pupil} strokeWidth="1.1" opacity="0.98" />
-            <g className="bot-pupil">
-              <circle r="3.8" fill={pupil} />
-            </g>
+            <ellipse rx="2.6" ry="6" fill="#FFFFFF" transform={`rotate(${e.rot})`} />
           </g>
         </g>
       ))}
     </g>
   );
-}
-
-function isLight(hex: string): boolean {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return false;
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150;
 }
 
 /* --------------------------------- 组件 --------------------------------- */
@@ -140,7 +127,7 @@ export function BotAvatar({
     return (
       <img
         src={spec.image}
-        alt={spec.kind === 'logo' ? '主脑' : spec.letter}
+        alt="Bot 头像"
         width={size}
         height={size}
         className={`bot-avatar-img ${className ?? ''}`}
@@ -148,8 +135,6 @@ export function BotAvatar({
       />
     );
   }
-
-  const letterColor = spec.kind === 'letter' && isLight(spec.color) ? '#1F1A17' : '#FFFFFF';
 
   return (
     <svg
@@ -160,25 +145,10 @@ export function BotAvatar({
       data-motion={motion}
       style={style}
       role="img"
-      aria-label={spec.kind === 'logo' ? '主脑' : `${spec.letter} 号 Bot`}
+      aria-label="Bot 头像"
     >
-      {spec.kind === 'logo' ? <LogoFace /> : <ShapeBody variant={spec.variant} color={spec.color} />}
-      {spec.kind === 'letter' && (
-        <text
-          x="50"
-          y="72"
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize="28"
-          fontWeight="800"
-          fill={letterColor}
-          opacity="0.92"
-          style={{ fontFamily: 'inherit' }}
-        >
-          {spec.letter}
-        </text>
-      )}
-      <Eyes color={spec.kind === 'logo' ? '#1C1917' : spec.color} />
+      <ShapeBody variant={spec.variant} color={spec.color} />
+      <DashEyes />
     </svg>
   );
 }
