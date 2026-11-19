@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { api, apiUrl, fetchAssetBlob, downloadBlob, downloadText, ApiRequestError } from '@/lib/api';
 import type {
   Candidate, JobResult, ModelInfo, OptimizeResult, Quota, Recommendation, SkillRecord, Template, TupaiSkill,
@@ -920,7 +921,10 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ''; if (f) void pickFile(f); }} />
 
-      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[264px_minmax(0,1fr)]">
+      <div
+        className="grid min-h-0 flex-1 gap-6 transition-[grid-template-columns] duration-300 ease-out lg:grid-cols-[264px_minmax(0,1fr)_var(--drawer-w)]"
+        style={{ '--drawer-w': panelOpen ? '300px' : '0px' } as CSSProperties}
+      >
         {/* ===== 左：会话列表（Grok 式侧栏） ===== */}
         <aside className="flex min-w-0 flex-col gap-2 lg:min-h-0 lg:pr-1">
           {/* 顶部工具钮 */}
@@ -999,11 +1003,12 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
 
         {/* ===== 中：对话工作台 ===== */}
         <section className="flex min-w-0 min-h-0 flex-col gap-4">
-          {/* 当前会话头：点头像打开右侧详情抽屉 */}
+          {/* 当前会话头：点头像开关右侧详情抽屉（再点收起） */}
           <div className="flex shrink-0 items-center gap-3 px-1">
-            <button type="button" onClick={() => setPanelOpen(true)}
-              className="group relative rounded-full transition-transform duration-200 hover:scale-105 active:scale-95"
-              title="查看 Bot 详情">
+            <button type="button" onClick={() => setPanelOpen((v) => !v)}
+              className={`group relative rounded-full transition-all duration-200 hover:scale-105 active:scale-95 ${panelOpen ? 'ring-2 ring-[#B4502A] ring-offset-2 ring-offset-[#F7F1E8]' : ''}`}
+              title={panelOpen ? '收起 Bot 详情' : '查看 Bot 详情'}
+              aria-expanded={panelOpen}>
               <BotAvatar spec={avatarOf(focusKey)} size={40} motion={motionFor(focusKey)} />
             </button>
             <div className="min-w-0">
@@ -1166,9 +1171,9 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
           {quota && <p className="shrink-0 text-center text-[12px] text-[#B3A492]">今日还可生成 {quota.remaining} 次 · 原图全程私密</p>}
         </section>
 
-        {/* ===== 右：当前 Bot 详情抽屉（默认收起，点中间头像滑出） ===== */}
+        {/* ===== 右：当前 Bot 详情（栅格第三列，默认收起，点头像开关；与中栏并排不覆盖） ===== */}
         <aside
-          className={`absolute bottom-0 right-0 top-0 z-20 flex w-[300px] flex-col gap-3 overflow-y-auto border-l border-[#EADFCF] bg-[#F7F1E8] p-4 shadow-[-12px_0_30px_rgba(120,90,60,0.10)] transition-all duration-300 ease-out ${panelOpen ? 'visible translate-x-0' : 'pointer-events-none invisible translate-x-full'}`}
+          className={`relative flex min-h-0 min-w-0 w-full flex-col gap-3 overflow-y-auto transition-opacity duration-300 ease-out ${panelOpen ? 'visible border-l border-[#EADFCF] bg-[#F7F1E8] p-4 opacity-100' : 'pointer-events-none invisible opacity-0'}`}
           aria-hidden={!panelOpen}
         >
           <button
