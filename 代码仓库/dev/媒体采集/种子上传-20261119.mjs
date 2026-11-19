@@ -69,14 +69,15 @@ if (!arg('albums-only') && !arg('skills-only')) {
       const key = `${sid}#${slot}`;
       if (state.slots[key]) continue;
       const t = list[slot];
-      const outPath = join(GEN_DIR, t.out);
+      // 生成结果优先取转码后的 .jpg（转换脚本产出），否则用任务里的 .png
+      const jpgPath = join(GEN_DIR, t.out.replace(/\.png$/i, '.jpg'));
+      const outPath = existsSync(jpgPath) ? jpgPath : join(GEN_DIR, t.out);
       if (!existsSync(outPath) || statSync(outPath).size < 10000) continue; // 生成未完成，跳过（之后重跑）
-      const origMime = t.image.endsWith('.png') ? 'image/png' : 'image/jpeg';
-      const resMime = outPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
       const pairs = [];
       for (let i = slot; i < Math.min(slot + BATCH, list.length); i++) {
         const ti = list[i];
-        const oi = join(GEN_DIR, ti.out);
+        const oiJpg = join(GEN_DIR, ti.out.replace(/\.png$/i, '.jpg'));
+        const oi = existsSync(oiJpg) ? oiJpg : join(GEN_DIR, ti.out);
         if (!existsSync(oi) || statSync(oi).size < 10000) break;
         const ik = `${sid}#${i}`;
         if (state.slots[ik]) continue;

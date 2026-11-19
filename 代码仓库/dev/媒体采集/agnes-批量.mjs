@@ -14,7 +14,7 @@ const DOC = join(ROOT, 'docs', 'references', 'agnes-api.md');
 const CN_BASE = 'https://api.agnes-ai.cn/v1';
 const INTL_BASE = 'https://apihub.agnes-ai.com/v1';
 const UA = 'TuPaiBatchTool/1.0';
-const PER_KEY_INTERVAL_MS = 10000; // 实测单 key 短窗口 2-3 次即 429，保守 10s 间隔
+const PER_KEY_INTERVAL_MS = 20000; // 实测单 key 持续 ~3 RPM 才稳（短窗口 2-3 次即 429），按 20s 间隔控制
 const REQ_TIMEOUT_MS = 75000;
 
 const arg = (name, def) => {

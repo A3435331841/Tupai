@@ -16,9 +16,49 @@ const corpusFile = arg('corpus', join(ROOT, '资产仓库', '90-元数据', '技
 const perSkill = Number(arg('per-skill', 20));
 const only = arg('only') ? new Set(arg('only').split(',')) : null;
 
+const FLAT = process.argv.includes('--flat');
 const skillsDoc = JSON.parse(readFileSync(skillsFile, 'utf8'));
 const skills = skillsDoc.技能 || skillsDoc.skills || skillsDoc;
-const corpus = JSON.parse(readFileSync(corpusFile, 'utf8')).资产;
+let corpus = [];
+if (!FLAT) {
+  const corpusDoc = JSON.parse(readFileSync(corpusFile, 'utf8'));
+  corpus = corpusDoc.资产 || corpusDoc.assets || [];
+}
+
+// --flat：不做类目偏好，直接扫描暂存目录全部图片（分类入库前的快速通道）
+if (FLAT) {
+  const { readdirSync } = await import('node:fs');
+  const flatPool = [];
+  for (const src of ['picsum', 'nasa', 'pexels']) {
+    const dir = join(ROOT, '.scratch-20261119', '图源原始', src);
+    let names = [];
+    try { names = readdirSync(dir).filter((n) => /\.(jpg|jpeg|png)$/i.test(n)); } catch {}
+    for (const n of names) flatPool.push(join(dir, n));
+  }
+  console.log(`flat 模式：暂存原图 ${flatPool.length} 张`);
+  const tasks = [];
+  let salt = 0;
+  for (const s of skills) {
+    if (only && !only.has(s.id)) continue;
+    for (let i = 0; i < perSkill; i++) {
+      const img = flatPool[(i * 53 + salt * 97 + 11) % flatPool.length];
+      tasks.push({
+        id: `${s.id}--${String(i).padStart(2, '0')}`,
+        out: `${s.id}/作品-${String(i + 1).padStart(2, '0')}.png`,
+        image: img,
+        prompt: s.prompt,
+        negative: s.negative_prompt || 'watermark, text, low quality, blurry',
+        ratio: s.ratio || '3:4',
+        model: s.model || 'agnes-image-2.5-flash',
+      });
+    }
+    salt++;
+  }
+  const outFile = join(ROOT, '.scratch-20261119', '生成任务.jsonl');
+  writeFileSync(outFile, tasks.map((t) => JSON.stringify(t)).join('\n'));
+  console.log(`构建任务 ${tasks.length} 条（${new Set(tasks.map((t) => t.id.split('--')[0])).size} 个技能 × ${perSkill}）→ ${outFile}`);
+  process.exit(0);
+}
 
 // 按分类分组（相对路径 → 绝对路径）
 const byCat = {};
