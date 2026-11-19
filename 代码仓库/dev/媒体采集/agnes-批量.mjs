@@ -43,23 +43,27 @@ function loadKeys() {
 }
 
 class Pool {
-  constructor(keys) { this.keys = keys; }
+  constructor(keys) { this.keys = keys; this._lock = Promise.resolve(); }
   healthy() { return this.keys.filter((k) => !k.disabled); }
-  async acquire() {
-    // 轮询等待可用 key（全部冷却/间隔不足时 sleep）
-    for (;;) {
-      const now = Date.now();
-      const ready = this.keys.filter((k) => !k.disabled && k.cooldownUntil <= now);
-      if (ready.length) {
-        ready.sort((a, b) => Math.max(a.lastUsed, a.cooldownUntil) - Math.max(b.lastUsed, b.cooldownUntil));
-        const k = ready[0];
-        const wait = Math.max(0, k.lastUsed + PER_KEY_INTERVAL_MS - now);
-        if (wait > 0) await sleep(wait);
-        k.lastUsed = Date.now();
-        return k;
+  acquire() {
+    // 互斥选取：避免多 worker 同帧都选中同一个「最久未用」key（惊群导致吞吐坍缩）
+    const run = this._lock.then(async () => {
+      for (;;) {
+        const now = Date.now();
+        const ready = this.keys.filter((k) => !k.disabled && k.cooldownUntil <= now);
+        if (ready.length) {
+          ready.sort((a, b) => Math.max(a.lastUsed, a.cooldownUntil) - Math.max(b.lastUsed, b.cooldownUntil));
+          const k = ready[0];
+          const wait = Math.max(0, k.lastUsed + PER_KEY_INTERVAL_MS - now);
+          if (wait > 0) await sleep(wait);
+          k.lastUsed = Date.now();
+          return k;
+        }
+        await sleep(2000);
       }
-      await sleep(3000);
-    }
+    });
+    this._lock = run.then(() => undefined, () => undefined);
+    return run;
   }
   release(k, status) {
     if (status === 429) k.cooldownUntil = Date.now() + 60000;

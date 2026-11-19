@@ -64,7 +64,17 @@ if (!arg('albums-only') && !arg('skills-only')) {
     const sid = t.id.split('--')[0];
     (bySkill.get(sid) || bySkill.set(sid, []).get(sid)).push(t);
   }
-  for (const [sid, list] of bySkill) {
+  // 配对审核排序（可选）：种子排序.json 决定每技能示例的展示顺序（封面取最高分对）
+  const orderFile = join(ROOT, '.scratch-20261119', '种子排序.json');
+  const orderDoc = existsSync(orderFile) ? JSON.parse(readFileSync(orderFile, 'utf8')) : null;
+  for (const [sid, list0] of bySkill) {
+    let list = list0;
+    const ord = orderDoc?.顺序?.[sid];
+    if (Array.isArray(ord) && ord.length === list0.length) {
+      const map = new Map(list0.map((t) => [t.id, t]));
+      const ordered = ord.map((id) => map.get(id)).filter(Boolean);
+      if (ordered.length === list0.length) list = ordered;
+    }
     for (let slot = 0; slot < list.length; slot++) {
       const key = `${sid}#${slot}`;
       if (state.slots[key]) continue;
