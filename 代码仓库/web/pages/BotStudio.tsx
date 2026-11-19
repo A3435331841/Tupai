@@ -768,6 +768,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const [focusBot, setFocusBot] = useState<string | null>(null);
   const [avatars, setAvatars] = useState<Record<string, AvatarSpec>>(DEFAULT_AVATARS);
   const [editorFor, setEditorFor] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const addTurn = useCallback((turn: Omit<ChatTurn, 'id'>) => {
@@ -808,7 +809,6 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     '小绘': stage === 'generating' ? '出图中' : stage === 'result' ? '已完成' : '待命',
     '小忆': '常驻',
   };
-  const doneSteps = [hasImage, Boolean(appliedTemplate || optimize), Boolean(prompt.trim()), stage === 'result'].filter(Boolean).length;
 
   // 用户发话：分派任务并触发真实流程
   function sendToBots() {
@@ -913,51 +913,66 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     botState[name] === '编排中' || botState[name] === '出图中' ? 'busy' : 'idle';
 
   return (
-    <div className="studio-editorial mx-auto flex w-full max-w-[1440px] min-h-0 flex-col px-5 py-6 sm:px-8 lg:h-full">
+    <div className="studio-editorial mx-auto flex w-full max-w-[1440px] min-h-0 flex-col px-5 py-4 sm:px-8 lg:h-full">
       <input ref={importRef} type="file" accept=".json,application/json" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void importSkillFile(f); e.target.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ''; if (f) void pickFile(f); }} />
 
-      {/* 页头 */}
-      <div className="mb-6 flex shrink-0 flex-wrap items-end gap-4">
-        <div>
-          <div className="se-eyebrow mb-3 flex items-center gap-3 text-[13px] font-semibold">
-            AI 影像风格重塑 <span className="h-px w-14 bg-[#DCCDB8]" />
-          </div>
-          <h1 className="font-display text-[30px] font-extrabold leading-tight tracking-tight sm:text-[34px]">街拍变胶片 · 任务编排</h1>
-        </div>
-        <span className="rounded-full bg-[#B4502A]/10 px-2.5 py-1 text-[11px] font-semibold text-[#B4502A]">{doneSteps}/4 步</span>
-        <div className="ml-auto flex items-center gap-5">
-          <button type="button" className="se-link text-sm" onClick={openMySkills}>我的配方</button>
-          <button type="button" className="se-link text-sm" onClick={() => importRef.current?.click()}>导入</button>
-          <button type="button" className="se-link text-sm" onClick={() => navigate('/legal')}>隐私与 AI 说明</button>
-          {stage !== 'entry' && <button type="button" className="se-link text-sm" onClick={resetAll}>重开</button>}
-          <button type="button" className="se-btn-dark px-5 py-2.5 text-sm" onClick={resetAll}>＋ 新任务</button>
-        </div>
-      </div>
-
       <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[264px_minmax(0,1fr)_296px]">
         {/* ===== 左：Bot 会话列表 ===== */}
-        <aside className="flex min-w-0 flex-col gap-1.5 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+        <aside className="flex min-w-0 flex-col gap-1.5 lg:min-h-0 lg:pr-1">
           <p className="mb-2 px-1 text-[11px] font-semibold tracking-[.12em] text-[#B3A492]">BOT 团队</p>
-          {BOT_ORDER.map((name) => {
-            const meta = BOT_META[name];
-            const active = focusKey === name;
-            return (
-              <button key={name} type="button" onClick={() => setFocusBot(active ? null : name)}
-                className={`se-conv flex items-center gap-3 px-3 py-2.5 text-left ${active ? 'active' : ''}`}>
-                <BotAvatar spec={avatarOf(name)} size={34} motion={motionFor(name)} />
-                <span className="min-w-0">
-                  <span className="block text-[14px] font-bold">{meta.label}</span>
-                  <span className="block truncate text-[12px] text-[#8C7D6C]">{meta.summary}</span>
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+            {BOT_ORDER.map((name) => {
+              const meta = BOT_META[name];
+              const active = focusKey === name;
+              return (
+                <button key={name} type="button" onClick={() => setFocusBot(active ? null : name)}
+                  className={`se-conv flex items-center gap-3 px-3 py-2.5 text-left ${active ? 'active' : ''}`}>
+                  <BotAvatar spec={avatarOf(name)} size={34} motion={motionFor(name)} />
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-bold">{meta.label}</span>
+                    <span className="block truncate text-[12px] text-[#8C7D6C]">{meta.summary}</span>
+                  </span>
+                  <span className="se-dot ml-auto shrink-0" style={{ background: stateDot(botState[name]) }} />
+                </button>
+              );
+            })}
+            <div className="mt-auto pt-3 text-[10.5px] leading-4 text-[#8C7D6C]">
+              点任一 Bot 进入单独对话；每个节点产物会自动传给下一个 Bot。
+            </div>
+          </div>
+
+          {/* 左下角任务入口：折叠收纳配方 / 导入 / 隐私 / 重开 / 新任务 */}
+          <div className="relative shrink-0 pt-2">
+            {menuOpen && (
+              <div className="se-card absolute bottom-full left-0 z-30 mb-2 w-full p-1.5 shadow-lg">
+                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
+                  onClick={() => { openMySkills(); setMenuOpen(false); }}>我的配方</button>
+                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
+                  onClick={() => { importRef.current?.click(); setMenuOpen(false); }}>导入配方</button>
+                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
+                  onClick={() => { navigate('/legal'); setMenuOpen(false); }}>隐私与 AI 说明</button>
+                {stage !== 'entry' && (
+                  <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] text-[#4E3323] hover:bg-[#F6ECDF]"
+                    onClick={() => { resetAll(); setMenuOpen(false); }}>重开本任务</button>
+                )}
+                <button type="button" className="se-btn-dark mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[13px]"
+                  onClick={() => { resetAll(); setMenuOpen(false); }}>＋ 新任务</button>
+              </div>
+            )}
+            <button type="button" onClick={() => setMenuOpen((o) => !o)}
+              className="se-conv flex w-full items-center gap-3 px-3 py-2.5 text-left">
+              <BotAvatar spec={avatarOf('主脑')} size={34} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-bold">当前任务</span>
+                <span className="block truncate text-[12px] text-[#8C7D6C]">
+                  {stage === 'result' ? '成品已交付' : stage === 'entry' ? '待上传照片' : '编排进行中'}
                 </span>
-                <span className="se-dot ml-auto shrink-0" style={{ background: stateDot(botState[name]) }} />
-              </button>
-            );
-          })}
-          <div className="mt-auto pt-4 text-[10.5px] leading-4 text-[#8C7D6C]">
-            点任一 Bot 进入单独对话；每个节点产物会自动传给下一个 Bot。
+              </span>
+              <span className={`text-[11px] text-[#B3A492] transition-transform ${menuOpen ? 'rotate-180' : ''}`}>▾</span>
+            </button>
           </div>
         </aside>
 
