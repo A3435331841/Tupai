@@ -65,11 +65,11 @@ export default function WorkFlow({ navigate }: { navigate: (to: string) => void 
         <h2 className="mt-2 font-display text-[1.75rem] sm:mt-3 sm:text-[2.6rem]">三步，把随手拍变成作品。</h2>
       </div>
 
-      <div className="flow-c mx-auto mt-7 grid max-w-4xl grid-cols-3 gap-3 sm:mt-9 sm:gap-5">
+      <div className="flow-c mx-auto mt-7 grid max-w-4xl grid-cols-1 gap-3 sm:mt-9 sm:grid-cols-3 sm:gap-5">
         {STEPS.map(({ no, title, desc, Icon }, i) => (
           <div
             key={no}
-            className="flow-c-step group relative overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-3 transition-transform duration-300 sm:p-4"
+            className="flow-c-step group relative min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-3 transition-transform duration-300 sm:p-4"
             style={{ transitionDelay: `${i * 120}ms`, transform: tilt === i ? 'perspective(800px) rotateY(-6deg) rotateX(3deg) translateY(-6px)' : undefined }}
             onMouseMove={(e) => { if (tilt === i) e.currentTarget.style.setProperty('--mx', `${e.nativeEvent.offsetX}px`); }}
             onMouseEnter={() => setTilt(i)}

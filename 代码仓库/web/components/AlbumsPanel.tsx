@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 const shareLink = (token: string) => window.location.origin + apiUrl(`/api/v1/share/${token}/page`);
 
-export function AlbumsPanel() {
+export function AlbumsPanel({ onChanged }: { onChanged?: () => void }) {
   const [albums, setAlbums] = useState<AlbumMeta[] | null>(null);
   const [results, setResults] = useState<AssetMeta[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -23,6 +23,9 @@ export function AlbumsPanel() {
   const [editing, setEditing] = useState<AlbumMeta | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editSelected, setEditSelected] = useState<Set<string>>(new Set());
+  // 编辑老画册时，前 60 张结果之外的历史作品（含已进回收站的占位项）
+  const [editExtras, setEditExtras] = useState<AssetMeta[]>([]);
+  const [editMissing, setEditMissing] = useState<string[]>([]);
   const [shareTarget, setShareTarget] = useState<AlbumMeta | null>(null);
   const [shareHours, setShareHours] = useState(168);
   const [deleteTarget, setDeleteTarget] = useState<AlbumMeta | null>(null);
@@ -49,6 +52,7 @@ export function AlbumsPanel() {
       toast.success('画册已创建');
       setCreating(false); setTitle(''); setSelected(new Set());
       await load();
+      onChanged?.();
     } catch (e) { toast.error(errText(e, '创建失败')); }
     finally { setBusy(false); }
   }
@@ -62,6 +66,7 @@ export function AlbumsPanel() {
       catch { toast.info(`请手动复制链接：${link}`); }
       setShareTarget(null);
       await load();
+      onChanged?.();
     } catch (e) { toast.error(errText(e, '分享失败')); }
   }
 
@@ -73,18 +78,36 @@ export function AlbumsPanel() {
   }
 
   async function revoke(a: AlbumMeta) {
-    try { await api.revokeAlbumShare(a.id); toast.success('已撤回分享'); await load(); }
+    try { await api.revokeAlbumShare(a.id); toast.success('已撤回分享'); await load(); onChanged?.(); }
     catch (e) { toast.error(errText(e, '撤回失败')); }
   }
 
   async function doDelete() {
     if (!deleteTarget) return;
-    try { await api.deleteAlbum(deleteTarget.id); toast.success('画册已删除'); setDeleteTarget(null); await load(); }
+    try { await api.deleteAlbum(deleteTarget.id); toast.success('画册已删除'); setDeleteTarget(null); await load(); onChanged?.(); }
     catch (e) { toast.error(errText(e, '删除失败')); }
   }
 
-  function startEdit(a: AlbumMeta) {
+  async function startEdit(a: AlbumMeta) {
     setEditing(a); setEditTitle(a.title); setEditSelected(new Set(a.item_ids));
+    setEditExtras([]); setEditMissing([]);
+    // 前 60 张结果之外的历史作品逐个补拉；404/已删除的记为占位，默认不勾选
+    const known = new Set(results.map((x) => x.id));
+    const missingIds = a.item_ids.filter((id) => !known.has(id));
+    if (missingIds.length === 0) return;
+    const extras: AssetMeta[] = [];
+    const gone: string[] = [];
+    await Promise.all(missingIds.map(async (id) => {
+      try {
+        const r = await api.asset(id);
+        if (r.asset.deleted_at) gone.push(id); else extras.push(r.asset);
+      } catch { gone.push(id); }
+    }));
+    setEditExtras(extras);
+    setEditMissing(gone);
+    if (gone.length > 0) {
+      setEditSelected((old) => { const n = new Set(old); gone.forEach((id) => n.delete(id)); return n; });
+    }
   }
   async function saveEdit() {
     if (!editing) return;
@@ -95,7 +118,9 @@ export function AlbumsPanel() {
       await api.updateAlbum(editing.id, { title: editTitle.trim(), item_ids: [...editSelected] });
       toast.success('画册已更新');
       setEditing(null);
+      setEditExtras([]); setEditMissing([]);
       await load();
+      onChanged?.();
     } catch (e) { toast.error(errText(e, '更新失败')); }
     finally { setBusy(false); }
   }
@@ -124,9 +149,9 @@ export function AlbumsPanel() {
           {results.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">还没有生成作品。先去创作台生成几张。</p>
           ) : (
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6" aria-label="选择作品">
               {results.map((a) => (
-                <button key={a.id} onClick={() => toggle(a.id)} className={`relative aspect-[3/4] overflow-hidden rounded-lg border-2 ${selected.has(a.id) ? 'border-primary ring-2 ring-primary/40' : 'border-border'}`}>
+                <button key={a.id} onClick={() => toggle(a.id)} aria-pressed={selected.has(a.id)} className={`relative aspect-[3/4] overflow-hidden rounded-lg border-2 ${selected.has(a.id) ? 'border-primary ring-2 ring-primary/40' : 'border-border'}`}>
                   <AssetImage path={a.content_url} alt="作品" className="size-full object-cover" />
                   {selected.has(a.id) && <span className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">✓</span>}
                 </button>
@@ -192,23 +217,29 @@ export function AlbumsPanel() {
       </Dialog>
 
       {/* 编辑画册 */}
-      <Dialog open={Boolean(editing)} onOpenChange={(v) => { if (!v) setEditing(null); }}>
+      <Dialog open={Boolean(editing)} onOpenChange={(v) => { if (!v) { setEditing(null); setEditExtras([]); setEditMissing([]); } }}>
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
           {editing && (
             <>
               <DialogHeader><DialogTitle>编辑画册</DialogTitle></DialogHeader>
               <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="画册名称" maxLength={100} />
               <p className="text-xs text-muted-foreground">勾选要保留的作品，第一张自动作为封面。</p>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                {results.map((a) => (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6" aria-label="选择作品">
+                {[...results, ...editExtras.filter((e) => !results.some((r) => r.id === e.id))].map((a) => (
                   <button
                     key={a.id}
                     onClick={() => setEditSelected((old) => { const n = new Set(old); if (n.has(a.id)) n.delete(a.id); else n.add(a.id); return n; })}
+                    aria-pressed={editSelected.has(a.id)}
                     className={`relative aspect-[3/4] overflow-hidden rounded-lg border-2 ${editSelected.has(a.id) ? 'border-primary ring-2 ring-primary/40' : 'border-border'}`}
                   >
                     <AssetImage path={a.content_url} alt="作品" className="size-full object-cover" />
                     {editSelected.has(a.id) && <span className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">✓</span>}
                   </button>
+                ))}
+                {editMissing.map((id) => (
+                  <div key={id} className="relative grid aspect-[3/4] place-items-center rounded-lg border-2 border-dashed border-border bg-secondary/60 p-1 text-center text-[10px] leading-tight text-muted-foreground">
+                    作品已移入回收站
+                  </div>
                 ))}
               </div>
               <DialogFooter>

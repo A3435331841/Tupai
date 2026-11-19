@@ -57,6 +57,9 @@ export function GalleryRail({
     raf: 0,
   });
 
+  // 供 JSX 键盘事件调用的动作（避免把 effect 内部函数暴露成 state）
+  const actions = useRef<{ select: (i: number) => void; useSelected: () => void } | null>(null);
+
   const N = items.length;
 
   // 空闲预加载：首屏只加载内圈，随后后台把其余图取完，避免循环滚入时闪白
@@ -94,13 +97,29 @@ export function GalleryRail({
       }, 240);
     };
 
+    // 同步无障碍属性：选中态才让卡内按钮可聚焦、可见于辅助技术
+    const syncA11y = (i: number, on: boolean) => {
+      const el = nodeRefs.current[i];
+      if (!el) return;
+      el.setAttribute('aria-pressed', String(on));
+      el.querySelectorAll<HTMLElement>('[data-close],[data-use]').forEach((btn) => {
+        btn.tabIndex = on ? 0 : -1;
+        if (on) btn.removeAttribute('aria-hidden');
+        else btn.setAttribute('aria-hidden', 'true');
+      });
+    };
+
     const select = (i: number) => {
       if (s.selected === i) return deselect();
-      if (s.selected >= 0) nodeRefs.current[s.selected]?.classList.remove('is-selected');
+      if (s.selected >= 0) {
+        nodeRefs.current[s.selected]?.classList.remove('is-selected');
+        syncA11y(s.selected, false);
+      }
       // 归位目标：基于当前 offset 的循环最短距离
       s.targetOffset = s.offset + wrapD(i - s.offset);
       s.selected = i;
       nodeRefs.current[i]?.classList.add('is-selected');
+      syncA11y(i, true);
       rail.classList.add('has-selected');
       s.tx = 0;
       s.ty = 0;
@@ -108,12 +127,14 @@ export function GalleryRail({
     const deselect = () => {
       if (s.selected < 0) return;
       nodeRefs.current[s.selected]?.classList.remove('is-selected');
+      syncA11y(s.selected, false);
       s.selected = -1;
       rail.classList.remove('has-selected');
     };
     const useSelected = () => {
       if (s.selected >= 0) onUse(items[s.selected]);
     };
+    actions.current = { select, useSelected };
 
     const tick = () => {
       if (s.selected >= 0) {
@@ -251,6 +272,15 @@ export function GalleryRail({
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // 输入中不劫持 Enter / 方向键（顶栏搜索框等）
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.isContentEditable ||
+          t.closest('input,textarea,[contenteditable]'))
+      ) return;
       if (e.key === 'Escape') return deselect();
       if (s.selected >= 0 && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
@@ -320,8 +350,20 @@ export function GalleryRail({
           ref={(el) => {
             nodeRefs.current[i] = el;
           }}
-          role="listitem"
-          className="absolute left-1/2 top-1/2 overflow-hidden rounded-md bg-secondary shadow-[0_20px_50px_-24px_rgba(40,25,15,.5)] will-change-transform [&.is-selected]:z-[200] [&.is-selected]:shadow-[0_0_0_2px_var(--primary),0_34px_76px_-18px_rgba(40,25,15,.72)]"
+          role="button"
+          tabIndex={0}
+          aria-pressed={false}
+          aria-label={`${item.title}（第 ${i + 1} / ${N} 张，回车选中）`}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+            e.preventDefault();
+            e.stopPropagation();
+            const a = actions.current;
+            if (!a) return;
+            if (e.key === 'Enter' && state.current.selected === i) a.useSelected();
+            else a.select(i);
+          }}
+          className="absolute left-1/2 top-1/2 overflow-hidden rounded-md bg-secondary shadow-[0_20px_50px_-24px_rgba(40,25,15,.5)] outline-none will-change-transform [&.is-selected]:z-[200] [&.is-selected]:shadow-[0_0_0_2px_var(--primary),0_34px_76px_-18px_rgba(40,25,15,.72)] focus-visible:ring-2 focus-visible:ring-primary/60"
           style={{ width: CARD_W, aspectRatio: '3 / 4' }}
         >
           {/* 内圈卡片优先加载，避免循环滚入时闪白；远端按需加载 */}
@@ -348,7 +390,7 @@ export function GalleryRail({
           </span>
 
           {/* 选中信息层 */}
-          <button data-close aria-label="关闭"
+          <button data-close aria-label="关闭" tabIndex={-1} aria-hidden="true"
             className="absolute right-2 top-2 z-[4] grid size-6 place-items-center rounded-full bg-stone-950/62 text-base leading-none text-white opacity-0 transition-opacity hover:bg-primary [.is-selected_&]:opacity-100">
             ×
           </button>
@@ -357,7 +399,7 @@ export function GalleryRail({
             <p className="mx-auto mt-1 flex items-center justify-center gap-1 text-[10px] text-white/70">
               <Lock className="size-2.5" /> 原图私密 · 结果带 AI 标识
             </p>
-            <button data-use
+            <button data-use tabIndex={-1} aria-hidden="true"
               className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground transition hover:bg-primary/90">
               用这张做同款 <ArrowRight className="size-3" />
             </button>

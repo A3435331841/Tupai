@@ -31,10 +31,10 @@ export default function App() {
   const fixed = isHome || isStudio;
 
   return (
-    <div className={`flex w-full min-w-0 flex-col ${fixed ? 'h-dvh overflow-hidden' : 'min-h-dvh'}`}>
+    <div className={`flex w-full min-w-0 flex-col ${fixed ? (isStudio ? 'min-h-dvh lg:h-dvh lg:overflow-hidden' : 'h-dvh overflow-hidden') : 'min-h-dvh'}`}>
       {/* 全部页面统一主站顶部栏，选中态按 path 自动高亮 */}
       <SiteHeader path={path} navigate={navigate} />
-      <main className={`w-full min-w-0 flex-1 min-h-0 ${isHome ? 'home-snap-scroll overflow-y-auto overscroll-contain' : isStudio ? 'overflow-hidden' : ''}`}>
+      <main className={`w-full min-w-0 flex-1 min-h-0 ${isHome ? 'home-snap-scroll overflow-y-auto overscroll-contain' : isStudio ? 'overflow-y-auto lg:overflow-hidden' : ''}`}>
         <Suspense fallback={<PageFallback />}>
           {isStudio ? <Studio navigate={navigate} />
             : path === '/library' ? <Library navigate={navigate} />

@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 
 const KIND_LABEL: Record<string, string> = { original: '原图', result: '作品', reference: '参考' };
 const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
+// only_deleted 由后端约定新增，api.ts 签名尚未同步时用本地类型兜底
+type AssetQuery = NonNullable<Parameters<typeof api.assets>[0]> & { only_deleted?: boolean };
 
 export default function Library({ navigate }: { navigate: (to: string) => void }) {
   const [kind, setKind] = useState('');
@@ -35,33 +37,45 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
   const [deleteTarget, setDeleteTarget] = useState<AssetMeta | null>(null);
   const [purgeTarget, setPurgeTarget] = useState<AssetMeta | null>(null);
 
-  const load = useCallback(async (reset: boolean) => {
-    setBusy(true); setError(null);
+  const load = useCallback(async (reset: boolean, opts?: { limit?: number }) => {
+    setBusy(true);
+    if (reset) setError(null);
     try {
-      const r = await api.assets({ kind: kind || undefined, q: q || undefined, include_deleted: bin, limit: 24, offset: reset ? 0 : (offset ?? 0) });
+      const r = await api.assets({
+        kind: kind || undefined,
+        q: q || undefined,
+        only_deleted: bin,
+        limit: opts?.limit ?? 24,
+        offset: reset ? 0 : (offset ?? 0),
+      } as AssetQuery);
       setItems((old) => reset || !old ? r.assets : [...old, ...r.assets]);
       setTotal(r.total);
       setSummary(r.summary || {});
       setOffset(r.next_offset);
     } catch (e) {
-      setError(errText(e, '加载失败，请稍后重试'));
-      if (reset) setItems([]);
+      // 加载更多失败只提示，保留已加载列表；只有首屏 reset 失败才替换整块内容
+      if (reset) { setError(errText(e, '加载失败，请稍后重试')); setItems([]); }
+      else toast.error('加载更多失败，请稍后重试');
     } finally { setBusy(false); }
   }, [kind, q, bin, offset]);
 
   useEffect(() => { void load(true); /* eslint-disable-next-line */ }, [kind, bin]);
 
   // 侧栏数据：复用已有 API，失败静默降级不影响主资产列表
+  const loadAlbumCount = useCallback(() => {
+    void api.albums().then((r) => setAlbumCount(r.albums.length)).catch(() => {});
+  }, []);
   useEffect(() => {
     void api.skills().then((r) => setSkills(r.skills)).catch(() => setSkills([]));
-    void api.albums().then((r) => setAlbumCount(r.albums.length)).catch(() => setAlbumCount(0));
-  }, []);
+    loadAlbumCount();
+  }, [loadAlbumCount]);
 
   async function search() { setOffset(0); await load(true); }
-  // 删除/恢复后保持滚动位置，避免列表重排把用户甩回顶部
+  // 删除/恢复后保持滚动位置，避免列表重排把用户甩回顶部；按已加载条数重取，避免列表骤缩
   async function refreshKeepScroll() {
     const y = window.scrollY;
-    await load(true);
+    const limit = Math.min(60, Math.max(24, items?.length ?? 24));
+    await load(true, { limit });
     requestAnimationFrame(() => window.scrollTo(0, y));
   }
 
@@ -134,7 +148,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0">
-          {mode === 'albums' && <AlbumsPanel />}
+          {mode === 'albums' && <AlbumsPanel onChanged={loadAlbumCount} />}
           {mode === 'assets' && (<>
             <div className="mb-4 flex flex-wrap items-center gap-2">
               {[['', '全部'], ['original', '原图'], ['result', '作品']].map(([v, label]) => (
@@ -142,7 +156,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
               ))}
               <Button size="sm" variant={bin ? 'secondary' : 'ghost'} onClick={() => setBin((b) => !b)}>回收站</Button>
               <div className="ml-auto flex gap-2">
-                <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void search(); }} placeholder="搜标签 / 来源…" className="h-9 w-44" />
+                <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void search(); }} placeholder="搜标签 / 来源…" aria-label="搜索资产" className="h-9 w-44" />
                 <Button size="sm" variant="outline" onClick={() => void search()}>搜索</Button>
               </div>
             </div>
@@ -153,7 +167,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
                 <Button size="sm" variant="outline" onClick={() => void load(true)}>重试</Button>
               </Card>
             ) : items === null ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3">
                 {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => <Skeleton key={i} className="aspect-[3/4] w-full rounded-xl" />)}
               </div>
             ) : items.length === 0 ? (
@@ -196,7 +210,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3">
                   {items.map((a) => (
                     <Card key={a.id} className="overflow-hidden p-0">
                       <button type="button" className="relative block aspect-[3/4] w-full bg-secondary" disabled={Boolean(a.deleted_at)} onClick={() => setPreview(a)} aria-label={`预览 ${KIND_LABEL[a.kind] || a.kind}`}>
@@ -214,8 +228,8 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
                         </div>
                         <p className="mt-1 text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString('zh-CN')} · {a.width}×{a.height}</p>
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {!a.deleted_at && <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" onClick={() => navigate(`/studio?asset=${a.id}`)}>再创作</Button>}
-                          {!a.deleted_at && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openTags(a)}>打标</Button>}
+                          {!bin && !a.deleted_at && <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" onClick={() => navigate(`/studio?asset=${a.id}`)}>再创作</Button>}
+                          {!bin && !a.deleted_at && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openTags(a)}>打标</Button>}
                           {a.deleted_at
                             ? <>
                               <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" onClick={() => void restore(a)}>恢复</Button>
@@ -243,6 +257,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
           <div className="site-flow-card overflow-hidden rounded-2xl">
             <div className="flex justify-center bg-gradient-to-b from-secondary/50 to-transparent px-4 pt-5">
               <div className="relative w-full max-w-[260px]">
+                <span className="absolute right-2 top-2 z-10 rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white">示例</span>
                 <div className="grid grid-cols-2 overflow-hidden rounded-md border-4 border-[#8a5a3b] shadow-lg" style={{ boxShadow: '0 8px 24px -8px rgba(60,40,20,.5), inset 0 0 0 2px rgba(255,255,255,.2)' }}>
                   <div className="aspect-[3/4] bg-cover bg-center" style={{ backgroundImage: "url('/gallery/g09-street.jpg')" }} />
                   <div className="aspect-[3/4] bg-cover bg-center" style={{ backgroundImage: "url('/gallery/g13-city.jpg')" }} />

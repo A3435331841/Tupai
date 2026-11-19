@@ -100,6 +100,7 @@ function HomeAuth({ navigate }: { navigate: (to: string) => void }) {
   const [nameValue, setNameValue] = useState('');
   const [bioValue, setBioValue] = useState('');
   const bound = useRef(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let alive = true;
     api.me()
@@ -114,6 +115,21 @@ function HomeAuth({ navigate }: { navigate: (to: string) => void }) {
       .catch(() => { if (alive) setMe({ logged_in: false, user: null }); });
     return () => { alive = false; };
   }, []);
+
+  // 账号菜单：外部点击 / Escape 关闭
+  useEffect(() => {
+    if (!open) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onDocKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDocDown);
+    document.addEventListener('keydown', onDocKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocDown);
+      document.removeEventListener('keydown', onDocKey);
+    };
+  }, [open]);
 
   const goLogin = () => { window.location.href = loginUrl(); };
 
@@ -131,7 +147,7 @@ function HomeAuth({ navigate }: { navigate: (to: string) => void }) {
   if (me.logged_in) {
     const name = profile?.display_name || me.user?.name || '已登录';
     return (
-      <div className="relative">
+      <div className="relative" ref={menuRef}>
         <button
           type="button"
           aria-haspopup="menu"
@@ -202,7 +218,7 @@ export default function SiteHeader({ path, navigate }: { path: string; navigate:
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();
     const keyword = q.trim();
-    if (!keyword) return;
+    if (!keyword) { toast.info('输入关键词后再搜索'); return; }
     navigate(`/community?q=${encodeURIComponent(keyword)}`);
     // 已在社区时路径不变，用事件通知页面刷新 feed
     window.dispatchEvent(new CustomEvent('tupai:search', { detail: keyword }));
@@ -224,7 +240,7 @@ export default function SiteHeader({ path, navigate }: { path: string; navigate:
         {/* 导航：线性图标 + 短下划线选中态 + 淡悬停暖底 */}
         <nav className="order-3 flex w-full min-w-0 items-center justify-start gap-0.5 overflow-x-auto scrollbar-none sm:justify-center md:order-none md:w-auto md:flex-1" aria-label="主导航">
           {NAV_ITEMS.map(({ route, label, Icon }) => {
-            const active = path === route;
+            const active = path === route || (route === '/community' && path.startsWith('/work/'));
             return (
               <button
                 key={route}

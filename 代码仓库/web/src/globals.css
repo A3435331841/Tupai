@@ -573,6 +573,15 @@
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
+/* 移动端首屏内容可能高于可视区，强制吸附会让「试玩/向下浏览」被卡在屏外，降级为 proximity */
+@media (max-width: 767px) {
+  .home-snap-scroll {
+    scroll-snap-type: y proximity;
+  }
+  .home-snap-pages .home-snap-section {
+    scroll-snap-stop: normal;
+  }
+}
 /* 入场动画：默认可见，JS 标记 snap-ready 后才启用位移淡入，避免首屏空白 */
 .home-snap-scroll.snap-ready .home-snap-pages .snap-reveal {
   opacity: 0;

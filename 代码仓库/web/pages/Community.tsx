@@ -19,6 +19,8 @@ const needLogin = (e: unknown) => {
   return false;
 };
 const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
+// 后端约定 include_closed=true 返回「进行中 + 我发起的已结束」；api.ts 类型待同步，先做函数断言兜底
+const tasksWithClosed = api.tasks as unknown as (includeClosed?: boolean) => Promise<{ tasks: TaskItem[] }>;
 
 function readInitialTab(): Tab {
   const t = new URLSearchParams(window.location.search).get('tab');
@@ -51,6 +53,9 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   const [tab, setTab] = useState<Tab>(readInitialTab);
   const [works, setWorks] = useState<WorkMeta[] | null>(null);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [feedNext, setFeedNext] = useState<number | null>(null);
+  const [feedBusy, setFeedBusy] = useState(false);
+  const [tabError, setTabError] = useState<string | null>(null);
   const [tag, setTag] = useState('');
   const [q, setQ] = useState(readInitialQuery);
   const [sort, setSort] = useState<'new' | 'hot'>('new');
@@ -80,14 +85,34 @@ export default function Community({ navigate }: { navigate: (to: string) => void
 
   const loadFeed = useCallback(async () => {
     setFeedError(null);
+    setFeedBusy(false);
     try {
       const r = await api.feed({ tag: applied.tag || undefined, q: applied.q || undefined, sort: applied.sort });
       setWorks(r.works);
+      setFeedNext(r.next_offset ?? null);
     } catch (e) {
       setWorks([]);
+      setFeedNext(null);
       setFeedError(e instanceof ApiRequestError && e.status === 0 ? '网络异常，无法加载社区内容' : errText(e, '加载失败，请稍后重试'));
     }
   }, [applied]);
+  async function loadMoreFeed() {
+    if (feedNext === null) return;
+    setFeedBusy(true);
+    try {
+      const r = await api.feed({ tag: applied.tag || undefined, q: applied.q || undefined, sort: applied.sort, offset: feedNext });
+      setWorks((old) => {
+        const list = old || [];
+        const seen = new Set(list.map((w) => w.id));
+        return [...list, ...r.works.filter((w) => !seen.has(w.id))];
+      });
+      setFeedNext(r.next_offset ?? null);
+    } catch (e) {
+      toast.error(errText(e, '加载更多失败'));
+    } finally {
+      setFeedBusy(false);
+    }
+  }
   useEffect(() => { if (tab === 'feed') void loadFeed(); }, [tab, loadFeed]);
   const applyFilters = (next?: Partial<{ tag: string; q: string; sort: 'new' | 'hot' }>) => {
     setApplied({ tag, q, sort, ...next });
@@ -113,13 +138,28 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     };
   }, []);
 
+  const loadTasksTab = useCallback(async () => {
+    setTabError(null);
+    try { const r = await tasksWithClosed(true); setTasks(r.tasks); }
+    catch (e) { setTabError(errText(e, '加载共创任务失败')); }
+  }, []);
+  const loadNoticesTab = useCallback(async () => {
+    setTabError(null);
+    try { const r = await api.notifications(); setNotices(r.notifications); setUnread(r.unread); }
+    catch (e) { if (!needLogin(e)) setTabError(errText(e, '加载通知失败')); }
+  }, []);
+  const loadMineTab = useCallback(async () => {
+    setTabError(null);
+    try { const r = await api.myWorks(); setMine(r.works); }
+    catch (e) { if (!needLogin(e)) setTabError(errText(e, '加载我的作品失败')); }
+  }, []);
+
   useEffect(() => {
-    if (tab === 'tasks' || tab === 'feed') api.tasks().then((r) => setTasks(r.tasks)).catch(() => setTasks([]));
-    if (tab === 'notify') {
-      api.notifications().then((r) => { setNotices(r.notifications); setUnread(r.unread); }).catch(() => setNotices([]));
-    }
-    if (tab === 'mine') api.myWorks().then((r) => setMine(r.works)).catch((e) => { if (!needLogin(e)) setMine([]); });
-  }, [tab]);
+    if (tab === 'tasks') void loadTasksTab();
+    if (tab === 'feed') { setTabError(null); tasksWithClosed(true).then((r) => setTasks(r.tasks)).catch(() => {}); }
+    if (tab === 'notify') void loadNoticesTab();
+    if (tab === 'mine') void loadMineTab();
+  }, [tab, loadTasksTab, loadNoticesTab, loadMineTab]);
 
   async function openWork(w: WorkMeta) {
     setActive(w);
@@ -151,20 +191,27 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       toast.success(r.liked ? '已点赞' : '已取消点赞');
     } catch (e) { if (!needLogin(e)) toast.error('操作失败'); }
   }
+  function bumpCommentCount(id: string, delta: number) {
+    const patch = (x: WorkMeta) => (x.id === id ? { ...x, comment_count: Math.max(0, (x.comment_count ?? 0) + delta) } : x);
+    setWorks((old) => old?.map(patch) ?? null);
+    setMine((old) => old?.map(patch) ?? null);
+    setActive((old) => (old && old.id === id ? patch(old) : old));
+  }
   async function addComment(w: WorkMeta) {
     if (!commentText.trim()) return;
     try {
       const r = await api.addComment(w.id, commentText.trim());
       setComments((old) => [...old, r.comment]);
       setCommentText('');
-      setActive((old) => (old ? { ...old, comment_count: (old.comment_count || 0) + 1 } : old));
+      bumpCommentCount(w.id, 1);
     } catch (e) { if (!needLogin(e)) toast.error(errText(e, '评论失败')); }
   }
   async function delComment(cid: string) {
+    const workId = active?.id;
     try {
       await api.deleteComment(cid);
       setComments((old) => old.filter((c) => c.id !== cid));
-      setActive((old) => (old ? { ...old, comment_count: Math.max(0, (old.comment_count || 1) - 1) } : old));
+      if (workId) bumpCommentCount(workId, -1);
     } catch { toast.error('删除失败'); }
   }
   async function submitReport() {
@@ -191,10 +238,14 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       if (action === 'appeal') await api.appealWork(w.id);
       toast.success(action === 'withdraw' ? '已撤回，停止新 fork' : action === 'republish' ? '已重新发布' : '申诉通过，已恢复');
       const r = await api.work(w.id);
-      setActive(r.work);
+      // 仅当详情弹窗正展示该作品时才更新，避免「我的作品」卡片操作误弹详情
+      setActive((old) => (old && old.id === w.id ? r.work : old));
       void loadFeed();
       if (tab === 'mine') api.myWorks().then((x) => setMine(x.works)).catch(() => {});
     } catch (e) { toast.error(errText(e, '操作失败')); }
+  }
+  async function refreshTasks() {
+    try { const r = await tasksWithClosed(true); setTasks(r.tasks); } catch { /* 列表刷新失败不阻塞主操作 */ }
   }
   async function createTask() {
     if (!newTheme.trim()) { toast.error('请输入任务主题'); return; }
@@ -202,7 +253,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       await api.createTask(newTheme.trim(), newConstraints.trim() || undefined);
       setNewTheme(''); setNewConstraints('');
       toast.success('任务已创建');
-      const r = await api.tasks(); setTasks(r.tasks);
+      await refreshTasks();
     } catch (e) { if (!needLogin(e)) toast.error('创建失败'); }
   }
   async function openTask(id: string) {
@@ -215,10 +266,12 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   async function submitToTask(workId: string) {
     if (!activeTask) return;
     try {
-      await api.submitTask(activeTask.id, workId);
-      toast.success('已提交');
-      const r = await api.task(activeTask.id);
-      setActiveTask({ ...r.task, works: r.works });
+      // 后端会返回 already=true 表示重复投稿；api.ts 类型待同步，先断言
+      const r = (await api.submitTask(activeTask.id, workId)) as { ok: boolean; already?: boolean };
+      if (r.already) toast.info('这件作品已经在任务里了');
+      else toast.success('已提交');
+      const t = await api.task(activeTask.id);
+      setActiveTask({ ...t.task, works: t.works });
     } catch (e) { if (!needLogin(e)) toast.error(errText(e, '提交失败')); }
   }
   async function withdrawSubmission(workId: string) {
@@ -228,16 +281,15 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       toast.success('已撤回投稿');
       const r = await api.task(activeTask.id);
       setActiveTask({ ...r.task, works: r.works });
-      const list = await api.tasks(); setTasks(list.tasks);
+      await refreshTasks();
     } catch (e) { toast.error(errText(e, '撤回失败')); }
   }
-  async function toggleTask(status: 'open' | 'closed') {
-    if (!activeTask) return;
+  async function toggleTask(t: TaskItem, status: 'open' | 'closed') {
     try {
-      await api.updateTask(activeTask.id, status);
-      setActiveTask({ ...activeTask, status });
+      await api.updateTask(t.id, status);
+      setActiveTask((old) => (old && old.id === t.id ? { ...old, status } : old));
       toast.success(status === 'closed' ? '任务已关闭，停止接收投稿' : '任务已重新开放');
-      const r = await api.tasks(); setTasks(r.tasks);
+      await refreshTasks();
     } catch (e) { toast.error(errText(e, '操作失败')); }
   }
   async function openNotice(n: NotificationItem) {
@@ -373,10 +425,19 @@ export default function Community({ navigate }: { navigate: (to: string) => void
               </div>
             )
               : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{works.map((w) => <WorkCard key={w.id} w={w} onOpen={openWork} />)}</div>}
+          {works !== null && works.length > 0 && feedNext !== null && (
+            <div className="mt-4 flex justify-center">
+              <Button size="sm" variant="outline" disabled={feedBusy} onClick={() => void loadMoreFeed()}>
+                {feedBusy ? '加载中…' : '加载更多'}
+              </Button>
+            </div>
+          )}
 
           {/* 设计稿：共创主题横排 */}
           <section className="mt-8">
-            <SectionHeading title="共创主题：把秋天拍成电影" aside="本周热门" />
+            <SectionHeading title="共创主题：把秋天拍成电影" aside="本周热门">
+              <Badge variant="outline" className="text-[10px]">示例</Badge>
+            </SectionHeading>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="grid flex-1 grid-cols-3 gap-3">
                 {['/gallery/g15-plant.jpg', '/gallery/g19-street.png', '/gallery/g17-reading.png'].map((src, i) => (
@@ -389,13 +450,13 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             </div>
           </section>
 
-          {tasks && tasks.length > 0 && (
+          {tasks && tasks.some((t) => t.status !== 'closed') && (
             <section className="mt-8">
-              <SectionHeading title="进行中的共创" aside={`${tasks.length} 个`}>
+              <SectionHeading title="进行中的共创" aside={`${tasks.filter((t) => t.status !== 'closed').length} 个`}>
                 <button type="button" className="text-xs text-primary hover:underline" onClick={() => setTab('tasks')}>查看全部 →</button>
               </SectionHeading>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {tasks.slice(0, 3).map((t) => (
+                {tasks.filter((t) => t.status !== 'closed').slice(0, 3).map((t) => (
                   <Card key={t.id} className="cursor-pointer p-4 transition-transform hover:-translate-y-0.5" onClick={() => { setTab('tasks'); void openTask(t.id); }}>
                     <p className="font-display text-sm font-bold text-foreground">{t.theme}</p>
                     {t.constraints && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{t.constraints}</p>}
@@ -415,13 +476,31 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             <Input value={newConstraints} onChange={(e) => setNewConstraints(e.target.value)} placeholder="约束（可选）：必须保留人物、仅夜景…" className="h-9 w-72" />
             <Button size="sm" onClick={() => void createTask()}>发起任务</Button>
           </div>
-          {tasks === null ? <Skeleton className="h-24 w-full rounded-xl" /> : tasks.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">暂无进行中的共创任务。</Card> : (
+          {tabError ? (
+            <Card className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
+              <p className="text-sm text-destructive">{tabError}</p>
+              <Button size="sm" variant="outline" onClick={() => void loadTasksTab()}>重试</Button>
+            </Card>
+          ) : tasks === null ? <Skeleton className="h-24 w-full rounded-xl" /> : tasks.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">暂无进行中的共创任务。</Card> : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {tasks.map((t) => (
                 <Card key={t.id} className="cursor-pointer p-4 hover:shadow-md" onClick={() => void openTask(t.id)}>
-                  <p className="text-sm font-semibold">{t.theme}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold">{t.theme}</p>
+                    {t.status === 'closed' && <Badge variant="outline" className="shrink-0 text-[10px]">已结束</Badge>}
+                  </div>
                   {t.constraints && <p className="mt-1 text-xs text-muted-foreground">{t.constraints}</p>}
                   <p className="mt-2 text-[11px] text-primary">{t.submission_count ?? 0} 件投稿 · 点击查看 →</p>
+                  {t.is_owner && t.status === 'closed' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-7 text-xs"
+                      onClick={(e) => { e.stopPropagation(); void toggleTask(t, 'open'); }}
+                    >
+                      重新开放
+                    </Button>
+                  )}
                 </Card>
               ))}
             </div>
@@ -435,7 +514,12 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             <p className="text-sm text-muted-foreground">{unread > 0 ? `${unread} 条未读` : '没有未读通知'}</p>
             <Button size="sm" variant="outline" className="ml-auto h-8 text-xs" disabled={unread === 0} onClick={() => void readAll()}>全部已读</Button>
           </div>
-          {notices === null ? <Skeleton className="h-24 w-full rounded-xl" /> : notices.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">暂无通知。</Card> : (
+          {tabError ? (
+            <Card className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
+              <p className="text-sm text-destructive">{tabError}</p>
+              <Button size="sm" variant="outline" onClick={() => void loadNoticesTab()}>重试</Button>
+            </Card>
+          ) : notices === null ? <Skeleton className="h-24 w-full rounded-xl" /> : notices.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">暂无通知。</Card> : (
             <div className="space-y-2">
               {notices.map((n) => (
                 <Card
@@ -459,7 +543,12 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       )}
 
       {tab === 'mine' && (
-        mine === null ? <Skeleton className="h-24 w-full rounded-xl" /> : mine.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">你还没有发布作品。在创作台结果页点「发布到社区」。</Card> : (
+        tabError ? (
+          <Card className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
+            <p className="text-sm text-destructive">{tabError}</p>
+            <Button size="sm" variant="outline" onClick={() => void loadMineTab()}>重试</Button>
+          </Card>
+        ) : mine === null ? <Skeleton className="h-24 w-full rounded-xl" /> : mine.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">你还没有发布作品。在创作台结果页点「发布到社区」。</Card> : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {mine.map((w) => (
               <Card key={w.id} className="overflow-hidden p-0">
@@ -570,7 +659,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                 <span>{activeTask.works.length} 件投稿</span>
                 {activeTask.status === 'closed' && <Badge variant="outline">已关闭</Badge>}
                 {activeTask.is_owner && (
-                  <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={() => void toggleTask(activeTask.status === 'closed' ? 'open' : 'closed')}>
+                  <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={() => void toggleTask(activeTask, activeTask.status === 'closed' ? 'open' : 'closed')}>
                     {activeTask.status === 'closed' ? '重新开放' : '关闭任务'}
                   </Button>
                 )}
@@ -587,7 +676,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                 ))}
                 {activeTask.works.length === 0 && <p className="col-span-full text-sm text-muted-foreground">暂无提交。</p>}
               </div>
-              <SubmitMine onSubmit={submitToTask} />
+              <SubmitMine onSubmit={submitToTask} excludeIds={activeTask.works.map((w) => w.id)} />
               <DialogFooter />
             </>
           )}
@@ -613,7 +702,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>举报作品</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground">请简要说明原因（色情、侵权、暴力等），管理员会复核。</p>
-          <Textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} maxLength={300} className="min-h-24" placeholder="举报原因…" />
+          <Textarea aria-label="举报原因" value={reportReason} onChange={(e) => setReportReason(e.target.value)} maxLength={300} className="min-h-24" placeholder="举报原因…" />
           <DialogFooter>
             <Button variant="outline" onClick={() => { setReportTarget(null); setReportReason(''); }}>取消</Button>
             <Button onClick={() => void submitReport()} disabled={!reportReason.trim()}>提交举报</Button>
@@ -657,15 +746,17 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   );
 }
 
-function SubmitMine({ onSubmit }: { onSubmit: (workId: string) => void }) {
+function SubmitMine({ onSubmit, excludeIds = [] }: { onSubmit: (workId: string) => void; excludeIds?: string[] }) {
   const [mine, setMine] = useState<WorkMeta[] | null>(null);
   useEffect(() => { api.myWorks().then((r) => setMine(r.works.filter((w) => w.status === 'published'))).catch(() => setMine([])); }, []);
   if (!mine || mine.length === 0) return <p className="mt-3 text-xs text-muted-foreground">你没有已发布作品可提交。先去创作并发布。</p>;
+  const available = mine.filter((w) => !excludeIds.includes(w.id));
+  if (available.length === 0) return <p className="mt-3 text-xs text-muted-foreground">已发布的作品都已投进这个任务了。</p>;
   return (
     <div className="mt-4 border-t border-border pt-3">
       <p className="mb-2 text-xs font-semibold">选择我的作品提交</p>
       <div className="flex flex-wrap gap-2">
-        {mine.map((w) => <Button key={w.id} size="sm" variant="outline" onClick={() => onSubmit(w.id)}>{w.title}</Button>)}
+        {available.map((w) => <Button key={w.id} size="sm" variant="outline" onClick={() => onSubmit(w.id)}>{w.title}</Button>)}
       </div>
     </div>
   );

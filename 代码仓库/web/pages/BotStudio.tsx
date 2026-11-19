@@ -95,10 +95,27 @@ type StoredChat = {
   avatars?: Record<string, AvatarSpec>;
   paused?: boolean;
 };
+// 头像 image 只有在「非 blob: 且可跨会话访问」时才值得持久化；blob: 刷新后必然破图
+function persistableAvatar(v: AvatarSpec): AvatarSpec {
+  if (!v.image) return v;
+  const ok = !v.image.startsWith('blob:') && /^(data:|https?:|\/)/.test(v.image);
+  return ok ? v : { ...v, image: undefined };
+}
 function readStoredChat(): StoredChat | null {
   try {
     const raw = localStorage.getItem(CHAT_KEY);
-    return raw ? (JSON.parse(raw) as StoredChat) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredChat;
+    if (parsed.avatars) {
+      const clean: Record<string, AvatarSpec> = {};
+      for (const [k, v] of Object.entries(parsed.avatars)) {
+        // 破损的 blob 头像整条丢弃，恢复时回退到默认头像
+        if (v.image && !persistableAvatar(v).image) continue;
+        clean[k] = v;
+      }
+      parsed.avatars = clean;
+    }
+    return parsed;
   } catch { return null; }
 }
 
@@ -164,6 +181,8 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const fileRef = useRef<HTMLInputElement>(null);
   const bootRef = useRef('');
   const resultBlobRef = useRef<Blob | null>(null);
+  // 轮询世代号：重置 / 新任务递增，旧 job 回来时直接丢弃，避免写进新会话
+  const runEpoch = useRef(0);
 
   const hasImage = Boolean(file || assetId);
   const currentModel = models.find((m) => m.id === model);
@@ -328,7 +347,10 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         }
       } else if (demo === 'text') {
         setTab('text');
-        setText(q.get('text') || '想要胶片感的旅行照');
+        const hint = q.get('text') || '想要胶片感的旅行照';
+        setText(hint);
+        // 纯文字入口要真正跑一次优化，否则永远停在 entry 态出不了图
+        void startOptimize(false, hint);
       } else if (tpl) {
         applyTemplateData(tpl, false);
       }
@@ -338,8 +360,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   async function startOptimize(fromReady = false, ideaOverride?: string) {
     const hasImg = Boolean(file || assetId);
     const idea = (ideaOverride ?? text).trim();
-    if (!fromReady && tab === 'image' && !hasImg) { toast.error('请先选择一张图片'); return; }
-    if (!fromReady && tab === 'text' && !idea) { toast.error('请输入一句话描述'); return; }
+    if (!fromReady && !hasImg && !idea) { toast.error('请先上传一张照片，或输入一句话描述'); return; }
     if (fromReady && !hasImg && !idea) { toast.error('请先上传底图，或输入一句话描述'); return; }
     setBusy(true);
     setStage('optimizing');
@@ -441,18 +462,22 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     resultBlobRef.current = null;
     setGenPhase('排队中');
     setPendingJobId(null);
+    const epoch = ++runEpoch.current;
     const deadline = Date.now() + 120_000;
     let terminal: JobResult | null = null;
     try {
       while (Date.now() < deadline) {
         setGenPhase('分析画面 → 优化提示词 → 生成中（约 8–20 秒）');
         const j = await api.job(jobId);
+        if (epoch !== runEpoch.current) return;
         if (j.status === 'succeeded' || j.status === 'failed') { terminal = j; break; }
         const running = { ...meta, status: j.status };
         setLastJob(running);
         writeLastJob(running);
         await sleep(2000);
+        if (epoch !== runEpoch.current) return;
       }
+      if (epoch !== runEpoch.current) return;
       if (!terminal) {
         setJobError('生成超时：AI 服务可能繁忙，请重试或稍后再来');
         setStage('ready');
@@ -476,6 +501,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       }
       if (terminal.result) {
         const blob = await fetchAssetBlob(terminal.result.url);
+        if (epoch !== runEpoch.current) return;
         resultBlobRef.current = blob;
         setResultUrl((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(blob); });
         if (terminal.result.mock) toast.warning('演示模式：AI 服务繁忙，本次为占位示意图');
@@ -738,6 +764,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   }
 
   function resetAll() {
+    runEpoch.current++;
     if (preview) URL.revokeObjectURL(preview);
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     resultBlobRef.current = null;
@@ -804,7 +831,12 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const [meName, setMeName] = useState('游客');
 
   useEffect(() => {
-    try { localStorage.setItem(CHAT_KEY, JSON.stringify({ turns, avatars, paused })); } catch { /* private mode */ }
+    try {
+      const safeAvatars = Object.fromEntries(
+        Object.entries(avatars).map(([k, v]) => [k, persistableAvatar(v)]),
+      );
+      localStorage.setItem(CHAT_KEY, JSON.stringify({ turns, avatars: safeAvatars, paused }));
+    } catch { /* private mode */ }
   }, [turns, avatars, paused]);
 
   useEffect(() => {
@@ -836,7 +868,8 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   // 只设置前端展示状态，不落库；用户一上传自己的图/发话即接管真实流程。
   const seededRef = useRef(false);
   useEffect(() => {
-    if (seededRef.current || templates.length === 0 || stage !== 'entry' || file) return;
+    // 本地还有上次任务时不要 seed，让 entry 态展示「查看 / 恢复」卡
+    if (seededRef.current || templates.length === 0 || stage !== 'entry' || file || readLastJob()) return;
     seededRef.current = true;
     const tpl = templates.find((t) => t.id === 'film-daily') || templates[0];
     if (!tpl) return;
@@ -865,6 +898,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     '小绘': stage === 'generating' ? '出图中' : stage === 'result' ? '已完成' : '待命',
     '小忆': '常驻',
   };
+  const stateColor = (s: string) => (s === '已完成' || s === '已交付' ? '#2F7D5B' : s === '编排中' || s === '出图中' ? '#2F7CF6' : '#C9C9C7');
 
   // 用户发话：主脑视角分派任务；单 Bot 视角直接与该 Bot 对话
   function sendToBots() {
@@ -881,9 +915,11 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       setText(raw);
       void startOptimize(false, raw);
     } else {
-      // 无底图：先定方向，提示用户上传或选风格
-      addTurn({ from: '主脑', to: '你', text: '收到。先把想法记下——你可以上传一张照片让我分析，或在下方挑一个风格方向，我来帮你写成提示词。' });
+      // 无底图：文字也能直接出候选方案（纯文字试玩入口）
+      addTurn({ from: '主脑', to: '小词', text: '没有底图，就按这句话直接写方向。' });
+      addTurn({ from: '主脑', to: '你', text: '已理解你的想法，正在生成候选方案。' });
       setText(raw);
+      void startOptimize(false, raw);
     }
   }
 
@@ -986,7 +1022,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   // 单 Bot 独立对话：非主脑视角只保留与该 Bot 相关的往来 + 用户原始诉求
   const inBotThread = focusKey !== '主脑';
   const threadTurns = inBotThread
-    ? turns.filter((t) => t.self || t.from === focusKey || t.to === focusKey)
+    ? turns.filter((t) => (t.self ? t.to === focusKey : t.from === focusKey || t.to === focusKey))
     : turns;
   // 进入某 Bot 线程即标记已读（清 unread 蓝点）
   useEffect(() => { setSeen((s) => ({ ...s, [focusKey]: true })); }, [focusKey]);
@@ -1008,7 +1044,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     botState[name] === '编排中' || botState[name] === '出图中' ? 'busy' : 'idle';
 
   return (
-    <div className="studio-editorial relative mx-auto flex w-full max-w-[1440px] min-h-0 flex-col px-5 py-4 sm:px-8 lg:h-full">
+    <div className="studio-editorial relative mx-auto flex w-full max-w-[1440px] min-h-dvh flex-col px-5 py-4 sm:px-8 lg:h-full lg:min-h-0">
       <input ref={importRef} type="file" accept=".json,application/json" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void importSkillFile(f); e.target.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="hidden"
@@ -1056,7 +1092,11 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
                     <span className="block text-[15px] font-bold">{meta.label}</span>
                     <span className="block truncate text-[13px] text-[#9A9A98]">{meta.summary}</span>
                   </span>
-                  {isUnread(name) && <span className="se-dot ml-auto shrink-0" style={{ background: '#2F7CF6' }} />}
+                  <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                    <span className="se-dot" style={{ background: stateColor(botState[name]) }} />
+                    <span className="text-[11px] text-[#9A9A98]">{botState[name]}</span>
+                  </span>
+                  {isUnread(name) && <span className="se-dot shrink-0" style={{ background: '#2F7CF6' }} />}
                 </button>
               );
             })}
@@ -1141,8 +1181,8 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             </div>
           )}
 
-          {/* 消息流：直接铺白底，Bot 消息为整宽浅灰圆角卡 */}
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1 py-2 scrollbar-thin">
+          {/* 消息流：直接铺白底，Bot 消息为整宽浅灰圆角卡；桌面端是唯一滚动区，移动端随页面自然滚动 */}
+          <div className="flex flex-col gap-4 px-1 py-2 scrollbar-thin lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {threadTurns.map((t) => {
               return t.self ? (
                 <div key={t.id} className="se-msg-in flex justify-end">
@@ -1305,7 +1345,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             <button type="button" title="抖音链接" onClick={() => setLinkOpen(true)} className="grid size-9 shrink-0 place-items-center rounded-full text-[#6E6E6C] transition hover:bg-[#F4F4F2]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5" /><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5" /></svg>
             </button>
-            <input value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') sendToBots(); }}
+            <input value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) sendToBots(); }}
               placeholder={inBotThread ? `给 ${curMeta.label} 发消息` : `给 ${curMeta.label} 发消息`} className="min-w-0 flex-1 bg-transparent px-2 text-[13px] outline-none placeholder:text-[#9A9A98]" />
             <button type="button" disabled aria-disabled="true" title="语音输入尚未开放，敬请期待" className="grid size-9 shrink-0 cursor-not-allowed place-items-center rounded-full text-[#C4C4C2]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>

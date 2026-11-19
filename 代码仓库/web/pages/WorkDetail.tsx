@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, apiUrl, loginUrl, ApiRequestError } from '@/lib/api';
 import type { WorkComment, WorkMeta } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -17,7 +18,7 @@ const needLogin = (e: unknown) => {
 /** 单作品独立页：可收藏、可分享、刷新不丢，是社区作品的稳定入口。 */
 export default function WorkDetail({ id, navigate }: { id: string; navigate: (to: string) => void }) {
   const [work, setWork] = useState<WorkMeta | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<'notfound' | 'failed' | null>(null);
   const [comments, setComments] = useState<WorkComment[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState(0);
@@ -27,18 +28,25 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
   const [editTitle, setEditTitle] = useState('');
   const [editTags, setEditTags] = useState('');
   const [editFork, setEditFork] = useState(true);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
 
-  useEffect(() => {
-    let alive = true;
+  const load = useCallback(async () => {
     setWork(null); setError(null); setComments([]); setHasMore(false); setNextOffset(0);
-    api.work(id).then((r) => { if (alive) setWork(r.work); })
-      .catch((e) => { if (alive) setError(e instanceof ApiRequestError && e.status === 404 ? '作品不存在或已撤回' : '加载失败，请稍后重试'); });
-    api.comments(id, { limit: 50 }).then((r) => {
-      if (!alive) return;
+    try {
+      const r = await api.work(id);
+      setWork(r.work);
+    } catch (e) {
+      setError(e instanceof ApiRequestError && e.status === 404 ? 'notfound' : 'failed');
+      return; // 作品主体不可见时不必再拉评论，避免无意义的 404 请求
+    }
+    try {
+      const r = await api.comments(id, { limit: 50 });
       setComments(r.comments); setHasMore(r.has_more); setNextOffset(r.next_offset);
-    }).catch(() => {});
-    return () => { alive = false; };
+    } catch { /* 评论加载失败不影响作品主体展示 */ }
   }, [id]);
+
+  useEffect(() => { void load(); }, [load]);
 
   async function doLike() {
     if (!work) return;
@@ -114,12 +122,25 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
     } catch (e) { toast.error(e instanceof Error ? e.message : '更新失败'); }
   }
 
+  async function submitReport() {
+    if (!work || !reportReason.trim()) { toast.error('请填写举报原因'); return; }
+    try {
+      await api.reportWork(work.id, reportReason.trim());
+      toast.success('已举报，感谢反馈');
+      setReportOpen(false); setReportReason('');
+    } catch (e) { if (!needLogin(e)) toast.error(e instanceof Error ? e.message : '举报失败'); }
+  }
+
   if (error) {
+    const notFound = error === 'notfound';
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 px-4 py-20 text-center">
-        <p className="font-display text-2xl font-bold">404 · {error}</p>
-        <p className="text-sm text-muted-foreground">作品可能已被作者撤回、删除，或链接有误。</p>
-        <Button onClick={() => navigate('/community')}>回到社区</Button>
+        <p className="font-display text-2xl font-bold">{notFound ? '作品不存在或已撤回' : '加载失败，请稍后重试'}</p>
+        <p className="text-sm text-muted-foreground">{notFound ? '作品可能已被作者撤回、删除，或链接有误。' : '网络异常或服务暂不可用，可稍后重试。'}</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {!notFound && <Button onClick={() => void load()}>重试</Button>}
+          <Button variant={notFound ? 'default' : 'outline'} onClick={() => navigate('/community')}>回到社区</Button>
+        </div>
       </div>
     );
   }
@@ -155,6 +176,7 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
             </Button>
             <Button size="sm" variant="outline" onClick={() => void copyLink()}>复制链接</Button>
             {work.allow_fork && <Button size="sm" onClick={() => navigate(`/studio?fork=${work.id}`)}>做同款</Button>}
+            <Button size="sm" variant="ghost" onClick={() => setReportOpen(true)}>举报</Button>
           </div>
           <div className="flex gap-3 text-xs text-muted-foreground">
             <span>♥ {work.like_count ?? 0}</span>
@@ -224,6 +246,18 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(false)}>取消</Button>
             <Button onClick={() => void saveEdit()} disabled={!editTitle.trim()}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reportOpen} onOpenChange={(v) => { setReportOpen(v); if (!v) setReportReason(''); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>举报作品</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">请简要说明原因（色情、侵权、暴力等），管理员会复核。</p>
+          <Textarea aria-label="举报原因" value={reportReason} onChange={(e) => setReportReason(e.target.value)} maxLength={300} className="min-h-24" placeholder="举报原因…" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReportOpen(false); setReportReason(''); }}>取消</Button>
+            <Button onClick={() => void submitReport()} disabled={!reportReason.trim()}>提交举报</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

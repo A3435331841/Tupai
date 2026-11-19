@@ -68,7 +68,7 @@ export function HomeCompare({ before, after, initial = 52 }: HomeCompareProps) {
     <div className="relative">
       <div className="relative w-full bg-[#fffdf8] p-2.5 shadow-[0_30px_76px_-46px_rgba(58,35,20,.62)]">
         <div
-          className={`relative aspect-[5/4] touch-none overflow-hidden bg-[#eee5d9] ${dragging ? 'cursor-none' : 'cursor-ew-resize'}`}
+          className={`relative aspect-[5/4] touch-none overflow-hidden bg-[#eee5d9] focus-within:ring-2 focus-within:ring-primary/40 focus-within:ring-offset-2 ${dragging ? 'cursor-none' : 'cursor-ew-resize'}`}
           onPointerDown={(event) => {
             draggingRef.current = true;
             setDragging(true);
