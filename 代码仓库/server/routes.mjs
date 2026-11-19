@@ -1,8 +1,9 @@
 import {
   AppError, fail, errResponse, rows, readJson, requireSession, newId,
   imageSize, sniffImageType, ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, MODEL_WHITELIST, RATIOS,
-  DAILY_QUOTA_PER_SESSION, DAILY_QUOTA_GLOBAL, MESSAGES,
+  DAILY_QUOTA_PER_SESSION, DAILY_QUOTA_GLOBAL, MESSAGES, b64ToBytes,
 } from './util.mjs';
+import { createHash } from 'node:crypto';
 import { createKeyScheduler } from './scheduler.mjs';
 import { createAgnesProvider } from './agnes.mjs';
 import { mockOptimize, mockGenerate } from './mock.mjs';
@@ -116,6 +117,32 @@ function workMeta(w, extras = {}) {
 
 function escHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ===== 技能演示（种子内容）：每个技能一本画册 + 原图→作品示例对；由维护端点幂等写入，公开只读 =====
+const SHOWCASE_OWNER = 'u:showcase-official';
+
+function seedHash(label) {
+  return createHash('sha256').update(String(label)).digest('hex');
+}
+
+function showcasePairs(s) {
+  return jsonArr(s.pairs).filter((p) => p && typeof p.original_id === 'string' && typeof p.result_id === 'string');
+}
+
+function showcaseMeta(s) {
+  const pairs = showcasePairs(s);
+  return {
+    id: s.id, title_zh: s.title_zh, category: s.category || '创意合成', desc_zh: s.desc_zh || '',
+    tags: jsonArr(s.tags), prompt: s.prompt || null, negative_prompt: s.negative_prompt || null,
+    model: s.model || null, ratio: s.ratio || '3:4',
+    pair_count: pairs.length,
+    cover: pairs.length ? {
+      original_url: `/api/v1/showcase/img/${pairs[0].original_id}`,
+      result_url: `/api/v1/showcase/img/${pairs[0].result_id}`,
+    } : null,
+    sort: s.sort || 0,
+  };
 }
 
 // 自包含只读画册页（翻页概念借鉴 create-photo-flipbook-ui, MIT；图派自实现轻量版）
@@ -1064,6 +1091,47 @@ export function application({ db, storage, env, fetchImpl }) {
       return new Response(albumPageHtml(album.title, ids), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     }
 
+    // ---- 技能演示（公开只读）：社区「技能」区按画册呈现每个技能的原图→作品示例 ----
+    if (path === '/api/v1/showcase/skills' && method === 'GET') {
+      const list = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
+      const skills = list
+        .filter((s) => showcasePairs(s).length > 0)
+        .sort((a, b) => (a.sort || 0) - (b.sort || 0))
+        .map(showcaseMeta);
+      return Response.json({ skills });
+    }
+    const showcaseSkillMatch = path.match(/^\/api\/v1\/showcase\/skills\/([a-z0-9][a-z0-9-]{0,63})$/);
+    if (showcaseSkillMatch && method === 'GET') {
+      const found = rows(await db.from('showcase_skills').select('*').eq('id', showcaseSkillMatch[1]).limit(1));
+      if (!found?.length || !showcasePairs(found[0]).length) fail('not_found', 404);
+      const s = found[0];
+      const album = s.album_id ? rows(await db.from('albums').select('*').eq('id', s.album_id).limit(1))?.[0] : null;
+      return Response.json({
+        skill: showcaseMeta(s),
+        pairs: showcasePairs(s).map((p) => ({
+          original_url: `/api/v1/showcase/img/${p.original_id}`,
+          result_url: `/api/v1/showcase/img/${p.result_id}`,
+          result_asset_id: p.result_id,
+        })),
+        album: album && shareActive(album)
+          ? { share_token: album.share_token, share_page: `/api/v1/share/${album.share_token}/page` }
+          : null,
+      });
+    }
+    // 展示图仅限种子对中登记过的资产（原图语料为公开授权图片）；用户资产不出现在其中，私有图语义不受影响
+    const showcaseImgMatch = path.match(/^\/api\/v1\/showcase\/img\/(a_[0-9a-f]{24})$/);
+    if (showcaseImgMatch && method === 'GET') {
+      const skills = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
+      const allowed = new Set();
+      for (const s of skills) for (const p of showcasePairs(s)) { allowed.add(p.original_id); allowed.add(p.result_id); }
+      if (!allowed.has(showcaseImgMatch[1])) fail('not_found', 404);
+      const found = rows(await db.from('assets').select('*').eq('id', showcaseImgMatch[1]).limit(1));
+      if (!found?.length || found[0].deleted_at) fail('not_found', 404);
+      const file = await storage.download(found[0].storage_key);
+      if (!file.ok) fail('internal', 503, '资产读取失败');
+      return new Response(file.body, { headers: { 'content-type': found[0].content_type, 'cache-control': 'public, max-age=300' } });
+    }
+
     if (path === '/api/v1/works' && method === 'POST') {
       const user = currentUser(request);
       if (!user) fail('login_required', 401);
@@ -1572,6 +1640,104 @@ export function application({ db, storage, env, fetchImpl }) {
       if (r.error) fail('internal', 503);
       await notify(w.owner_session, 'removed', w.id, '作品未通过人工复核，已下架；可在「我的作品」发起申诉');
       return Response.json({ ok: true, status: 'removed' });
+    }
+
+    // ---- 技能演示种子：维护令牌批量写入（幂等，可分批重复调用） ----
+    if (path === '/api/v1/maintenance/seed-showcase' && method === 'POST') {
+      requireMaintenance(request);
+      const body = await readJson(request, 48 * 1024 * 1024);
+      const out = { skills: 0, templates: 0, assets: 0, pairs: 0, albums: 0, skipped_pairs: 0 };
+
+      // 1) 技能元数据（更新时保留已存在的 pairs / album_id）+ 同步模板表（创作台可直接套用）
+      for (const s of Array.isArray(body.skills) ? body.skills : []) {
+        const id = vStr(s.id, 'skills.id', { max: 64 });
+        if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(id)) fail('invalid_input', 400, `skills.id 不合法: ${id}`);
+        const row = {
+          title_zh: vStr(s.title_zh, 'skills.title_zh', { max: 40 }),
+          category: vStr(s.category, 'skills.category', { max: 20 }),
+          desc_zh: vStr(s.desc_zh, 'skills.desc_zh', { max: 120 }),
+          tags: Array.isArray(s.tags) ? s.tags.map((t) => String(t).slice(0, 20)).slice(0, 8) : [],
+          prompt: vStr(s.prompt, 'skills.prompt', { max: 4000 }),
+          negative_prompt: typeof s.negative_prompt === 'string' ? s.negative_prompt.slice(0, 1000) : null,
+          model: MODEL_WHITELIST.includes(s.model) ? s.model : 'agnes-image-2.5-flash',
+          ratio: RATIOS.includes(s.ratio) ? s.ratio : '3:4',
+          sort: vInt(s.sort, 'skills.sort', { min: 0, max: 100000, fallback: 0 }),
+        };
+        const existing = rows(await db.from('showcase_skills').select('*').eq('id', id).limit(1))?.[0];
+        if (existing) {
+          await db.from('showcase_skills').update(row).eq('id', id);
+        } else {
+          rows(await db.from('showcase_skills').insert({ id, ...row, pairs: [], album_id: null }).select());
+        }
+        out.skills += 1;
+        await db.from('templates').insertIfAbsent({
+          id, title: row.title_zh, description: row.desc_zh, cover_asset_id: null,
+          prompt: row.prompt, negative_prompt: row.negative_prompt, default_model: row.model,
+          ratio: row.ratio, tags: row.tags, features: '', sort: 1000 + row.sort,
+        }, { onConflict: 'id' });
+        out.templates += 1;
+      }
+
+      // 2) 原图→作品对（base64 上传；资产 id 由 skill+slot 决定，重复调用幂等跳过）
+      for (const p of Array.isArray(body.pairs) ? body.pairs : []) {
+        const skillId = vStr(p.skill_id, 'pairs.skill_id', { max: 64 });
+        const slot = vInt(p.slot, 'pairs.slot', { min: 0, max: 999, required: true });
+        const skill = rows(await db.from('showcase_skills').select('*').eq('id', skillId).limit(1))?.[0];
+        if (!skill) fail('invalid_input', 400, `未知技能 ${skillId}`);
+        const current = showcasePairs(skill);
+        if (current.length > slot) { out.skipped_pairs += 1; continue; }
+        if (current.length !== slot) fail('invalid_input', 400, `pairs.slot 必须顺续：当前 ${current.length}，收到 ${slot}`);
+        for (const item of [p.original, p.result]) {
+          if (!item || typeof item.b64 !== 'string' || !item.b64) fail('invalid_input', 400, 'pairs 缺少 original/result b64');
+        }
+        const pair = {};
+        for (const [key, item] of [['original', p.original], ['result', p.result]]) {
+          const bytes = b64ToBytes(item.b64);
+          if (!bytes.length || bytes.length > MAX_UPLOAD_BYTES) fail('invalid_input', 413, '图片过大或为空');
+          const sniffed = sniffImageType(bytes);
+          if (!sniffed || !ALLOWED_IMAGE_TYPES.includes(sniffed)) fail('invalid_input', 415, '仅支持 JPG / PNG / WebP 图片');
+          const { width, height } = imageSize(bytes, sniffed);
+          if (!width || !height) fail('invalid_input', 415, '无法解析图片尺寸');
+          const id = 'a_' + seedHash(`showcase|${skillId}|${key}|${slot}`).slice(0, 24);
+          const storageKey = `${key === 'result' ? 'results' : 'assets'}/${id}`;
+          await storage.upload(storageKey, bytes, { contentType: sniffed, upsert: true });
+          const already = rows(await db.from('assets').select('id').eq('id', id).limit(1))?.length;
+          if (!already) {
+            rows(await db.from('assets').insert({
+              id, owner_session: SHOWCASE_OWNER, kind: key === 'result' ? 'result' : 'original',
+              storage_key: storageKey, visibility: 'private', content_type: sniffed,
+              bytes: bytes.length, width, height,
+              tags: ['技能演示', skillId.slice(0, 30)], source: 'showcase-seed',
+            }));
+            out.assets += 1;
+          }
+          pair[`${key}_id`] = id;
+        }
+        await db.from('showcase_skills').update({ pairs: [...current, pair] }).eq('id', skillId);
+        out.pairs += 1;
+      }
+
+      // 3) 画册定稿：每技能一本（item_ids=作品序，稳定 share_token，长期 unlisted 只读）
+      for (const skillId of Array.isArray(body.albums) ? body.albums : []) {
+        const sid = vStr(skillId, 'albums[]', { max: 64 });
+        const skill = rows(await db.from('showcase_skills').select('*').eq('id', sid).limit(1))?.[0];
+        if (!skill) fail('invalid_input', 400, `未知技能 ${sid}`);
+        const resultIds = showcasePairs(skill).map((x) => x.result_id);
+        if (!resultIds.length) continue;
+        const aid = 'al_' + seedHash(`showcase-album|${sid}`).slice(0, 24);
+        const token = seedHash(`showcase-share|${sid}`).slice(0, 32);
+        const albumRow = {
+          id: aid, owner_session: SHOWCASE_OWNER, title: `${skill.title_zh} · 技能示例`,
+          cover_asset_id: resultIds[0], item_ids: resultIds, template_id: '3d-book',
+          visibility: 'unlisted', render_status: 'ready', share_token: token, share_expires_at: null,
+        };
+        const exists = rows(await db.from('albums').select('id').eq('id', aid).limit(1))?.length;
+        if (exists) await db.from('albums').update(albumRow).eq('id', aid);
+        else rows(await db.from('albums').insert(albumRow).select());
+        await db.from('showcase_skills').update({ album_id: aid }).eq('id', sid);
+        out.albums += 1;
+      }
+      return Response.json({ ok: true, ...out });
     }
 
     fail('not_found', 404);

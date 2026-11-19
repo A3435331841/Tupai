@@ -1397,6 +1397,155 @@ paths:
         "400": { $ref: "#/components/responses/BadInput" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /showcase/skills:
+    get:
+      tags: [community]
+      operationId: listShowcaseSkills
+      summary: 技能演示列表（公开只读种子内容；每技能一本画册 + 原图→作品示例对）
+      description: 由维护端点 seed-showcase 写入；只返回已配置示例对的技能。cover 提供第一组原图/作品对比图地址。
+      responses:
+        "200":
+          description: 技能列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skills:
+                    type: array
+                    items: { $ref: "#/components/schemas/ShowcaseSkill" }
+
+  /showcase/skills/{id}:
+    get:
+      tags: [community]
+      operationId: getShowcaseSkill
+      summary: 技能演示详情（全部示例对 + 画册只读分享地址）
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$" }
+      responses:
+        "200":
+          description: 技能详情与示例对
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skill: { $ref: "#/components/schemas/ShowcaseSkill" }
+                  pairs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        original_url: { type: string }
+                        result_url: { type: string }
+                        result_asset_id: { type: string }
+                  album:
+                    type: object
+                    nullable: true
+                    properties:
+                      share_token: { type: string }
+                      share_page: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /showcase/img/{assetId}:
+    get:
+      tags: [community]
+      operationId: getShowcaseImage
+      summary: 技能演示图（仅限种子对中登记的原图/作品；用户资产不在此暴露）
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, pattern: "^a_[0-9a-f]{24}$" }
+      responses:
+        "200":
+          description: 图片字节
+          content:
+            image/jpeg: {}
+            image/png: {}
+            image/webp: {}
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /maintenance/seed-showcase:
+    post:
+      tags: [account]
+      operationId: seedShowcase
+      summary: 批量幂等写入技能演示种子（需 x-maintenance-token；分批调用）
+      description: |
+        一次调用可包含三段：skills（技能元数据，同步模板表）、pairs（slot 必须顺续，重复调用跳过已写入槽位）、
+        albums（按技能定稿画册并生成稳定只读分享令牌）。资产 id 与画册/令牌均由 skill+slot 哈希决定，可安全重放。
+      parameters:
+        - name: x-maintenance-token
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skills:
+                  type: array
+                  items:
+                    type: object
+                    required: [id, title_zh, category, prompt]
+                    properties:
+                      id: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+                      title_zh: { type: string }
+                      category: { type: string }
+                      desc_zh: { type: string }
+                      tags: { type: array, items: { type: string } }
+                      prompt: { type: string }
+                      negative_prompt: { type: string }
+                      model: { type: string }
+                      ratio: { type: string }
+                      sort: { type: integer }
+                pairs:
+                  type: array
+                  items:
+                    type: object
+                    required: [skill_id, slot, original, result]
+                    properties:
+                      skill_id: { type: string }
+                      slot: { type: integer }
+                      original:
+                        type: object
+                        required: [b64]
+                        properties:
+                          b64: { type: string }
+                          mime: { type: string }
+                      result:
+                        type: object
+                        required: [b64]
+                        properties:
+                          b64: { type: string }
+                          mime: { type: string }
+                albums:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: 写入统计
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  skills: { type: integer }
+                  templates: { type: integer }
+                  assets: { type: integer }
+                  pairs: { type: integer }
+                  albums: { type: integer }
+                  skipped_pairs: { type: integer }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     SessionId:
@@ -1937,6 +2086,28 @@ components:
           items: { $ref: "#/components/schemas/WorkMeta" }
         total: { type: integer }
         next_offset: { type: [integer, "null"] }
+
+    ShowcaseSkill:
+      type: object
+      required: [id, title_zh, category, pair_count]
+      properties:
+        id: { type: string }
+        title_zh: { type: string }
+        category: { type: string }
+        desc_zh: { type: string }
+        tags: { type: array, items: { type: string } }
+        prompt: { type: [string, "null"], description: 技能配方提示词（图生图编辑指令） }
+        negative_prompt: { type: [string, "null"] }
+        model: { type: [string, "null"] }
+        ratio: { type: string }
+        pair_count: { type: integer }
+        cover:
+          type: object
+          nullable: true
+          properties:
+            original_url: { type: string }
+            result_url: { type: string }
+        sort: { type: integer }
 
     WorkFork:
       type: object

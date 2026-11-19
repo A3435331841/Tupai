@@ -115,3 +115,20 @@ CREATE TABLE IF NOT EXISTS app.profiles (
   bio text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- 技能演示（种子内容，社区按画册呈现技能效果）：每技能一条，pairs 记录 原图/作品 资产对
+CREATE TABLE IF NOT EXISTS app.showcase_skills (
+  id text PRIMARY KEY,
+  title_zh text NOT NULL,
+  category text NOT NULL DEFAULT '创意合成',
+  desc_zh text,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  prompt text,
+  negative_prompt text,
+  model text,
+  ratio text NOT NULL DEFAULT '3:4',
+  pairs jsonb NOT NULL DEFAULT '[]'::jsonb,
+  album_id text,
+  sort int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
