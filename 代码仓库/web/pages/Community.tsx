@@ -30,6 +30,7 @@ const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.messag
 const tasksWithClosed = api.tasks as unknown as (includeClosed?: boolean) => Promise<{ tasks: TaskItem[] }>;
 
 function readInitialTab(): Tab {
+  if (window.location.pathname.replace(/\/+$/, '') === '/showcase') return 'showcase';
   const t = new URLSearchParams(window.location.search).get('tab');
   return t === 'tasks' || t === 'notify' || t === 'mine' || t === 'showcase' ? t : 'feed';
 }

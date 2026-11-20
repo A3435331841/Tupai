@@ -27,6 +27,7 @@ export default function App() {
   const [path, navigate] = useRoute();
   const isHome = path === '/';
   const isStudio = path === '/studio';
+  const isShowcaseAlias = path === '/showcase';
   const workId = path.match(/^\/work\/(wk_[0-9a-f]{24})$/)?.[1] || null;
   const fixed = isHome || isStudio;
 
@@ -38,7 +39,7 @@ export default function App() {
         <Suspense fallback={<PageFallback />}>
           {isStudio ? <Studio navigate={navigate} />
             : path === '/library' ? <Library navigate={navigate} />
-              : path === '/community' ? <Community navigate={navigate} />
+              : path === '/community' || isShowcaseAlias ? <Community key={isShowcaseAlias ? 'showcase' : 'community'} navigate={navigate} />
                 : path === '/legal' ? <Legal />
                   : workId ? <WorkDetail key={workId} id={workId} navigate={navigate} />
                     : isHome ? <Home navigate={navigate} />
