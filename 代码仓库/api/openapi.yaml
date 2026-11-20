@@ -127,6 +127,25 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/Template" }
 
+  /templates/{id}:
+    get:
+      tags: [catalog]
+      operationId: getTemplate
+      summary: 模板详情（字段与列表项一致；供深链单取）
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 模板详情
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [template]
+                properties:
+                  template: { $ref: "#/components/schemas/Template" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /models:
     get:
       tags: [catalog]
@@ -409,7 +428,8 @@ paths:
     get:
       tags: [catalog]
       operationId: getTemplateCover
-      summary: 模板封面图（懒生成；限流时返回 SVG 占位）
+      summary: 模板封面图（无封面时返回 SVG 占位，不在请求路径上真实出图）
+      description: 仅读取已回填的封面资产；无封面返回占位图（Cache-Control public, max-age=300）
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -552,6 +572,7 @@ paths:
       tags: [assets]
       operationId: deleteAsset
       summary: 软删资产入回收站；purge=1 时彻底删除（须已在回收站，且无关联作品）
+      description: 软删前校验该结果图是否已发布为作品，已发布返回 409（需先撤回或删除作品）
       parameters:
         - $ref: "#/components/parameters/AssetId"
         - name: purge
@@ -684,6 +705,7 @@ paths:
       tags: [albums]
       operationId: shareAlbum
       summary: 生成只读分享链接（默认 7 天，可设 1–720 小时）
+      description: 画册需至少 1 张存活作品（未软删的 result 资产），否则返回 400「画册暂无作品，无法分享」
       parameters:
         - $ref: "#/components/parameters/Id"
       requestBody:
@@ -716,6 +738,30 @@ paths:
               schema: { $ref: "#/components/schemas/Ok" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /albums/{id}/export.zip:
+    get:
+      tags: [albums]
+      operationId: exportAlbumZip
+      summary: 导出画册为 ZIP（仅所有者；store 模式不压缩）
+      description: |
+        仅打包仍存活（未软删且 kind=result）的作品图，文件名为「序号-asset_id.扩展名」。
+        下载失败的单张会被跳过；没有任何可打包作品时返回 400「画册暂无作品，无法导出」。
+        响应为二进制 ZIP（标准 store 模式，零第三方依赖），文件名同时给出 ASCII 回退与 UTF-8 画册标题。
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: ZIP 包
+          headers:
+            Content-Disposition:
+              description: attachment; filename="tupai-album.zip"; filename*=UTF-8''<画册标题>.zip
+              schema: { type: string }
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /share/{token}:
     get:
       tags: [share]
@@ -737,18 +783,25 @@ paths:
       tags: [share]
       operationId: getShareImage
       summary: 分享作品图（只读、仅 result 资产）
-      description: 资产被软删（deleted_at 非空）或不在该画册中时返回 404
+      description: 资产被软删（deleted_at 非空）或不在该画册中时返回 404；watermark=1 时返回带「AI 生成 · 图派」角标的 SVG
       parameters:
         - $ref: "#/components/parameters/Token"
         - name: assetId
           in: path
           required: true
           schema: { type: string }
+        - name: watermark
+          in: query
+          required: false
+          description: 传 1 时返回 image/svg+xml：原图以 data URI 内嵌，右下角叠加半透明黑底白字「AI 生成 · 图派」；缺省返回原始图片字节与原 content-type
+          schema: { type: string, enum: ["1"] }
       responses:
         "200":
-          description: 图片字节
+          description: 图片字节；watermark=1 时为带角标的 SVG
           content:
             image/*:
+              schema: { type: string, format: binary }
+            image/svg+xml:
               schema: { type: string, format: binary }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -893,6 +946,7 @@ paths:
       tags: [community]
       operationId: getWorkImage
       summary: 作品结果图（未公开仅作者可见）
+      description: 结果资产被软删（deleted_at 非空）时返回 404，与作品页保持一致
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1402,7 +1456,7 @@ paths:
       tags: [community]
       operationId: listShowcaseSkills
       summary: 技能演示列表（公开只读种子内容；每技能一本画册 + 原图→作品示例对）
-      description: 由维护端点 seed-showcase 写入；只返回已配置示例对的技能。cover 提供第一组原图/作品对比图地址。
+      description: 由维护端点 seed-showcase 写入；仅返回仍有存活示例的技能（示例对的原图与结果都未软删）。cover 提供第一组原图/作品对比图地址。
       responses:
         "200":
           description: 技能列表
@@ -1455,6 +1509,7 @@ paths:
       tags: [community]
       operationId: getShowcaseImage
       summary: 技能演示图（仅限种子对中登记的原图/作品；用户资产不在此暴露）
+      description: 仅限存活示例对的资产；不在白名单或资产已软删时返回 404
       parameters:
         - name: assetId
           in: path
@@ -1974,6 +2029,7 @@ components:
         render_status: { type: string }
         share_token: { type: [string, "null"] }
         share_expires_at: { type: [string, "null"], format: date-time }
+        share_active: { type: boolean, description: 当前分享链接是否仍有效（未撤回且未过期） }
         created_at: { type: string, format: date-time }
 
     AlbumList:

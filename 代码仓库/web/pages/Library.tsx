@@ -162,7 +162,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
             </div>
 
             {error ? (
-              <Card className="flex flex-col items-center gap-2 border-destructive/40 p-10 text-center">
+              <Card role="alert" className="flex flex-col items-center gap-2 border-destructive/40 p-10 text-center">
                 <p className="text-sm text-destructive">{error}</p>
                 <Button size="sm" variant="outline" onClick={() => void load(true)}>重试</Button>
               </Card>
@@ -212,10 +212,10 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
               <>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3">
                   {items.map((a) => (
-                    <Card key={a.id} className="overflow-hidden p-0">
+                    <Card key={a.id} className="gap-0 overflow-hidden p-0">
                       <button type="button" className="relative block aspect-[3/4] w-full bg-secondary" disabled={Boolean(a.deleted_at)} onClick={() => setPreview(a)} aria-label={`预览 ${KIND_LABEL[a.kind] || a.kind}`}>
                         {a.deleted_at
-                          ? <span className="grid size-full place-items-center bg-[#EFEFED] text-xs text-muted-foreground">已移入回收站</span>
+                          ? <span className="grid size-full place-items-center bg-secondary text-xs text-muted-foreground">已移入回收站</span>
                           : <AssetImage path={a.content_url} alt={`${KIND_LABEL[a.kind] || a.kind} ${a.id}`} className="size-full object-cover" />}
                         <Badge variant="secondary" className="absolute left-2 top-2 text-[10px]">{KIND_LABEL[a.kind] || a.kind}</Badge>
                         {a.ai_generated && <span className="absolute bottom-2 left-2 rounded bg-black/50 px-1.5 py-0.5 text-[9px] text-white">AI 生成</span>}
@@ -228,14 +228,14 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
                         </div>
                         <p className="mt-1 text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString('zh-CN')} · {a.width}×{a.height}</p>
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {!bin && !a.deleted_at && <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" onClick={() => navigate(`/studio?asset=${a.id}`)}>再创作</Button>}
-                          {!bin && !a.deleted_at && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openTags(a)}>打标</Button>}
+                          {!bin && !a.deleted_at && <Button size="sm" variant="outline" className="h-9 flex-1 text-xs sm:h-7" onClick={() => navigate(`/studio?asset=${a.id}`)}>再创作</Button>}
+                          {!bin && !a.deleted_at && <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => openTags(a)}>打标</Button>}
                           {a.deleted_at
                             ? <>
-                              <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" onClick={() => void restore(a)}>恢复</Button>
-                              <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => setPurgeTarget(a)}>彻底删除</Button>
+                              <Button size="sm" variant="outline" className="h-9 flex-1 text-xs sm:h-7" onClick={() => void restore(a)}>恢复</Button>
+                              <Button size="sm" variant="ghost" className="h-9 text-xs text-destructive sm:h-7" onClick={() => setPurgeTarget(a)}>彻底删除</Button>
                             </>
-                            : <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => setDeleteTarget(a)}>删除</Button>}
+                            : <Button size="sm" variant="ghost" className="h-9 text-xs text-destructive sm:h-7" onClick={() => setDeleteTarget(a)}>删除</Button>}
                         </div>
                       </div>
                     </Card>

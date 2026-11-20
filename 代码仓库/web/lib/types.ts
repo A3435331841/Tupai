@@ -116,6 +116,7 @@ export interface AlbumMeta {
   render_status: string;
   share_token: string | null;
   share_expires_at: string | null;
+  share_active?: boolean;
   created_at: string;
 }
 

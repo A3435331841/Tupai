@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { GitFork, Heart, MessageCircle } from 'lucide-react';
 
 const needLogin = (e: unknown) => {
   if (e instanceof ApiRequestError && e.status === 401) { toast.error('请先登录'); window.location.href = loginUrl(); return true; }
@@ -134,7 +135,7 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
   if (error) {
     const notFound = error === 'notfound';
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 px-4 py-20 text-center">
+      <div role="alert" className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 px-4 py-20 text-center">
         <p className="font-display text-2xl font-bold">{notFound ? '作品不存在或已撤回' : '加载失败，请稍后重试'}</p>
         <p className="text-sm text-muted-foreground">{notFound ? '作品可能已被作者撤回、删除，或链接有误。' : '网络异常或服务暂不可用，可稍后重试。'}</p>
         <div className="flex flex-wrap justify-center gap-2">
@@ -163,7 +164,7 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
         </div>
         <div className="space-y-4">
           <div>
-            <h1 className="font-display text-2xl font-bold">{work.title}</h1>
+            <h1 className="break-words font-display text-2xl font-bold">{work.title}</h1>
             <p className="mt-1 text-xs text-muted-foreground">
               作者 {work.author_credit || '匿名'} · {new Date(work.created_at).toLocaleDateString('zh-CN')}
               {work.depth > 0 && <> · fork {work.depth} 层</>}
@@ -172,16 +173,16 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
           <div className="flex flex-wrap gap-1">{work.tags.map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}</div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant={work.liked ? 'secondary' : 'outline'} onClick={() => void doLike()}>
-              ♥ {work.liked ? '已赞' : '点赞'} {work.like_count ?? 0}
+              <Heart className="size-3.5" aria-hidden="true" />{work.liked ? '已赞' : '点赞'} {work.like_count ?? 0}
             </Button>
             <Button size="sm" variant="outline" onClick={() => void copyLink()}>复制链接</Button>
             {work.allow_fork && <Button size="sm" onClick={() => navigate(`/studio?fork=${work.id}`)}>做同款</Button>}
             <Button size="sm" variant="ghost" onClick={() => setReportOpen(true)}>举报</Button>
           </div>
           <div className="flex gap-3 text-xs text-muted-foreground">
-            <span>♥ {work.like_count ?? 0}</span>
-            <span>💬 {work.comment_count ?? 0}</span>
-            <span>⑂ {work.fork_count ?? 0}</span>
+            <span className="inline-flex items-center gap-1"><Heart className="size-3.5" aria-hidden="true" />{work.like_count ?? 0}</span>
+            <span className="inline-flex items-center gap-1"><MessageCircle className="size-3.5" aria-hidden="true" />{work.comment_count ?? 0}</span>
+            <span className="inline-flex items-center gap-1"><GitFork className="size-3.5" aria-hidden="true" />{work.fork_count ?? 0}</span>
           </div>
           <details className="text-xs">
             <summary className="cursor-pointer text-muted-foreground">查看配方（prompt / 模型 / 画幅）</summary>
@@ -205,14 +206,14 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
           {comments.map((c) => (
             <div key={c.id} className="text-sm">
               <p className="text-xs text-muted-foreground">{c.author_name || '社区用户'} · {new Date(c.created_at).toLocaleString('zh-CN')}</p>
-              <p className="mt-0.5 whitespace-pre-wrap">{c.body}</p>
+              <p className="mt-0.5 break-words whitespace-pre-wrap">{c.body}</p>
             </div>
           ))}
           {comments.length === 0 && <p className="text-xs text-muted-foreground">还没有评论，来抢沙发。</p>}
           {hasMore && <Button size="sm" variant="outline" onClick={() => void loadMore()}>加载更多评论</Button>}
         </div>
         <div className="mt-4 flex gap-2">
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="说点什么…" className="h-9" onKeyDown={(e) => { if (e.key === 'Enter') void addComment(); }} />
+          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="说点什么…" aria-label="写评论" className="h-9" onKeyDown={(e) => { if (e.key === 'Enter') void addComment(); }} />
           <Button size="sm" onClick={() => void addComment()}>发送</Button>
         </div>
       </Card>
@@ -253,7 +254,7 @@ export default function WorkDetail({ id, navigate }: { id: string; navigate: (to
       <Dialog open={reportOpen} onOpenChange={(v) => { setReportOpen(v); if (!v) setReportReason(''); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>举报作品</DialogTitle></DialogHeader>
-          <p className="text-xs text-muted-foreground">请简要说明原因（色情、侵权、暴力等），管理员会复核。</p>
+          <DialogDescription className="text-xs">请简要说明原因（色情、侵权、暴力等），管理员会复核。</DialogDescription>
           <Textarea aria-label="举报原因" value={reportReason} onChange={(e) => setReportReason(e.target.value)} maxLength={300} className="min-h-24" placeholder="举报原因…" />
           <DialogFooter>
             <Button variant="outline" onClick={() => { setReportOpen(false); setReportReason(''); }}>取消</Button>

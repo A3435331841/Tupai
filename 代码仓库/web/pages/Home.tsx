@@ -119,12 +119,18 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
     const sections = Array.from(root.querySelectorAll<HTMLElement>('[data-snap]'));
 
     const onScroll = () => {
-      const height = sections[0]?.getBoundingClientRect().height || scroller.clientHeight || 1;
-      const raw = scroller.scrollTop / height;
-      const clamped = Math.max(0, Math.min(SECTION_COUNT - 1, raw));
-      setScrollProgress(clamped);
-      setActiveSection(Math.round(clamped));
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const height = sections[0]?.getBoundingClientRect().height || scroller.clientHeight || 1;
+        const raw = scroller.scrollTop / height;
+        const clamped = Math.max(0, Math.min(SECTION_COUNT - 1, raw));
+        const section = Math.round(clamped);
+        setScrollProgress((prev) => (Math.abs(prev - clamped) < 0.005 ? prev : clamped));
+        setActiveSection((prev) => (prev === section ? prev : section));
+      });
     };
+    let rafId = 0;
     scroller.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
 
@@ -140,6 +146,7 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
     );
     sections.forEach((section) => observer.observe(section));
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       scroller.removeEventListener('scroll', onScroll);
       observer.disconnect();
       scroller.classList.remove('snap-ready');
@@ -149,7 +156,8 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
   const goToSection = useCallback((index: number) => {
     const root = pageRef.current;
     const target = root?.querySelectorAll<HTMLElement>('[data-snap]')[index];
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const reduce = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   }, []);
 
   // 「向下浏览」：仅在第一屏顶部显示；滚动后淡出，回到顶部自然回归

@@ -183,6 +183,18 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const resultBlobRef = useRef<Blob | null>(null);
   // 轮询世代号：重置 / 新任务递增，旧 job 回来时直接丢弃，避免写进新会话
   const runEpoch = useRef(0);
+  const typingTimer = useRef<number | null>(null);
+  // 最新预览地址：卸载时释放 objectURL，避免闭包读到旧值
+  const previewRef = useRef<string | null>(null);
+
+  useEffect(() => { previewRef.current = preview; }, [preview]);
+
+  // 卸载：作废轮询世代、清掉打字定时器、释放预览 objectURL
+  useEffect(() => () => {
+    runEpoch.current++;
+    if (typingTimer.current) { clearTimeout(typingTimer.current); typingTimer.current = null; }
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+  }, []);
 
   const hasImage = Boolean(file || assetId);
   const currentModel = models.find((m) => m.id === model);
@@ -319,12 +331,24 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         return;
       }
       let tpl: Template | undefined;
+      let tplMissing = false;
       if (tplId) {
         try {
           const r = await api.templates();
           setTemplates(r.templates);
           tpl = r.templates.find((x) => x.id === tplId);
-        } catch { /* fall through to direct upload */ }
+        } catch { /* 列表拉取失败，继续按 id 直取 */ }
+        if (!tpl) {
+          // 列表接口有 limit，showcase 模板可能不在其中：按 id 直取兜底
+          try {
+            const r = await api.getTemplate(tplId);
+            const found = r.template;
+            tpl = found;
+            setTemplates((prev) => (prev.some((x) => x.id === found.id) ? prev : [...prev, found]));
+          } catch {
+            tplMissing = true;
+          }
+        }
       }
       if (demo === 'night') {
         try {
@@ -353,6 +377,15 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         void startOptimize(false, hint);
       } else if (tpl) {
         applyTemplateData(tpl, false);
+      }
+      if (tplMissing && !demo) {
+        // 模板已下线：不留半套状态，回到自由创作入口
+        setStage('entry');
+        setAppliedTemplate(null);
+        setAppliedVariant('');
+        setOptimize(null);
+        setCurrentSummary('');
+        toast.error('该模板已下线，已进入自由创作');
       }
     })();
   }, [applyTemplateData]);
@@ -606,10 +639,15 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         writeLastJob(running);
         await pollJob(lj.job_id, running);
       }
-    } catch {
-      clearStoredLastJob();
-      setLastJob(null);
-      toast.error('上次生成已失效，已清理');
+    } catch (e) {
+      // 仅在任务确实失效（404/410）时清理；网络抖动保留记录以便稍后继续
+      if (e instanceof ApiRequestError && (e.status === 404 || e.status === 410)) {
+        clearStoredLastJob();
+        setLastJob(null);
+        toast.error('上次生成已失效，已清理');
+      } else {
+        toast.error('网络异常，稍后可在右侧「上次任务」继续');
+      }
     }
   }
 
@@ -831,12 +869,13 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const [meName, setMeName] = useState('游客');
 
   useEffect(() => {
+    const safeAvatars = Object.fromEntries(
+      Object.entries(avatars).map(([k, v]) => [k, persistableAvatar(v)]),
+    );
     try {
-      const safeAvatars = Object.fromEntries(
-        Object.entries(avatars).map(([k, v]) => [k, persistableAvatar(v)]),
-      );
-      localStorage.setItem(CHAT_KEY, JSON.stringify({ turns, avatars: safeAvatars, paused }));
-    } catch { /* private mode */ }
+      // 只持久化最近 200 条，避免长会话把 localStorage 写满
+      localStorage.setItem(CHAT_KEY, JSON.stringify({ turns: turns.slice(-200), avatars: safeAvatars, paused }));
+    } catch { /* 私密模式或 QuotaExceeded：忽略，内存态不受影响 */ }
   }, [turns, avatars, paused]);
 
   useEffect(() => {
@@ -942,7 +981,12 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       reply = { from: name, to: '你', text: '收到，我记下了。' };
     }
     setTypingBot(name);
-    window.setTimeout(() => { setTypingBot(null); addTurn(reply); }, 650);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = window.setTimeout(() => {
+      typingTimer.current = null;
+      setTypingBot(null);
+      addTurn(reply);
+    }, 650);
   }
 
   // 风格选择（真实套用模板 / 候选）
@@ -1045,6 +1089,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
 
   return (
     <div className="studio-editorial relative mx-auto flex w-full max-w-[1440px] min-h-dvh flex-col px-5 py-4 sm:px-8 lg:h-full lg:min-h-0">
+      <h1 className="sr-only">创作台</h1>
       <input ref={importRef} type="file" accept=".json,application/json" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void importSkillFile(f); e.target.value = ''; }} />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="hidden"
@@ -1058,15 +1103,15 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         <aside className="flex min-w-0 flex-col gap-2 bg-[#F4F4F2] lg:min-h-0 lg:rounded-2xl lg:p-3">
           {/* 顶部工具钮 */}
           <div className="flex shrink-0 items-center justify-end gap-2 px-1">
-            <button type="button" title="搜索" onClick={() => setSearchOpen((v) => !v)} className="grid size-9 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
+            <button type="button" title="搜索" aria-label="搜索 Bot / 角色" onClick={() => setSearchOpen((v) => !v)} className="grid size-9 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
             </button>
-            <button type="button" title="新建任务" onClick={() => resetAll()} className="grid size-9 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
+            <button type="button" title="新建任务" aria-label="新建任务" onClick={() => resetAll()} className="grid size-9 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
             </button>
           </div>
           {searchOpen && (
-            <input autoFocus value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="搜索 Bot / 角色"
+            <input autoFocus value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="搜索 Bot / 角色" aria-label="搜索 Bot / 角色"
               className="shrink-0 rounded-full border border-[#E5E5E3] bg-white px-4 py-2 text-[13px] outline-none focus:border-[#2F7CF6]" />
           )}
 
@@ -1138,10 +1183,10 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#8A5A34] text-[15px] font-bold text-white">{meName.slice(0, 1)}</span>
                 <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{meName}</span>
               </button>
-              <button type="button" title="应用矩阵" onClick={() => setAppsOpen((v) => !v)} className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
+              <button type="button" title="应用矩阵" aria-label="应用矩阵" onClick={() => setAppsOpen((v) => !v)} className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#ECECEA]">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></svg>
               </button>
-              <button type="button" title="上传照片" onClick={() => fileRef.current?.click()} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#2F7CF6] text-white shadow-sm transition hover:bg-[#2668D8]">
+              <button type="button" title="上传照片" aria-label="上传照片" onClick={() => fileRef.current?.click()} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#2F7CF6] text-white shadow-sm transition hover:bg-[#2668D8]">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4m0 0 4 4m-4-4L8 8" /><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
               </button>
             </div>
@@ -1281,9 +1326,9 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
                     <button type="button" className="text-[11px] text-[#9A9A98] hover:text-[#2F7CF6]" onClick={() => setFocusBot(null)}>收起</button>
                   </span>
                 </div>
-                <Textarea id="prompt" value={prompt} onChange={(e) => { setPrompt(e.target.value.slice(0, 4000)); setPromptDirty(true); }} rows={3} className="text-xs" placeholder="还没有提示词：上传照片或挑一个风格方向" />
+                <Textarea id="prompt" aria-label="正向提示词" value={prompt} onChange={(e) => { setPrompt(e.target.value.slice(0, 4000)); setPromptDirty(true); }} rows={3} className="text-xs" placeholder="还没有提示词：上传照片或挑一个风格方向" />
                 <details className="mt-2"><summary className="cursor-pointer text-[11px] text-muted-foreground">负面提示词（可选）</summary>
-                  <Textarea id="negative-prompt" value={negative} onChange={(e) => setNegative(e.target.value.slice(0, 1000))} rows={2} className="mt-1 text-xs" placeholder="磨皮、光滑、白皙 等" /></details>
+                  <Textarea id="negative-prompt" aria-label="负面提示词" value={negative} onChange={(e) => setNegative(e.target.value.slice(0, 1000))} rows={2} className="mt-1 text-xs" placeholder="磨皮、光滑、白皙 等" /></details>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <NativeSelect className="h-8 text-[11px]" value={model} onChange={(e) => setModel(e.target.value)}>
                     {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
@@ -1339,18 +1384,19 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
 
           {/* 输入条：全圆悬浮 pill */}
           <div className="se-pill flex shrink-0 items-center gap-1.5 px-2 py-2">
-            <button type="button" title="上传照片" onClick={() => fileRef.current?.click()} className="grid size-9 shrink-0 place-items-center rounded-full text-[#6E6E6C] transition hover:bg-[#F4F4F2]">
+            <button type="button" title="上传照片" aria-label="上传照片" onClick={() => fileRef.current?.click()} className="grid size-9 shrink-0 place-items-center rounded-full text-[#6E6E6C] transition hover:bg-[#F4F4F2]">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
             </button>
-            <button type="button" title="抖音链接" onClick={() => setLinkOpen(true)} className="grid size-9 shrink-0 place-items-center rounded-full text-[#6E6E6C] transition hover:bg-[#F4F4F2]">
+            <button type="button" title="抖音链接" aria-label="抖音链接" onClick={() => setLinkOpen(true)} className="grid size-9 shrink-0 place-items-center rounded-full text-[#6E6E6C] transition hover:bg-[#F4F4F2]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5" /><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5" /></svg>
             </button>
             <input value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) sendToBots(); }}
+              aria-label={`给 ${curMeta.label} 发消息`}
               placeholder={inBotThread ? `给 ${curMeta.label} 发消息` : `给 ${curMeta.label} 发消息`} className="min-w-0 flex-1 bg-transparent px-2 text-[13px] outline-none placeholder:text-[#9A9A98]" />
-            <button type="button" disabled aria-disabled="true" title="语音输入尚未开放，敬请期待" className="grid size-9 shrink-0 cursor-not-allowed place-items-center rounded-full text-[#C4C4C2]">
+            <button type="button" disabled aria-disabled="true" title="语音输入尚未开放，敬请期待" aria-label="语音输入（尚未开放）" className="grid size-9 shrink-0 cursor-not-allowed place-items-center rounded-full text-[#C4C4C2]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
             </button>
-            <button type="button" title="发送" onClick={sendToBots} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#2F7CF6] text-white transition hover:bg-[#2668D8]">
+            <button type="button" title="发送" aria-label="发送" onClick={sendToBots} className="grid size-9 shrink-0 place-items-center rounded-full bg-[#2F7CF6] text-white transition hover:bg-[#2668D8]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 12v-2m4 4V8m4 8V6m4 10v-4m4 2v-2" /></svg>
             </button>
           </div>
@@ -1365,6 +1411,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             type="button"
             onClick={() => setPanelOpen(false)}
             title="关闭详情"
+            aria-label="关闭详情"
             className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white text-[#1A1A1A] shadow-sm transition hover:bg-[#F4F4F2]"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
@@ -1372,7 +1419,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
 
           {/* 大倾斜头像 + 名字 + 动态 / 资料库 Tab */}
           <div className="flex flex-col items-center pt-6 text-center">
-            <button type="button" onClick={() => setEditorFor(focusKey)} title="编辑头像" className="group relative transition-transform hover:scale-105">
+            <button type="button" onClick={() => setEditorFor(focusKey)} title="编辑头像" aria-label="编辑头像" className="group relative transition-transform hover:scale-105">
               <BotAvatar spec={avatarOf(focusKey)} size={90} motion={motionFor(focusKey)} />
               <span className="absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:bg-black/35 group-hover:opacity-100">更换</span>
             </button>
@@ -1396,7 +1443,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
                     <span className="block text-[13px] font-semibold">出图队列 · {botState['小绘']}</span>
                     <span className="block text-[12px] text-[#9A9A98]">{paused ? '已暂停' : progressNote}</span>
                   </span>
-                  <button type="button" role="switch" aria-checked={!paused} onClick={() => setPaused((v) => !v)}
+                  <button type="button" role="switch" aria-checked={!paused} aria-label="暂停派单" onClick={() => setPaused((v) => !v)}
                     className={`relative h-6 w-10 shrink-0 rounded-full transition ${paused ? 'bg-[#E5E5E3]' : 'bg-[#2F7CF6]'}`}>
                     <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${paused ? 'left-0.5' : 'left-[18px]'}`} />
                   </button>
@@ -1466,15 +1513,18 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             <div>
               <p className="se-group-label mb-2">风格模板</p>
               <div className="grid grid-cols-2 gap-2">
-                {templates.map((t) => (
+                {templates.slice(0, 12).map((t) => (
                   <button key={t.id} type="button" onClick={() => { chooseStyle(t); setPanelTab('activity'); }} className="se-photo text-left">
-                    <div className="aspect-[4/3] overflow-hidden rounded-xl bg-[#F4F4F2]">
-                      <img src={styleCovers[t.id] || apiUrl(t.cover_url)} alt="" className="size-full object-cover" />
+                    <div className="aspect-[3/4] overflow-hidden rounded-xl bg-[#F4F4F2]">
+                      <img src={styleCovers[t.id] || apiUrl(t.cover_url)} alt="" loading="lazy" className="size-full object-cover" />
                     </div>
                     <div className="mt-1.5 truncate text-[12px] font-medium">{t.title}</div>
                   </button>
                 ))}
               </div>
+              {templates.length > 12 && (
+                <p className="mt-2 text-[11px] text-[#9A9A98]">共 {templates.length} 个模板，展示前 12 个</p>
+              )}
               <p className="se-group-label mb-2 mt-4">我的配方</p>
               <button type="button" onClick={openMySkills} className="se-row-card flex w-full items-center justify-between p-3.5 text-left transition hover:bg-[#FAFAF8]">
                 <span className="text-[13px] font-semibold">打开我的配方</span>
@@ -1542,7 +1592,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>粘贴抖音图文链接</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://v.douyin.com/xxxx/" onKeyDown={(e) => { if (e.key === 'Enter') void importLink(); }} />
+            <Input value={linkUrl} aria-label="抖音图文链接" onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://v.douyin.com/xxxx/" onKeyDown={(e) => { if (e.key === 'Enter') void importLink(); }} />
             <p className="text-xs text-muted-foreground">仅支持单条图文帖；视频请截帧后上传。</p>
             <Button className="w-full" disabled={linkBusy} onClick={() => void importLink()}>{linkBusy ? '解析中…' : '解析并入场'}</Button>
           </div>

@@ -45,6 +45,7 @@ async function request<T>(method: string, path: string, body?: unknown, isForm =
 export const api = {
   health: () => request<{ ok: boolean; keys_configured: boolean }>('GET', '/api/v1/health'),
   templates: () => request<{ templates: import('./types').Template[] }>('GET', '/api/v1/templates'),
+  getTemplate: (id: string) => request<{ template: import('./types').Template }>('GET', `/api/v1/templates/${encodeURIComponent(id)}`),
   models: () => request<{ models: import('./types').ModelInfo[] }>('GET', '/api/v1/models'),
   quota: () => request<import('./types').Quota>('GET', '/api/v1/quota'),
   skills: () => request<{ skills: import('./types').SkillRecord[] }>('GET', '/api/v1/skills'),
@@ -95,6 +96,23 @@ export const api = {
   createAlbum: (title: string, item_ids: string[]) => request<{ album: import('./types').AlbumMeta }>('POST', '/api/v1/albums', { title, item_ids }),
   updateAlbum: (id: string, patch: { title?: string; item_ids?: string[] }) => request<{ album: import('./types').AlbumMeta }>('PATCH', `/api/v1/albums/${id}`, patch),
   deleteAlbum: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/albums/${id}`),
+  exportAlbumZip: async (id: string): Promise<Blob> => {
+    let res: Response;
+    try {
+      res = await fetch(apiUrl(`/api/v1/albums/${id}/export.zip`), {
+        headers: { 'X-Session-Id': sessionId() },
+        credentials: 'same-origin',
+      });
+    } catch {
+      throw new ApiRequestError(0, { code: 'network', message: '网络异常，请检查连接后重试' });
+    }
+    if (!res.ok) {
+      let err: ApiError | undefined;
+      try { err = (await res.json()).error; } catch { /* non-JSON error body */ }
+      throw new ApiRequestError(res.status, err);
+    }
+    return res.blob();
+  },
   shareAlbum: (id: string, expires_hours?: number) => request<{ share_token: string; share_page: string; expires_at: string }>('POST', `/api/v1/albums/${id}/share`, { expires_hours }),
   revokeAlbumShare: (id: string) => request<{ ok: boolean }>('DELETE', `/api/v1/albums/${id}/share`),
   feed: (params: { tag?: string; q?: string; sort?: string; limit?: number; offset?: number } = {}) => {

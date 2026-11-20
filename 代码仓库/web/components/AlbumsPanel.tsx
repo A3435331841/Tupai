@@ -9,17 +9,23 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { Download } from 'lucide-react';
 
 const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 const shareLink = (token: string) => window.location.origin + apiUrl(`/api/v1/share/${token}/page`);
+// share_active 由后端新增；类型尚未同步时按 token + 到期时间兜底判断
+const isShareActive = (a: AlbumMeta) => (a as { share_active?: boolean }).share_active
+  ?? (Boolean(a.share_token) && (!a.share_expires_at || new Date(a.share_expires_at).getTime() > Date.now()));
 
 export function AlbumsPanel({ onChanged }: { onChanged?: () => void }) {
   const [albums, setAlbums] = useState<AlbumMeta[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [results, setResults] = useState<AssetMeta[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
   const [editing, setEditing] = useState<AlbumMeta | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editSelected, setEditSelected] = useState<Set<string>>(new Set());
@@ -35,7 +41,11 @@ export function AlbumsPanel({ onChanged }: { onChanged?: () => void }) {
       const [a, r] = await Promise.all([api.albums(), api.assets({ kind: 'result', limit: 60 })]);
       setAlbums(a.albums);
       setResults(r.assets);
-    } catch (e) { toast.error(errText(e, '加载失败')); setAlbums([]); }
+      setLoadError(null);
+    } catch (e) {
+      // 失败保留 null（骨架/错误卡），不伪装成空画册
+      setLoadError(errText(e, '画册加载失败，请稍后重试'));
+    }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -86,6 +96,23 @@ export function AlbumsPanel({ onChanged }: { onChanged?: () => void }) {
     if (!deleteTarget) return;
     try { await api.deleteAlbum(deleteTarget.id); toast.success('画册已删除'); setDeleteTarget(null); await load(); onChanged?.(); }
     catch (e) { toast.error(errText(e, '删除失败')); }
+  }
+
+  async function exportZip(a: AlbumMeta) {
+    if (a.item_ids.length === 0) return;
+    setExporting(a.id);
+    try {
+      const blob = await api.exportAlbumZip(a.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tupai-album-${a.id.slice(-6)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) { toast.error(errText(e, '导出失败，请稍后重试')); }
+    finally { setExporting(null); }
   }
 
   async function startEdit(a: AlbumMeta) {
@@ -161,7 +188,12 @@ export function AlbumsPanel({ onChanged }: { onChanged?: () => void }) {
         </Card>
       )}
 
-      {albums === null ? (
+      {loadError ? (
+        <Card role="alert" className="flex flex-col items-center gap-3 border-destructive/40 p-8 text-center">
+          <p className="text-sm text-destructive">{loadError}</p>
+          <Button size="sm" variant="outline" onClick={() => void load()}>重试</Button>
+        </Card>
+      ) : albums === null ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}</div>
       ) : albums.length === 0 ? (
         <Card className="p-8 text-center text-sm text-muted-foreground">还没有画册。点「创建画册」把作品成册分享。</Card>
@@ -174,23 +206,43 @@ export function AlbumsPanel({ onChanged }: { onChanged?: () => void }) {
                   {a.cover_asset_id && <AssetImage path={`/api/v1/assets/${a.cover_asset_id}/content`} alt={a.title} className="size-full object-cover" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{a.title}</p>
+                  <p className="break-words text-sm font-semibold">{a.title}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{a.item_ids.length} 张作品 · {new Date(a.created_at).toLocaleDateString('zh-CN')}</p>
                   <div className="mt-1">
-                    {a.share_token
+                    {isShareActive(a)
                       ? <Badge variant="secondary" className="text-[10px]">已分享 · {a.share_expires_at ? new Date(a.share_expires_at).toLocaleDateString('zh-CN') + ' 到期' : '长期'}</Badge>
-                      : <Badge variant="outline" className="text-[10px]">私有</Badge>}
+                      : a.share_token
+                        ? <Badge variant="outline" className="text-[10px] text-muted-foreground">分享已过期</Badge>
+                        : <Badge variant="outline" className="text-[10px]">私有</Badge>}
                   </div>
                 </div>
               </div>
               <div className="flex flex-wrap gap-1 border-t border-border p-2">
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => view(a)}>查看</Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => startEdit(a)}>编辑</Button>
-                {a.share_token && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void copyExisting(a)}>复制链接</Button>}
-                {a.share_token
-                  ? <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void revoke(a)}>撤回</Button>
-                  : <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShareTarget(a)}>分享</Button>}
-                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => setDeleteTarget(a)}>删除</Button>
+                {isShareActive(a) && <Button size="sm" variant="outline" className="h-9 text-xs sm:h-7" onClick={() => view(a)}>查看</Button>}
+                <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => startEdit(a)}>编辑</Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-9 text-xs sm:h-7"
+                  disabled={a.item_ids.length === 0 || exporting === a.id}
+                  title={a.item_ids.length === 0 ? '画册暂无作品' : undefined}
+                  onClick={() => void exportZip(a)}
+                >
+                  {exporting === a.id ? '导出中…' : <><Download className="size-3.5" aria-hidden="true" />导出 ZIP</>}
+                </Button>
+                {isShareActive(a) && <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => void copyExisting(a)}>复制链接</Button>}
+                {isShareActive(a) && <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => void revoke(a)}>撤回</Button>}
+                {!isShareActive(a) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 text-xs sm:h-7"
+                    disabled={a.item_ids.length === 0}
+                    title={a.item_ids.length === 0 ? '画册暂无作品' : undefined}
+                    onClick={() => setShareTarget(a)}
+                  >{a.share_token ? '重新分享' : '分享'}</Button>
+                )}
+                <Button size="sm" variant="ghost" className="h-9 text-xs text-destructive sm:h-7" onClick={() => setDeleteTarget(a)}>删除</Button>
               </div>
             </Card>
           ))}
@@ -222,7 +274,7 @@ export function AlbumsPanel({ onChanged }: { onChanged?: () => void }) {
           {editing && (
             <>
               <DialogHeader><DialogTitle>编辑画册</DialogTitle></DialogHeader>
-              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="画册名称" maxLength={100} />
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="画册名称" maxLength={100} aria-label="画册名称" />
               <p className="text-xs text-muted-foreground">勾选要保留的作品，第一张自动作为封面。</p>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6" aria-label="选择作品">
                 {[...results, ...editExtras.filter((e) => !results.some((r) => r.id === e.id))].map((a) => (
@@ -255,7 +307,7 @@ export function AlbumsPanel({ onChanged }: { onChanged?: () => void }) {
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>删除画册？</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">「{deleteTarget?.title}」将被删除，作品本身仍保留在资产库。</p>
+          <p className="break-words text-sm text-muted-foreground">「{deleteTarget?.title}」将被删除，作品本身仍保留在资产库。</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
             <Button variant="destructive" onClick={() => void doDelete()}>删除</Button>

@@ -143,7 +143,7 @@ function HomeAuth({ navigate }: { navigate: (to: string) => void }) {
     } catch (e) { toast.error(e instanceof Error ? e.message : '保存失败'); }
   }
 
-  if (!me) return <span className="inline-block h-9 w-[74px]" aria-hidden="true" />;
+  if (!me) return <span className="inline-block h-10 w-[74px]" aria-hidden="true" />;
   if (me.logged_in) {
     const name = profile?.display_name || me.user?.name || '已登录';
     return (
@@ -153,7 +153,7 @@ function HomeAuth({ navigate }: { navigate: (to: string) => void }) {
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-1 pr-3 text-xs text-muted-foreground transition-colors hover:bg-[#f6ecdf]"
+          className="flex min-h-10 items-center gap-1.5 rounded-full bg-secondary py-1 pl-1 pr-3 text-xs text-muted-foreground transition-colors hover:bg-[#f6ecdf]"
           title="账号菜单"
         >
           {me.user?.picture
@@ -284,20 +284,22 @@ export default function SiteHeader({ path, navigate }: { path: string; navigate:
               navigate('/community?tab=notify');
               window.dispatchEvent(new CustomEvent('tupai:tab', { detail: 'notify' }));
             }}
-            className="relative rounded-full p-1.5 text-[#6b5d4e] transition-colors hover:bg-[#f6ecdf] hover:text-[#7a6a58]"
+            className="relative grid size-10 place-items-center rounded-full text-[#6b5d4e] transition-colors hover:bg-[#f6ecdf] hover:text-[#7a6a58]"
           >
-            <BellIcon className="size-[19px]" />
-            {unread > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 grid min-w-[16px] place-items-center rounded-full bg-[#e0342b] px-1 text-[9px] font-semibold leading-4 text-white ring-2 ring-[#faf7f2]">
-                {unread > 99 ? '99+' : unread}
-              </span>
-            )}
+            <span className="relative">
+              <BellIcon className="size-[19px]" />
+              {unread > 0 && (
+                <span className="absolute -right-1.5 -top-1 grid min-w-[16px] place-items-center rounded-full bg-[#e0342b] px-1 text-[9px] font-semibold leading-4 text-white ring-2 ring-[#faf7f2]">
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
+            </span>
           </button>
           <button
             type="button"
             aria-label="帮助与隐私说明"
             onClick={() => navigate('/legal')}
-            className="hidden rounded-full p-1 text-[#6b5d4e] transition-colors hover:bg-[#f6ecdf] hover:text-[#7a6a58] sm:block"
+            className="hidden size-10 place-items-center rounded-full text-[#6b5d4e] transition-colors hover:bg-[#f6ecdf] hover:text-[#7a6a58] sm:grid"
           >
             <HelpIcon className="size-[21px]" />
           </button>

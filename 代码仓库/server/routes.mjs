@@ -1,8 +1,9 @@
 import {
   AppError, fail, errResponse, rows, readJson, requireSession, newId,
   imageSize, sniffImageType, ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, MODEL_WHITELIST, RATIOS,
-  DAILY_QUOTA_PER_SESSION, DAILY_QUOTA_GLOBAL, MESSAGES, b64ToBytes,
+  DAILY_QUOTA_PER_SESSION, DAILY_QUOTA_GLOBAL, MESSAGES, b64ToBytes, toDataUrl,
 } from './util.mjs';
+import { buildZip } from './zip.mjs';
 import { createHash } from 'node:crypto';
 import { createKeyScheduler } from './scheduler.mjs';
 import { createAgnesProvider } from './agnes.mjs';
@@ -57,8 +58,27 @@ function publicAssetUrl(id) {
   return `/api/v1/assets/${id}/content`;
 }
 
+// 画册 ZIP 内文件的扩展名由 content_type 推导；未知类型按 jpg 兜底
+function extFromImageType(mime) {
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/webp') return 'webp';
+  return 'jpg';
+}
+
 function safeCoverUrl(value) {
   return typeof value === 'string' && /^\/api\/v1\/assets\/a_[0-9a-f]{24}\/content$/.test(value) ? value : undefined;
+}
+
+function templateMeta(t) {
+  const meta = TEMPLATES.find((x) => x.id === t.id) || {};
+  return {
+    id: t.id, title: t.title, description: t.description,
+    cover_url: t.cover_asset_id ? publicAssetUrl(t.cover_asset_id) : `/api/v1/templates/${t.id}/cover`,
+    prompt: t.prompt, negative_prompt: t.negative_prompt,
+    sample_prompt: meta.sample_prompt || null,
+    variants: meta.variants || [],
+    default_model: t.default_model, ratio: t.ratio, tags: t.tags || [],
+  };
 }
 
 function assetTags(a) {
@@ -87,7 +107,8 @@ function albumMeta(a) {
   return {
     id: a.id, title: a.title, cover_asset_id: a.cover_asset_id || null, item_ids: albumItems(a),
     template_id: a.template_id, visibility: a.visibility, render_status: a.render_status,
-    share_token: a.share_token || null, share_expires_at: a.share_expires_at || null, created_at: a.created_at,
+    share_token: a.share_token || null, share_expires_at: a.share_expires_at || null,
+    share_active: shareActive(a), created_at: a.created_at,
   };
 }
 
@@ -119,6 +140,25 @@ function escHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// 分享图带标识版：原图以 data URI 内嵌进 SVG，右下角叠加半透明黑底白字「AI 生成 · 图派」
+function shareWatermarkSvg(bytes, mime, width, height) {
+  const w = width || 1024;
+  const h = height || 1024;
+  const fs = Math.max(14, Math.round(w * 0.026));
+  const pad = Math.max(12, Math.round(w * 0.022));
+  const label = 'AI 生成 · 图派';
+  const textW = Math.round(fs * 6.8);
+  const boxW = textW + pad * 2;
+  const boxH = fs + pad;
+  const x = Math.max(0, w - pad - boxW);
+  const y = Math.max(0, h - pad - boxH);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`
+    + `<image href="${toDataUrl(bytes, mime)}" width="${w}" height="${h}"/>`
+    + `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="${Math.round(boxH / 2)}" fill="rgba(0,0,0,0.55)"/>`
+    + `<text x="${x + pad}" y="${y + boxH / 2}" fill="#ffffff" font-family="system-ui, sans-serif" font-size="${fs}" font-weight="600" dominant-baseline="central">${label}</text>`
+    + '</svg>';
+}
+
 // ===== 技能演示（种子内容）：每个技能一本画册 + 原图→作品示例对；由维护端点幂等写入，公开只读 =====
 const SHOWCASE_OWNER = 'u:showcase-official';
 
@@ -130,8 +170,8 @@ function showcasePairs(s) {
   return jsonArr(s.pairs).filter((p) => p && typeof p.original_id === 'string' && typeof p.result_id === 'string');
 }
 
-function showcaseMeta(s) {
-  const pairs = showcasePairs(s);
+function showcaseMeta(s, livePairs) {
+  const pairs = livePairs || showcasePairs(s);
   return {
     id: s.id, title_zh: s.title_zh, category: s.category || '创意合成', desc_zh: s.desc_zh || '',
     tags: jsonArr(s.tags), prompt: s.prompt || null, negative_prompt: s.negative_prompt || null,
@@ -148,33 +188,20 @@ function showcaseMeta(s) {
 // 自包含只读画册页（翻页概念借鉴 create-photo-flipbook-ui, MIT；图派自实现轻量版）
 // 图片使用相对路径 img/{id}：分享页本身挂在 /functions/v1/app/api/v1/share/{token}/page 下，
 // 写死 /api/v1/... 会被平台保留路径拦截导致 404（见 docs/14 F-10）。
+// 带 ?watermark=1 让服务端返回已烘焙「AI 生成 · 图派」角标的 SVG，页面内显示即合规。
 function albumPageHtml(title, ids) {
-  const pages = ids.map((id, i) => `<figure class="page" style="--i:${i}"><img src="img/${escHtml(id)}" alt="作品 ${i + 1}" loading="lazy"><span class="ai-badge">AI 生成</span><button class="dl" onclick="dl(${i})">保存这张</button><figcaption>${i + 1} / ${ids.length}</figcaption></figure>`).join('');
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>${escHtml(title)} · 图派画册</title>
-<style>
-:root{color-scheme:light dark}body{margin:0;font-family:system-ui,sans-serif;background:#f6f3ee;color:#2a2622;display:flex;flex-direction:column;min-height:100vh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-header{padding:20px;text-align:center}h1{font-size:1.3rem;margin:0}small{color:#8a8178}
-.book{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;perspective:1600px}
-.stack{position:relative;width:min(86vw,420px);aspect-ratio:3/4;transform-style:preserve-3d}
-.page{position:absolute;inset:0;margin:0;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);overflow:hidden;transform-origin:left center;transition:transform .6s ease;backface-visibility:hidden;display:flex;flex-direction:column}
-.page img{width:100%;height:100%;object-fit:cover;flex:1}.page figcaption{padding:8px;text-align:center;font-size:.8rem;color:#8a8178}
-.ai-badge{position:absolute;left:8px;top:8px;z-index:2;border-radius:999px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;line-height:1;padding:5px 8px;letter-spacing:.02em}
-.dl{position:absolute;right:8px;bottom:34px;z-index:2;border:0;cursor:pointer;border-radius:999px;background:rgba(255,255,255,.92);color:#2a2622;font-size:11px;line-height:1;padding:6px 10px;text-decoration:none}
-.page.flipped{transform:rotateY(-180deg)}
-nav{display:flex;gap:12px;justify-content:center;padding:18px}button{font:inherit;padding:10px 22px;border-radius:999px;border:1px solid #d8d0c4;background:#fff;cursor:pointer}
-footer{text-align:center;padding:14px;font-size:.75rem;color:#a89f93}
-</style></head><body>
-<header><h1>${escHtml(title)}</h1><small>图派 TuPai · AI 生成作品集 · 原图不公开</small></header>
-<div class="book"><div class="stack" id="stack">${pages}</div></div>
-<nav><button id="prev">上一页</button><button id="next">下一页</button></nav>
-<footer>结果图均为 AI 生成 · 由图派画册分享（只读链接）</footer>
-<script>
+  const pages = ids.map((id, i) => `<figure class="page" style="--i:${i}"><img src="img/${escHtml(id)}?watermark=1" alt="作品 ${i + 1}" loading="lazy"><span class="ai-badge">AI 生成</span><button class="dl" onclick="dl(${i})">保存这张</button><figcaption>${i + 1} / ${ids.length}</figcaption></figure>`).join('');
+  // 零图时不渲染翻页控件与脚本，只给空态，避免按钮点了没反应
+  const book = ids.length
+    ? `<div class="book"><div class="stack" id="stack">${pages}</div></div>
+<nav><button id="prev" disabled>上一页</button><button id="next" disabled>下一页</button></nav>`
+    : '<div class="book"><p class="empty">画册暂无作品</p></div>';
+  const script = !ids.length ? '' : `<script>
 const pages=[...document.querySelectorAll('.page')];let cur=0;
-function render(){pages.forEach((p,i)=>{p.style.zIndex=pages.length-i;p.classList.toggle('flipped',i<cur);});}
-document.getElementById('next').onclick=()=>{if(cur<pages.length-1){cur++;render();}};
-document.getElementById('prev').onclick=()=>{if(cur>0){cur--;render();}};
+const prevBtn=document.getElementById('prev'),nextBtn=document.getElementById('next');
+function render(){pages.forEach((p,i)=>{p.style.zIndex=pages.length-i;p.classList.toggle('flipped',i<cur);});prevBtn.disabled=cur<=0;nextBtn.disabled=cur>=pages.length-1;}
+nextBtn.onclick=()=>{if(cur<pages.length-1){cur++;render();}};
+prevBtn.onclick=()=>{if(cur>0){cur--;render();}};
 addEventListener('keydown',(e)=>{if(e.key==='ArrowRight'){if(cur<pages.length-1){cur++;render();}}else if(e.key==='ArrowLeft'){if(cur>0){cur--;render();}}});
 render();
 // 下载时在画布上合成「AI 生成 · 图派」标识，确保保存到本地的文件也带标识
@@ -195,7 +222,45 @@ async function dl(i){
   ctx.fillText(label, c.width-pad-tw, c.height-pad-fs/2);
   const a=document.createElement('a');a.download='tupai-'+(i+1)+'.jpg';a.href=c.toDataURL('image/jpeg',0.92);a.click();
 }
-</script></body></html>`;
+</script>`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>${escHtml(title)} · 图派画册</title>
+<style>
+:root{color-scheme:light dark}body{margin:0;font-family:system-ui,sans-serif;background:#f6f3ee;color:#2a2622;display:flex;flex-direction:column;min-height:100vh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+header{padding:20px;text-align:center}h1{font-size:1.3rem;margin:0}small{color:#8a8178}
+.book{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;perspective:1600px}
+.stack{position:relative;width:min(86vw,420px);aspect-ratio:3/4;transform-style:preserve-3d}
+.page{position:absolute;inset:0;margin:0;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);overflow:hidden;transform-origin:left center;transition:transform .6s ease;backface-visibility:hidden;display:flex;flex-direction:column}
+.page img{width:100%;height:100%;object-fit:cover;flex:1}.page figcaption{padding:8px;text-align:center;font-size:.8rem;color:#8a8178}
+.ai-badge{position:absolute;left:8px;top:8px;z-index:2;border-radius:999px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;line-height:1;padding:5px 8px;letter-spacing:.02em}
+.dl{position:absolute;right:8px;bottom:34px;z-index:2;border:0;cursor:pointer;border-radius:999px;background:rgba(255,255,255,.92);color:#2a2622;font-size:11px;line-height:1;padding:6px 10px;text-decoration:none}
+.page.flipped{transform:rotateY(-180deg)}
+.empty{color:#8a8178;font-size:.95rem;text-align:center;margin:0}
+nav{display:flex;gap:12px;justify-content:center;padding:18px}button{font:inherit;padding:10px 22px;border-radius:999px;border:1px solid #d8d0c4;background:#fff;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+footer{text-align:center;padding:14px;font-size:.75rem;color:#a89f93}
+</style></head><body>
+<header><h1>${escHtml(title)}</h1><small>图派 TuPai · AI 生成作品集 · 原图不公开</small></header>
+${book}
+<footer>结果图均为 AI 生成 · 由图派画册分享（只读链接）</footer>
+${script}</body></html>`;
+}
+
+// 分享失效（过期/撤回/不存在）落地页：纯静态友好提示，不暴露 JSON
+function shareExpiredHtml() {
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>画册链接已失效 · 图派</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#faf7f2;color:#2a2622;font-family:system-ui,sans-serif;padding:24px}
+.card{max-width:420px;background:#fff;border:1px solid #eee4d6;border-radius:16px;padding:36px 28px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.06)}
+h1{font-family:"Songti SC","SimSun",serif;font-size:1.5rem;margin:0 0 14px}
+p{color:#7a6f63;line-height:1.7;margin:0 0 22px}
+a{color:#2a2622;text-decoration:none;border-bottom:1px solid #cbbb9f;padding-bottom:2px}
+</style></head><body>
+<div class="card"><h1>画册链接已失效</h1><p>该分享链接可能已过期或被作者撤回。<br>你可以回到图派首页，继续浏览其他画册与作品。</p><a href="../../../../">回到图派首页</a></div>
+</body></html>`;
 }
 
 export function application({ db, storage, env, fetchImpl }) {
@@ -247,6 +312,36 @@ export function application({ db, storage, env, fetchImpl }) {
     const alive = rows(await db.from('assets').select('id, kind, deleted_at').in('id', ids)) || [];
     const keep = new Set(alive.filter((a) => a.kind === 'result' && !a.deleted_at).map((a) => a.id));
     return ids.filter((id) => keep.has(id));
+  }
+
+  // 演示对存活过滤：一次查询全部 pair 资产，只保留原图与结果都未软删的 pair
+  async function liveShowcasePairs(skills) {
+    const allIds = new Set();
+    for (const s of skills) for (const p of showcasePairs(s)) { allIds.add(p.original_id); allIds.add(p.result_id); }
+    const alive = new Set();
+    if (allIds.size) {
+      const list = rows(await db.from('assets').select('id, kind, deleted_at').in('id', [...allIds])) || [];
+      for (const a of list) if (!a.deleted_at) alive.add(a.id);
+    }
+    const out = new Map();
+    for (const s of skills) {
+      out.set(s.id, showcasePairs(s).filter((p) => alive.has(p.original_id) && alive.has(p.result_id)));
+    }
+    return out;
+  }
+
+  // /showcase/img 白名单：进程内 30 秒缓存，避免每张演示图都全表扫描
+  let showcaseAllowed = { at: 0, ids: new Set() };
+  async function showcaseAllowedIds() {
+    if (Date.now() - showcaseAllowed.at > 30_000) {
+      const list = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
+      const ids = new Set();
+      for (const pairs of (await liveShowcasePairs(list)).values()) {
+        for (const p of pairs) { ids.add(p.original_id); ids.add(p.result_id); }
+      }
+      showcaseAllowed = { at: Date.now(), ids };
+    }
+    return showcaseAllowed.ids;
   }
 
   async function loadWork(id) {
@@ -411,19 +506,15 @@ export function application({ db, storage, env, fetchImpl }) {
     if (path === '/api/v1/templates' && method === 'GET') {
       await ensureSeeded(db);
       const list = rows(await db.from('templates').select('*').order('sort', { ascending: true }).limit(50)) || [];
-      return Response.json({
-        templates: list.map((t) => {
-          const meta = TEMPLATES.find((x) => x.id === t.id) || {};
-          return {
-            id: t.id, title: t.title, description: t.description,
-            cover_url: t.cover_asset_id ? publicAssetUrl(t.cover_asset_id) : `/api/v1/templates/${t.id}/cover`,
-            prompt: t.prompt, negative_prompt: t.negative_prompt,
-            sample_prompt: meta.sample_prompt || null,
-            variants: meta.variants || [],
-            default_model: t.default_model, ratio: t.ratio, tags: t.tags || [],
-          };
-        }),
-      });
+      return Response.json({ templates: list.map(templateMeta) });
+    }
+
+    const templateMatch = path.match(/^\/api\/v1\/templates\/([a-z0-9-]+)$/);
+    if (templateMatch && method === 'GET') {
+      await ensureSeeded(db);
+      const found = rows(await db.from('templates').select('*').eq('id', templateMatch[1]).limit(1));
+      if (!found?.length) fail('not_found', 404);
+      return Response.json({ template: templateMeta(found[0]) });
     }
 
     const coverMatch = path.match(/^\/api\/v1\/templates\/([a-z0-9-]+)\/cover$/);
@@ -443,19 +534,9 @@ export function application({ db, storage, env, fetchImpl }) {
           }
         }
       }
-      const meta = TEMPLATES.find((x) => x.id === t.id);
-      let out = null;
-      try {
-        out = await agnes.generate({ prompt: meta?.sample_prompt || t.prompt, model: t.default_model, ratio: t.ratio });
-      } catch { out = null; }
-      if (out && !out.busy) {
-        const coverId = newId('a');
-        await storeAsset({ id: coverId, sid: 'system', kind: 'reference', visibility: 'public', bytes: out.bytes, mime: out.mime });
-        await db.from('templates').update({ cover_asset_id: coverId }).eq('id', t.id).is('cover_asset_id', null);
-        return new Response(out.bytes, { headers: { 'content-type': out.mime, 'cache-control': 'public, max-age=86400' } });
-      }
+      // 无封面时只返回占位图：绝不在请求路径上触发真实出图（首页会预载全部模板封面）
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#efe6d8"/><stop offset="1" stop-color="#c9a689"/></linearGradient></defs><rect width="600" height="800" fill="url(#g)"/><text x="300" y="380" font-family="sans-serif" font-size="34" fill="#5c4a35" text-anchor="middle">${t.title}</text><text x="300" y="430" font-family="sans-serif" font-size="18" fill="#7a654c" text-anchor="middle">样片生成中 · 稍后刷新</text></svg>`;
-      return new Response(svg, { headers: { 'content-type': 'image/svg+xml', 'cache-control': 'no-store' } });
+      return new Response(svg, { headers: { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=300' } });
     }
 
     if (path === '/api/v1/models' && method === 'GET') {
@@ -555,16 +636,37 @@ export function application({ db, storage, env, fetchImpl }) {
       const includeDeleted = !onlyDeleted && url.searchParams.get('include_deleted') === '1';
       const limit = vInt(url.searchParams.get('limit'), 'limit', { min: 1, max: 60, fallback: 24 });
       const offset = vInt(url.searchParams.get('offset'), 'offset', { min: 0, fallback: 0 });
-      let query = db.from('assets').select('*').eq('owner_session', sid).order('created_at', { ascending: false });
-      if (!includeDeleted && !onlyDeleted) query = query.is('deleted_at', null);
-      if (kind) query = query.eq('kind', kind);
-      const all = rows(await query.range(0, 499)) || [];
-      let filtered = all;
-      if (onlyDeleted) filtered = filtered.filter((a) => Boolean(a.deleted_at));
-      if (tag) filtered = filtered.filter((a) => assetTags(a).includes(tag));
-      if (q) filtered = filtered.filter((a) => (a.source || '').toLowerCase().includes(q)
-        || assetTags(a).some((t) => String(t).toLowerCase().includes(q)) || a.kind.includes(q));
-      const page = filtered.slice(offset, offset + limit);
+      // 无搜索/标签/回收站条件时分页下推数据库，不再受内存 500 条上限约束
+      const dbPaged = !q && !tag && !onlyDeleted;
+      let page, total;
+      if (dbPaged) {
+        // count 与本页共用同一组过滤条件，保证 total 与分页口径一致
+        const applyAssetFilters = (query) => {
+          let next = query.eq('owner_session', sid);
+          if (!includeDeleted) next = next.is('deleted_at', null);
+          if (kind) next = next.eq('kind', kind);
+          return next;
+        };
+        const counted = await applyAssetFilters(db.from('assets').select('id', { count: 'exact' })).limit(1);
+        if (counted.error) fail('internal', 503, '数据服务暂不可用，请稍后重试');
+        total = Number(counted.count) || 0;
+        page = rows(await applyAssetFilters(db.from('assets').select('*'))
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)) || [];
+      } else {
+        // 搜索 / 标签筛选 / 回收站视图仍需内存过滤：最多取 500 条作为该视图的规模上限
+        let query = db.from('assets').select('*').eq('owner_session', sid).order('created_at', { ascending: false });
+        if (!includeDeleted && !onlyDeleted) query = query.is('deleted_at', null);
+        if (kind) query = query.eq('kind', kind);
+        const all = rows(await query.range(0, 499)) || [];
+        let filtered = all;
+        if (onlyDeleted) filtered = filtered.filter((a) => Boolean(a.deleted_at));
+        if (tag) filtered = filtered.filter((a) => assetTags(a).includes(tag));
+        if (q) filtered = filtered.filter((a) => (a.source || '').toLowerCase().includes(q)
+          || assetTags(a).some((t) => String(t).toLowerCase().includes(q)) || a.kind.includes(q));
+        total = filtered.length;
+        page = filtered.slice(offset, offset + limit);
+      }
       // summary 始终按「未删除」统计，回收站视图与常规视图口径一致
       const summary = {};
       for (const k of KIND_VALUES) {
@@ -572,9 +674,9 @@ export function application({ db, storage, env, fetchImpl }) {
         summary[k] = Number(c.count) || 0;
       }
       return Response.json({
-        assets: page.map(assetMeta), total: filtered.length,
+        assets: page.map(assetMeta), total,
         summary,
-        next_offset: offset + limit < filtered.length ? offset + limit : null,
+        next_offset: offset + limit < total ? offset + limit : null,
       });
     }
 
@@ -601,6 +703,9 @@ export function application({ db, storage, env, fetchImpl }) {
       const purge = new URL(request.url).searchParams.get('purge') === '1';
       const a = await loadOwnedAsset(assetMetaMatch[1], sid, { allowDeleted: purge });
       if (!purge) {
+        // 已发布作品的结果图不能软删，否则社区出现「有作品无图」
+        const published = rows(await db.from('works').select('id').eq('result_asset_id', a.id).eq('status', 'published').limit(1));
+        if (published?.length) fail('invalid_input', 409, '该结果已发布为作品，请先撤回或删除作品');
         const deleted_at = new Date().toISOString();
         const r = await db.from('assets').update({ deleted_at }).eq('id', a.id).eq('owner_session', sid).select();
         if (r.error) fail('internal', 503, '删除失败，请稍后重试');
@@ -1045,10 +1150,42 @@ export function application({ db, storage, env, fetchImpl }) {
       return Response.json({ ok: true });
     }
 
+    // 画册 ZIP 导出：仅所有者；打包仍存活的作品图，store 模式（不压缩），零第三方依赖
+    const exportMatch = path.match(/^\/api\/v1\/albums\/(al_[0-9a-f]{24})\/export\.zip$/);
+    if (exportMatch && method === 'GET') {
+      const sid = ownerOf(request);
+      const album = await loadOwnedAlbum(exportMatch[1], sid);
+      const ids = await liveAlbumIds(album);
+      if (!ids.length) fail('invalid_input', 400, '画册暂无作品，无法导出');
+      const files = [];
+      for (const id of ids) {
+        const asset = (rows(await db.from('assets').select('*').eq('id', id).limit(1)) || [])[0];
+        if (!asset) continue;
+        let file;
+        try { file = await storage.download(asset.storage_key); } catch { continue; }
+        if (!file?.ok) continue;
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        files.push({ name: `${String(files.length + 1).padStart(2, '0')}-${id}.${extFromImageType(asset.content_type)}`, bytes });
+      }
+      // 全部下载失败时按空画册处理，避免返回 0 条目的空包
+      if (!files.length) fail('invalid_input', 400, '画册暂无作品，无法导出');
+      const zip = buildZip(files);
+      return new Response(zip, {
+        headers: {
+          'content-type': 'application/zip',
+          'content-disposition': `attachment; filename="tupai-album.zip"; filename*=UTF-8''${encodeURIComponent(album.title)}.zip`,
+          'cache-control': 'private, no-store',
+        },
+      });
+    }
+
     const shareMatch = path.match(/^\/api\/v1\/albums\/(al_[0-9a-f]{24})\/share$/);
     if (shareMatch && method === 'POST') {
       const sid = ownerOf(request);
       const album = await loadOwnedAlbum(shareMatch[1], sid);
+      // 空画册（或全部条目已软删）不可分享，避免分享出空页
+      const liveIds = await liveAlbumIds(album);
+      if (!liveIds.length) fail('invalid_input', 400, '画册暂无作品，无法分享');
       const body = await readJson(request).catch(() => ({}));
       const hours = vInt(body.expires_hours, 'expires_hours', { min: 1, max: 24 * 30, fallback: 24 * 7 });
       const token = crypto.randomUUID().replace(/-/g, '');
@@ -1080,13 +1217,32 @@ export function application({ db, storage, env, fetchImpl }) {
       if (!albumItems(album).includes(shareImg[2])) fail('not_found', 404);
       const found = rows(await db.from('assets').select('*').eq('id', shareImg[2]).limit(1));
       if (!found?.length || found[0].kind !== 'result' || found[0].deleted_at) fail('not_found', 404);
-      const file = await storage.download(found[0].storage_key);
+      const asset = found[0];
+      const watermark = new URL(request.url).searchParams.get('watermark') === '1';
+      const file = await storage.download(asset.storage_key);
       if (!file.ok) fail('internal', 503, '资产读取失败');
-      return new Response(file.body, { headers: { 'content-type': found[0].content_type, 'cache-control': 'private, no-store' } });
+      // 默认保持原始字节与原 content-type；?watermark=1 才返回带角标的 SVG 包装
+      if (!watermark) {
+        return new Response(file.body, { headers: { 'content-type': asset.content_type, 'cache-control': 'private, no-store' } });
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const { width, height } = imageSize(bytes, asset.content_type);
+      return new Response(shareWatermarkSvg(bytes, asset.content_type, width, height), {
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, no-store' },
+      });
     }
     const sharePage = path.match(/^\/api\/v1\/share\/([0-9a-f]{32})\/page$/);
     if (sharePage && method === 'GET') {
-      const album = await loadSharedAlbum(sharePage[1]);
+      let album;
+      try {
+        album = await loadSharedAlbum(sharePage[1]);
+      } catch (e) {
+        // 过期/撤回/不存在时给友好 HTML 落地页，而不是 JSON 错误信封
+        if (e instanceof AppError && e.status === 404) {
+          return new Response(shareExpiredHtml(), { status: 404, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+        }
+        throw e;
+      }
       const ids = await liveAlbumIds(album);
       return new Response(albumPageHtml(album.title, ids), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     }
@@ -1094,21 +1250,24 @@ export function application({ db, storage, env, fetchImpl }) {
     // ---- 技能演示（公开只读）：社区「技能」区按画册呈现每个技能的原图→作品示例 ----
     if (path === '/api/v1/showcase/skills' && method === 'GET') {
       const list = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
+      const live = await liveShowcasePairs(list);
       const skills = list
-        .filter((s) => showcasePairs(s).length > 0)
+        .filter((s) => (live.get(s.id) || []).length > 0)
         .sort((a, b) => (a.sort || 0) - (b.sort || 0))
-        .map(showcaseMeta);
+        .map((s) => showcaseMeta(s, live.get(s.id)));
       return Response.json({ skills });
     }
     const showcaseSkillMatch = path.match(/^\/api\/v1\/showcase\/skills\/([a-z0-9][a-z0-9-]{0,63})$/);
     if (showcaseSkillMatch && method === 'GET') {
       const found = rows(await db.from('showcase_skills').select('*').eq('id', showcaseSkillMatch[1]).limit(1));
-      if (!found?.length || !showcasePairs(found[0]).length) fail('not_found', 404);
+      if (!found?.length) fail('not_found', 404);
       const s = found[0];
+      const livePairs = (await liveShowcasePairs([s])).get(s.id) || [];
+      if (!livePairs.length) fail('not_found', 404);
       const album = s.album_id ? rows(await db.from('albums').select('*').eq('id', s.album_id).limit(1))?.[0] : null;
       return Response.json({
-        skill: showcaseMeta(s),
-        pairs: showcasePairs(s).map((p) => ({
+        skill: showcaseMeta(s, livePairs),
+        pairs: livePairs.map((p) => ({
           original_url: `/api/v1/showcase/img/${p.original_id}`,
           result_url: `/api/v1/showcase/img/${p.result_id}`,
           result_asset_id: p.result_id,
@@ -1118,12 +1277,10 @@ export function application({ db, storage, env, fetchImpl }) {
           : null,
       });
     }
-    // 展示图仅限种子对中登记过的资产（原图语料为公开授权图片）；用户资产不出现在其中，私有图语义不受影响
+    // 展示图仅限种子对中登记过、且原图与结果都未软删的资产（原图语料为公开授权图片）；用户资产不出现在其中
     const showcaseImgMatch = path.match(/^\/api\/v1\/showcase\/img\/(a_[0-9a-f]{24})$/);
     if (showcaseImgMatch && method === 'GET') {
-      const skills = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
-      const allowed = new Set();
-      for (const s of skills) for (const p of showcasePairs(s)) { allowed.add(p.original_id); allowed.add(p.result_id); }
+      const allowed = await showcaseAllowedIds();
       if (!allowed.has(showcaseImgMatch[1])) fail('not_found', 404);
       const found = rows(await db.from('assets').select('*').eq('id', showcaseImgMatch[1]).limit(1));
       if (!found?.length || found[0].deleted_at) fail('not_found', 404);
@@ -1179,6 +1336,18 @@ export function application({ db, storage, env, fetchImpl }) {
       const sort = vOneOf(url.searchParams.get('sort') || 'new', 'sort', SORT_VALUES);
       const limit = vInt(url.searchParams.get('limit'), 'limit', { min: 1, max: 48, fallback: 24 });
       const offset = vInt(url.searchParams.get('offset'), 'offset', { min: 0, fallback: 0 });
+      // 最新且无筛选时：总数与分页直接下推数据库，不受内存 500 条上限约束
+      if (!tag && !q && sort === 'new') {
+        const counted = await db.from('works').select('id', { count: 'exact' }).eq('status', 'published').limit(1);
+        if (counted.error) fail('internal', 503, '数据服务暂不可用，请稍后重试');
+        const total = Number(counted.count) || 0;
+        const page = rows(await db.from('works').select('*').eq('status', 'published')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)) || [];
+        const works = await batchMeta(page, viewerKey(request));
+        return Response.json({ works, total, next_offset: offset + limit < total ? offset + limit : null });
+      }
+      // 搜索/热榜视图需内存过滤与排序：最多取 500 条作为社区当前规模上限
       const all = rows(await db.from('works').select('*').eq('status', 'published').order('created_at', { ascending: false }).range(0, 499)) || [];
       let filtered = all;
       if (tag) filtered = filtered.filter((w) => jsonArr(w.tags).includes(tag));
@@ -1236,6 +1405,8 @@ export function application({ db, storage, env, fetchImpl }) {
       if (w.owner_session !== sid) fail('not_found', 404);
       const r = await db.from('works').update({ status: 'removed' }).eq('id', w.id).select();
       if (r.error) fail('internal', 503);
+      // 作品下架后，其他用户收到的相关通知一并清理，避免点开即 404
+      await db.from('notifications').delete().eq('work_id', w.id);
       // 保留 fork 指针与 author_credit/depth，子作品仍能显示来源；上游不可见时由前端提示「已撤回」
       return Response.json({ ok: true });
     }
@@ -1248,7 +1419,7 @@ export function application({ db, storage, env, fetchImpl }) {
         if (!sid || w.owner_session !== sid) fail('not_found', 404);
       }
       const f = rows(await db.from('assets').select('*').eq('id', w.result_asset_id).limit(1));
-      if (!f?.length) fail('not_found', 404);
+      if (!f?.length || f[0].deleted_at) fail('not_found', 404);
       const file = await storage.download(f[0].storage_key);
       if (!file.ok) fail('internal', 503, '资产读取失败');
       return new Response(file.body, { headers: { 'content-type': f[0].content_type, 'cache-control': 'public, max-age=60' } });
@@ -1389,14 +1560,18 @@ export function application({ db, storage, env, fetchImpl }) {
         ? rows(await db.from('tasks').select('*').order('created_at', { ascending: false }).limit(50)) || []
         : rows(await db.from('tasks').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(50)) || [];
       const list = includeClosed ? raw.filter((t) => t.status === 'open' || t.owner_session === viewer) : raw;
-      const tasks = await Promise.all(list.map(async (t) => {
-        const c = await db.from('submissions').select('id', { count: 'exact' }).eq('task_id', t.id).limit(1);
-        return {
-          id: t.id, theme: t.theme, constraints: t.constraints, owner_id: t.owner_session,
-          status: t.status, created_at: t.created_at,
-          submission_count: Number(c.count) || 0,
-          is_owner: Boolean(viewer) && t.owner_session === viewer,
-        };
+      // 一次取回本页任务的投稿，避免逐任务 count 的 N+1
+      const taskIds = list.map((t) => t.id);
+      const allSubs = taskIds.length
+        ? rows(await db.from('submissions').select('id, task_id').in('task_id', taskIds).limit(2000)) || []
+        : [];
+      const submCount = new Map();
+      for (const s of allSubs) submCount.set(s.task_id, (submCount.get(s.task_id) || 0) + 1);
+      const tasks = list.map((t) => ({
+        id: t.id, theme: t.theme, constraints: t.constraints, owner_id: t.owner_session,
+        status: t.status, created_at: t.created_at,
+        submission_count: submCount.get(t.id) || 0,
+        is_owner: Boolean(viewer) && t.owner_session === viewer,
       }));
       return Response.json({ tasks });
     }
@@ -1418,11 +1593,12 @@ export function application({ db, storage, env, fetchImpl }) {
       if (!f?.length) fail('not_found', 404);
       const t = f[0];
       const subs = rows(await db.from('submissions').select('*').eq('task_id', t.id).limit(100)) || [];
-      const published = [];
-      for (const s of subs) {
-        const wf = rows(await db.from('works').select('*').eq('id', s.work_id).limit(1));
-        if (wf?.length && wf[0].status === 'published') published.push(wf[0]);
-      }
+      // 一次批量取回投稿作品，避免逐条查询
+      const workIds = subs.map((s) => s.work_id).filter(Boolean);
+      const workRows = workIds.length
+        ? rows(await db.from('works').select('*').in('id', workIds).limit(100)) || []
+        : [];
+      const published = workRows.filter((w) => w.status === 'published');
       // 一次补齐点赞/评论/fork 计数与本人态，避免每件作品多次查询
       const works = await batchMeta(published, viewerKey(request));
       return Response.json({
@@ -1572,11 +1748,14 @@ export function application({ db, storage, env, fetchImpl }) {
         await db.from('likes').delete().eq('work_id', w.id);
         await db.from('reports').delete().eq('work_id', w.id);
         await db.from('submissions').delete().eq('work_id', w.id);
+        // 他人收到的相关通知属于跨实体残留，随作品一并清理
+        await db.from('notifications').delete().eq('work_id', w.id);
       }
       await db.from('works').delete().eq('owner_session', sid);
       await db.from('comments').delete().eq('owner_session', sid);
       await db.from('likes').delete().eq('owner_session', sid);
       await db.from('notifications').delete().eq('owner_session', sid);
+      await db.from('reports').delete().eq('reporter_session', sid);
       await db.from('submissions').delete().eq('owner_session', sid);
       await db.from('tasks').delete().eq('owner_session', sid);
       await db.from('albums').delete().eq('owner_session', sid);
@@ -1685,7 +1864,14 @@ export function application({ db, storage, env, fetchImpl }) {
         const skill = rows(await db.from('showcase_skills').select('*').eq('id', skillId).limit(1))?.[0];
         if (!skill) fail('invalid_input', 400, `未知技能 ${skillId}`);
         const current = showcasePairs(skill);
-        if (current.length > slot) { out.skipped_pairs += 1; continue; }
+        if (current.length > slot) {
+          out.skipped_pairs += 1;
+          // 已写入过的配对：顺带回填模板封面（为空时），让重复调用也能修复历史数据
+          if (slot === 0) {
+            await db.from('templates').update({ cover_asset_id: current[0].result_id }).eq('id', skillId).is('cover_asset_id', null);
+          }
+          continue;
+        }
         if (current.length !== slot) fail('invalid_input', 400, `pairs.slot 必须顺续：当前 ${current.length}，收到 ${slot}`);
         for (const item of [p.original, p.result]) {
           if (!item || typeof item.b64 !== 'string' || !item.b64) fail('invalid_input', 400, 'pairs 缺少 original/result b64');
@@ -1714,6 +1900,8 @@ export function application({ db, storage, env, fetchImpl }) {
           pair[`${key}_id`] = id;
         }
         await db.from('showcase_skills').update({ pairs: [...current, pair] }).eq('id', skillId);
+        // 模板封面回填：仅在为空时写入第一张作品图（可重复调用，幂等）
+        await db.from('templates').update({ cover_asset_id: pair.result_id }).eq('id', skillId).is('cover_asset_id', null);
         out.pairs += 1;
       }
 

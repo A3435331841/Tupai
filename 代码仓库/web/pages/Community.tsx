@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, apiUrl, loginUrl, ApiRequestError } from '@/lib/api';
+import { saveLoginIntent, takeLoginIntent, peekLoginIntent } from '@/lib/login-intent';
 import type { NotificationItem, ShowcaseSkill, TaskItem, WorkComment, WorkMeta } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,15 +8,21 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { GitFork, Heart, MessageCircle } from 'lucide-react';
 import { PageHero } from '@/components/PageHero';
 import { SectionHeading } from '@/components/SectionHeading';
 
 type Tab = 'feed' | 'showcase' | 'tasks' | 'notify' | 'mine';
 const XINYU_LOCAL_URL = 'http://127.0.0.1:8767';
-const needLogin = (e: unknown) => {
-  if (e instanceof ApiRequestError && e.status === 401) { toast.error('请先登录'); window.location.href = loginUrl(); return true; }
+const needLogin = (e: unknown, intent?: Parameters<typeof saveLoginIntent>[0]) => {
+  if (e instanceof ApiRequestError && e.status === 401) {
+    if (intent) saveLoginIntent(intent);
+    toast.error('请先登录');
+    window.location.href = loginUrl();
+    return true;
+  }
   return false;
 };
 const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
@@ -40,9 +47,11 @@ function WorkCard({ w, onOpen }: { w: WorkMeta; onOpen: (w: WorkMeta) => void })
       <div className="p-2">
         <p className="truncate text-sm font-medium">{w.title}</p>
         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{w.author_credit || '匿名'} {w.depth > 0 ? `· fork ${w.depth} 层` : ''}</p>
-        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>♥ {w.like_count ?? 0}</span><span>💬 {w.comment_count ?? 0}</span><span>⑂ {w.fork_count ?? 0}</span>
-          {w.tags.slice(0, 2).map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1"><Heart className="size-3.5" aria-hidden="true" />{w.like_count ?? 0}</span>
+          <span className="inline-flex items-center gap-1"><MessageCircle className="size-3.5" aria-hidden="true" />{w.comment_count ?? 0}</span>
+          <span className="inline-flex items-center gap-1"><GitFork className="size-3.5" aria-hidden="true" />{w.fork_count ?? 0}</span>
+          {w.tags.slice(0, 2).map((t) => <Badge key={t} variant="secondary" className="max-w-[7rem] truncate text-[10px]">{t}</Badge>)}
         </div>
       </div>
     </button>
@@ -79,6 +88,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   const [showcaseList, setShowcaseList] = useState<ShowcaseSkill[] | null>(null);
   const [showcaseDetail, setShowcaseDetail] = useState<{ skill: ShowcaseSkill; pairs: { original_url: string; result_url: string; result_asset_id: string }[]; album: { share_token: string; share_page: string } | null } | null>(null);
   const [showcasePairIdx, setShowcasePairIdx] = useState(0);
+  const [openingShowcase, setOpeningShowcase] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<WorkMeta | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [confirmTarget, setConfirmTarget] = useState<WorkMeta | null>(null);
@@ -160,11 +170,13 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     } catch (e) { setTabError(errText(e, '加载技能演示失败')); }
   }, []);
   const openShowcase = useCallback(async (id: string) => {
+    setOpeningShowcase(id);
     try {
       const r = await api.showcaseSkill(id);
       setShowcaseDetail(r);
       setShowcasePairIdx(0);
     } catch (e) { toast.error(errText(e, '加载技能详情失败')); }
+    finally { setOpeningShowcase(null); }
   }, []);
   const loadMineTab = useCallback(async () => {
     setTabError(null);
@@ -179,6 +191,32 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     if (tab === 'mine') void loadMineTab();
     if (tab === 'showcase') void loadShowcaseTab();
   }, [tab, loadTasksTab, loadNoticesTab, loadMineTab]);
+
+  // 登录回程：恢复 401 前的评论/举报草稿（仅在已登录时消费，未登录则保留）
+  useEffect(() => {
+    (async () => {
+      try { const me = await api.me(); if (!me.logged_in) return; } catch { return; }
+      const pending = peekLoginIntent();
+      if (!pending || pending.kind === 'publish') return; // 发布草稿留给 PublishDialog 消费
+      const intent = takeLoginIntent();
+      if (!intent || intent.kind === 'publish') return;
+      try {
+        const r = await api.work(intent.workId);
+        setTab('feed');
+        await openWork(r.work);
+        if (intent.kind === 'comment') {
+          setCommentText(intent.text);
+          toast.success('已恢复上次未发送的评论');
+        } else {
+          setReportTarget(r.work);
+          setReportReason(intent.reason);
+          toast.success('已恢复上次未提交的举报');
+        }
+      } catch { toast.error('上次的作品已不可见，草稿无法恢复'); }
+    })();
+    // 仅首次挂载执行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function openWork(w: WorkMeta) {
     setActive(w);
@@ -223,7 +261,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       setComments((old) => [...old, r.comment]);
       setCommentText('');
       bumpCommentCount(w.id, 1);
-    } catch (e) { if (!needLogin(e)) toast.error(errText(e, '评论失败')); }
+    } catch (e) { if (!needLogin(e, { kind: 'comment', workId: w.id, text: commentText.trim() })) toast.error(errText(e, '评论失败')); }
   }
   async function delComment(cid: string) {
     const workId = active?.id;
@@ -239,7 +277,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       await api.reportWork(reportTarget.id, reportReason.trim());
       toast.success('已举报，感谢反馈');
       setReportTarget(null); setReportReason('');
-    } catch (e) { if (!needLogin(e)) toast.error(errText(e, '举报失败')); }
+    } catch (e) { if (!needLogin(e, { kind: 'report', workId: reportTarget!.id, reason: reportReason.trim() })) toast.error(errText(e, '举报失败')); }
   }
   async function confirmDelete() {
     if (!confirmTarget) return;
@@ -325,7 +363,12 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     }
     if (n.work_id) {
       try { const r = await api.work(n.work_id); setTab('feed'); await openWork(r.work); }
-      catch { toast.error('相关作品已撤回或删除'); }
+      catch {
+        toast.error('相关作品已撤回或删除');
+        // 作品不可见时给出去路：切到「我的作品」并加载列表
+        setTab('mine');
+        void loadMineTab();
+      }
     }
   }
   async function readAll() {
@@ -370,13 +413,36 @@ export default function Community({ navigate }: { navigate: (to: string) => void
         title="废片，也有第二次机会。"
         description="公开作品与配方，底图始终属于你。别人可以 fork 你的配方做同款，但原图永不出现。"
         aside={(
-          <>
+          <div
+            role="tablist"
+            aria-label="社区分区"
+            className="flex w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none]"
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+              const order: Tab[] = ['feed', 'showcase', 'tasks', 'notify', 'mine'];
+              const cur = order.indexOf(tab);
+              const next = order[(cur + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length];
+              e.preventDefault();
+              setTab(next);
+              e.currentTarget.querySelector<HTMLElement>(`[data-tab="${next}"]`)?.focus();
+            }}
+          >
             {([['feed', '发现'], ['showcase', '技能演示'], ['tasks', '共创任务'], ['notify', '通知'], ['mine', '我的作品']] as [Tab, string][]).map(([v, l]) => (
-              <Button key={v} size="sm" variant={tab === v ? 'secondary' : 'ghost'} onClick={() => setTab(v)}>
+              <Button
+                key={v}
+                size="sm"
+                variant={tab === v ? 'secondary' : 'ghost'}
+                role="tab"
+                aria-selected={tab === v}
+                tabIndex={tab === v ? 0 : -1}
+                data-tab={v}
+                className="shrink-0"
+                onClick={() => setTab(v)}
+              >
                 {l}{v === 'notify' && unread > 0 ? ` ${unread}` : ''}
               </Button>
             ))}
-          </>
+          </div>
         )}
       >
         <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
@@ -391,14 +457,14 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       {tab === 'feed' && (
         <>
           <div className="mb-4 flex flex-wrap gap-2">
-            <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="按标签筛选，如 夜景" className="h-9 w-40" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜作品 / 作者 / 标签" className="h-9 w-48" onKeyDown={(e) => { if (e.key === 'Enter') applyFilters(); }} />
+            <Input aria-label="按标签筛选作品" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="按标签筛选，如 夜景" className="h-9 w-40" />
+            <Input aria-label="搜索作品、作者或标签" value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜作品 / 作者 / 标签" className="h-9 w-48" onKeyDown={(e) => { if (e.key === 'Enter') applyFilters(); }} />
             <Button size="sm" variant={sort === 'new' ? 'secondary' : 'outline'} onClick={() => { setSort('new'); applyFilters({ sort: 'new' }); }}>最新</Button>
             <Button size="sm" variant={sort === 'hot' ? 'secondary' : 'outline'} onClick={() => { setSort('hot'); applyFilters({ sort: 'hot' }); }}>热门</Button>
             <Button size="sm" variant="outline" onClick={() => applyFilters()}>搜索</Button>
           </div>
           {feedError && (
-            <Card className="mb-4 flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
+            <Card role="alert" className="mb-4 flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
               <p className="text-sm text-destructive">{feedError}</p>
               <Button size="sm" variant="outline" onClick={() => void loadFeed()}>重试</Button>
             </Card>
@@ -495,7 +561,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             每个技能都由真实原图与生成作品成对呈现（左原图 · 右作品，AI 生成标识随图附带）；点开可翻阅全部示例并查看只读画册。
           </p>
           {tabError && (
-            <Card className="p-6 text-center text-sm text-muted-foreground">
+            <Card role="alert" className="p-6 text-center text-sm text-muted-foreground">
               {tabError}
               <div className="mt-3"><Button size="sm" variant="outline" onClick={() => void loadShowcaseTab()}>重试</Button></div>
             </Card>
@@ -509,7 +575,21 @@ export default function Community({ navigate }: { navigate: (to: string) => void
           {showcaseList !== null && showcaseList.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {showcaseList.map((s) => (
-                <Card key={s.id} className="cursor-pointer overflow-hidden p-0 transition-shadow hover:shadow-md" onClick={() => void openShowcase(s.id)}>
+                <Card
+                  key={s.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`查看技能演示：${s.title_zh}`}
+                  aria-busy={openingShowcase === s.id}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      if (!openingShowcase) void openShowcase(s.id);
+                    }
+                  }}
+                  className={`cursor-pointer gap-0 overflow-hidden p-0 transition-shadow hover:shadow-md ${openingShowcase === s.id ? 'pointer-events-none opacity-60' : ''}`}
+                  onClick={() => { if (!openingShowcase) void openShowcase(s.id); }}
+                >
                   <div className="relative grid aspect-[4/3] grid-cols-2 bg-secondary">
                     {s.cover ? (
                       <>
@@ -538,12 +618,12 @@ export default function Community({ navigate }: { navigate: (to: string) => void
       {tab === 'tasks' && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Input value={newTheme} onChange={(e) => setNewTheme(e.target.value)} placeholder="发起共创主题，如「雨夜霓虹」" className="h-9 w-64" />
-            <Input value={newConstraints} onChange={(e) => setNewConstraints(e.target.value)} placeholder="约束（可选）：必须保留人物、仅夜景…" className="h-9 w-72" />
+            <Input aria-label="共创任务主题" value={newTheme} onChange={(e) => setNewTheme(e.target.value)} placeholder="发起共创主题，如「雨夜霓虹」" className="h-9 w-64" />
+            <Input aria-label="共创任务约束（可选）" value={newConstraints} onChange={(e) => setNewConstraints(e.target.value)} placeholder="约束（可选）：必须保留人物、仅夜景…" className="h-9 w-72" />
             <Button size="sm" onClick={() => void createTask()}>发起任务</Button>
           </div>
           {tabError ? (
-            <Card className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
+            <Card role="alert" className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
               <p className="text-sm text-destructive">{tabError}</p>
               <Button size="sm" variant="outline" onClick={() => void loadTasksTab()}>重试</Button>
             </Card>
@@ -581,7 +661,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             <Button size="sm" variant="outline" className="ml-auto h-8 text-xs" disabled={unread === 0} onClick={() => void readAll()}>全部已读</Button>
           </div>
           {tabError ? (
-            <Card className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
+            <Card role="alert" className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
               <p className="text-sm text-destructive">{tabError}</p>
               <Button size="sm" variant="outline" onClick={() => void loadNoticesTab()}>重试</Button>
             </Card>
@@ -610,14 +690,19 @@ export default function Community({ navigate }: { navigate: (to: string) => void
 
       {tab === 'mine' && (
         tabError ? (
-          <Card className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
+          <Card role="alert" className="flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
             <p className="text-sm text-destructive">{tabError}</p>
             <Button size="sm" variant="outline" onClick={() => void loadMineTab()}>重试</Button>
           </Card>
-        ) : mine === null ? <Skeleton className="h-24 w-full rounded-xl" /> : mine.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">你还没有发布作品。在创作台结果页点「发布到社区」。</Card> : (
+        ) : mine === null ? <Skeleton className="h-24 w-full rounded-xl" /> : mine.length === 0 ? (
+          <Card className="flex flex-col items-center gap-3 p-8 text-center text-sm text-muted-foreground">
+            <p>你还没有发布作品。在创作台结果页点「发布到社区」。</p>
+            <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => navigate('/studio')}>去创作</Button>
+          </Card>
+        ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {mine.map((w) => (
-              <Card key={w.id} className="overflow-hidden p-0">
+              <Card key={w.id} className="gap-0 overflow-hidden p-0">
                 <button type="button" className="block w-full" onClick={() => void openWork(w)}>
                   <div className="relative aspect-[3/4] w-full bg-secondary">
                     <img src={apiUrl(w.image_url)} alt={w.title} className="size-full object-cover" />
@@ -628,12 +713,12 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                   <p className="truncate text-sm font-medium">{w.title}</p>
                   <Badge variant={w.status === 'published' ? 'secondary' : 'outline'} className="mt-1 text-[10px]">{{ published: '已发布', withdrawn: '已撤回', removed: '已下架', pending: '审核中' }[w.status] || w.status}</Badge>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(w)}>编辑</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void copyWorkLink(w.id)}>复制链接</Button>
-                    {w.status === 'published' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(w, 'withdraw')}>撤回</Button>}
-                    {w.status === 'withdrawn' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(w, 'republish')}>重新发布</Button>}
-                    {w.status === 'removed' && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void ownerAction(w, 'appeal')}>申诉</Button>}
-                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => setConfirmTarget(w)}>删除</Button>
+                    <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => openEdit(w)}>编辑</Button>
+                    <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => void copyWorkLink(w.id)}>复制链接</Button>
+                    {w.status === 'published' && <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => void ownerAction(w, 'withdraw')}>撤回</Button>}
+                    {w.status === 'withdrawn' && <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => void ownerAction(w, 'republish')}>重新发布</Button>}
+                    {w.status === 'removed' && <Button size="sm" variant="ghost" className="h-9 text-xs sm:h-7" onClick={() => void ownerAction(w, 'appeal')}>申诉</Button>}
+                    <Button size="sm" variant="ghost" className="h-9 text-xs text-destructive sm:h-7" onClick={() => setConfirmTarget(w)}>删除</Button>
                   </div>
                 </div>
               </Card>
@@ -646,7 +731,10 @@ export default function Community({ navigate }: { navigate: (to: string) => void
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           {active && (
             <>
-              <DialogHeader><DialogTitle>{active.title}</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle className="pr-10 break-words">{active.title}</DialogTitle>
+                <DialogDescription className="text-xs">作品详情：作者、配方与评论。</DialogDescription>
+              </DialogHeader>
               <div className="grid gap-4 sm:grid-cols-[1fr_240px]">
                 <div className="relative">
                   <img src={apiUrl(active.image_url)} alt={active.title} className="w-full rounded-lg border border-border object-contain" />
@@ -656,7 +744,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                   <p className="text-xs text-muted-foreground">作者：<button className="text-primary underline" onClick={() => void openProfile(active.author_id, active.author_credit || '匿名')}>{active.author_credit || '匿名'}</button> {active.depth > 0 && <>· fork 自 <button className="text-primary underline" onClick={() => active.parent_work_id && void openWorkById(active.parent_work_id)}>上游作品</button>（{active.depth} 层）</>}</p>
                   <div className="flex flex-wrap gap-1">{active.tags.map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}</div>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant={active.liked ? 'secondary' : 'outline'} onClick={() => void doLike(active)}>♥ {active.liked ? `已赞 ${active.like_count ?? 0}` : `点赞 ${active.like_count ?? 0}`}</Button>
+                    <Button size="sm" variant={active.liked ? 'secondary' : 'outline'} onClick={() => void doLike(active)}><Heart className="size-3.5" aria-hidden="true" />{active.liked ? `已赞 ${active.like_count ?? 0}` : `点赞 ${active.like_count ?? 0}`}</Button>
                     {active.allow_fork && <Button size="sm" onClick={() => navigate(`/studio?fork=${active.id}`)}>做同款</Button>}
                     <Button
                       size="sm"
@@ -697,7 +785,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                     <div key={c.id} className="flex items-start gap-2 text-sm">
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] text-muted-foreground">{c.author_name || '社区用户'} · {new Date(c.created_at).toLocaleString('zh-CN')}</p>
-                        <p className="whitespace-pre-wrap">{c.body}</p>
+                        <p className="whitespace-pre-wrap break-words">{c.body}</p>
                       </div>
                       {(active.is_owner || c.author_id === myKey) && <button className="text-[11px] text-muted-foreground hover:text-destructive" onClick={() => void delComment(c.id)}>{active.is_owner && c.author_id !== myKey ? '隐藏' : '删除'}</button>}
                     </div>
@@ -706,7 +794,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
                   {commentHasMore && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void loadMoreComments()}>加载更多评论</Button>}
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <Input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="说点什么…" className="h-9" onKeyDown={(e) => { if (e.key === 'Enter') void addComment(active); }} />
+                  <Input aria-label="评论内容" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="说点什么…" className="h-9" onKeyDown={(e) => { if (e.key === 'Enter') void addComment(active); }} />
                   <Button size="sm" onClick={() => void addComment(active)}>发送</Button>
                 </div>
               </div>
@@ -720,7 +808,10 @@ export default function Community({ navigate }: { navigate: (to: string) => void
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           {activeTask && (
             <>
-              <DialogHeader><DialogTitle>共创：{activeTask.theme}</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle className="pr-10 break-words">共创：{activeTask.theme}</DialogTitle>
+                <DialogDescription className="text-xs">查看投稿、关闭或重新开放本任务。</DialogDescription>
+              </DialogHeader>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{activeTask.works.length} 件投稿</span>
                 {activeTask.status === 'closed' && <Badge variant="outline">已关闭</Badge>}
@@ -753,7 +844,10 @@ export default function Community({ navigate }: { navigate: (to: string) => void
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           {profile && (
             <>
-              <DialogHeader><DialogTitle>{profile.name} 的公开作品</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle className="pr-10 break-words">{profile.name} 的公开作品</DialogTitle>
+                <DialogDescription className="text-xs">作者已公开发布的作品，可点开查看详情。</DialogDescription>
+              </DialogHeader>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {profile.works.map((w) => <WorkCard key={w.id} w={w} onOpen={(x) => { setProfile(null); void openWork(x); }} />)}
                 {profile.works.length === 0 && <p className="col-span-full text-sm text-muted-foreground">暂无公开作品。</p>}
@@ -769,7 +863,8 @@ export default function Community({ navigate }: { navigate: (to: string) => void
           {showcaseDetail && (
             <>
               <DialogHeader>
-                <DialogTitle>{showcaseDetail.skill.title_zh} · 技能演示</DialogTitle>
+                <DialogTitle className="pr-10 break-words">{showcaseDetail.skill.title_zh} · 技能演示</DialogTitle>
+                <DialogDescription className="text-xs">逐组对照原图与 AI 作品，可查看配方或打开只读画册。</DialogDescription>
               </DialogHeader>
               <p className="text-xs text-muted-foreground">{showcaseDetail.skill.desc_zh} · 共 {showcaseDetail.pairs.length} 组示例（左原图，右作品；作品均为 AI 生成）</p>
               {showcaseDetail.pairs.length > 0 && (
@@ -806,8 +901,10 @@ export default function Community({ navigate }: { navigate: (to: string) => void
 
       <Dialog open={Boolean(reportTarget)} onOpenChange={(v) => { if (!v) { setReportTarget(null); setReportReason(''); } }}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>举报作品</DialogTitle></DialogHeader>
-          <p className="text-xs text-muted-foreground">请简要说明原因（色情、侵权、暴力等），管理员会复核。</p>
+          <DialogHeader>
+            <DialogTitle>举报作品</DialogTitle>
+            <DialogDescription className="text-xs">请简要说明原因（色情、侵权、暴力等），管理员会复核。</DialogDescription>
+          </DialogHeader>
           <Textarea aria-label="举报原因" value={reportReason} onChange={(e) => setReportReason(e.target.value)} maxLength={300} className="min-h-24" placeholder="举报原因…" />
           <DialogFooter>
             <Button variant="outline" onClick={() => { setReportTarget(null); setReportReason(''); }}>取消</Button>
@@ -818,8 +915,10 @@ export default function Community({ navigate }: { navigate: (to: string) => void
 
       <Dialog open={Boolean(confirmTarget)} onOpenChange={(v) => { if (!v) setConfirmTarget(null); }}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>删除作品？</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">「{confirmTarget?.title}」将从社区下架，原图与结果仍保留在资产库。</p>
+          <DialogHeader>
+            <DialogTitle>删除作品？</DialogTitle>
+            <DialogDescription>「{confirmTarget?.title}」将从社区下架，原图与结果仍保留在资产库。</DialogDescription>
+          </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmTarget(null)}>取消</Button>
             <Button variant="destructive" onClick={() => void confirmDelete()}>删除</Button>
@@ -829,7 +928,10 @@ export default function Community({ navigate }: { navigate: (to: string) => void
 
       <Dialog open={Boolean(editing)} onOpenChange={(v) => { if (!v) setEditing(null); }}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>编辑作品</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>编辑作品</DialogTitle>
+            <DialogDescription className="text-xs">修改标题、标签与是否允许别人 fork 配方。</DialogDescription>
+          </DialogHeader>
           <div className="space-y-3">
             <label className="block text-xs text-muted-foreground">标题
               <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="mt-1 h-9" maxLength={100} />

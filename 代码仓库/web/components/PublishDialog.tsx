@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, loginUrl, ApiRequestError } from '@/lib/api';
+import { saveLoginIntent, takeLoginIntent, peekLoginIntent } from '@/lib/login-intent';
 import type { WorkMeta } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,17 @@ export function PublishDialog({ open, onOpenChange, resultAssetId, snapshot, par
   const [allowFork, setAllowFork] = useState(true);
   const [busy, setBusy] = useState(false);
 
+  // 登录回程：恢复 401 前未发布的标题与标签（仅消费发布类草稿，避免吞掉评论/举报）
+  useEffect(() => {
+    if (!open) return;
+    if (peekLoginIntent()?.kind !== 'publish') return;
+    const intent = takeLoginIntent();
+    if (intent?.kind !== 'publish') return;
+    setTitle(intent.title);
+    setTags(intent.tags);
+    toast.success('已恢复上次未发布的草稿');
+  }, [open]);
+
   async function submit() {
     if (!title.trim()) { toast.error('请给作品起个标题'); return; }
     setBusy(true);
@@ -37,6 +49,7 @@ export function PublishDialog({ open, onOpenChange, resultAssetId, snapshot, par
       onPublished?.(r.work);
     } catch (e) {
       if (e instanceof ApiRequestError && e.status === 401) {
+        saveLoginIntent({ kind: 'publish', title: title.trim(), tags });
         toast.error('发布需要先登录');
         window.location.href = loginUrl();
         return;

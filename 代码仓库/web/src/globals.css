@@ -27,7 +27,7 @@
   --card-foreground: #241c16;
   --popover: #fffdf9;
   --popover-foreground: #241c16;
-  --primary: #c0562f;
+  --primary: #b34f2a;
   --primary-foreground: #fffaf4;
   --secondary: #efe4d5;
   --secondary-foreground: #3d3127;
@@ -38,8 +38,8 @@
   --destructive: #b42318;
   --border: #e4d9ca;
   --input: #d8c8b6;
-  --ring: #c0562f;
-  --chart-1: #c0562f;
+  --ring: #b34f2a;
+  --chart-1: #b34f2a;
   --chart-2: #39776c;
   --chart-3: #c18a3e;
   --chart-4: #735c88;
@@ -47,17 +47,17 @@
   --radius: 0.875rem;
   --sidebar: #fbf7f0;
   --sidebar-foreground: #27211b;
-  --sidebar-primary: #c0562f;
+  --sidebar-primary: #b34f2a;
   --sidebar-primary-foreground: #fffaf4;
   --sidebar-accent: #f1e8dc;
   --sidebar-accent-foreground: #3d3127;
   --sidebar-border: #e4d9ca;
-  --sidebar-ring: #c0562f;
+  --sidebar-ring: #b34f2a;
 
   --site-bg: #faf7f2;
   --site-bg-deep: #f1e8dc;
   --site-fg: #241c16;
-  --site-accent: #c0562f;
+  --site-accent: #b34f2a;
   --site-accent-strong: #a84420;
   --site-accent-soft: #f5e4d6;
   --site-on-accent: #fffaf4;
@@ -396,7 +396,7 @@
 
 [data-slot="button"][data-variant="default"] {
   border: 1px solid rgb(128 53 30 / 0.32);
-  background: linear-gradient(135deg, #c96139 0%, #a84420 100%);
+  background: linear-gradient(135deg, #b9552e 0%, #9d3f1f 100%);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.22) inset,
     0 8px 20px -12px rgb(143 60 34 / 0.7);
@@ -783,7 +783,7 @@
   --se-ink: #1A1A1A;
   --se-accent: #2F7CF6;
   --se-muted: #6E6E6C;
-  --se-faint: #9A9A98;
+  --se-faint: #6E6E6C;
   --se-line: #E5E5E3;
   --se-card: #FFFFFF;
   --se-soft: #F4F4F2;
@@ -872,4 +872,16 @@
   0%, 91%, 100% { transform: scaleY(1); }
   94% { transform: scaleY(0.12); }
   97% { transform: scaleY(1); }
+}
+
+/* 前庭敏感用户：全局削弱动效与非必要动画，滚动改为即时定位 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

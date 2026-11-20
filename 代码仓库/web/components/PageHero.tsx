@@ -37,7 +37,7 @@ export function PageHero({
             </p>
           )}
         </div>
-        {aside && <div className="flex shrink-0 flex-wrap items-center gap-2">{aside}</div>}
+        {aside && <div className="flex w-full shrink-0 flex-wrap items-center gap-2 lg:w-auto">{aside}</div>}
       </div>
       {children && <div className="mt-6">{children}</div>}
     </section>
