@@ -68,9 +68,11 @@ export const TEMPLATES = [
 ];
 
 export async function ensureSeeded(db) {
-  const existing = await db.from('templates').select('id', { count: 'exact' }).limit(1);
-  if (!existing.error && Number.isSafeInteger(existing.count) && existing.count >= TEMPLATES.length) return;
+  // 逐 id 检查存在性（曾用总行数 >= 模板数提前返回：技能演示批量种子会先于首模板写入，
+  // 导致总数达标而首模板缺失、文生图/变体字段丢失——契约测试已覆盖此回归）
   for (const t of TEMPLATES) {
+    const existing = await db.from('templates').select('id', { count: 'exact' }).eq('id', t.id).limit(1);
+    if (!existing.error && Number(existing.count) > 0) continue;
     await db.from('templates').insertIfAbsent({
       id: t.id, title: t.title, description: t.description, cover_asset_id: null,
       prompt: t.prompt, negative_prompt: t.negative_prompt, default_model: t.default_model,
