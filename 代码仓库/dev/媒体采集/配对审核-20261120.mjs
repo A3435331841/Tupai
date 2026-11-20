@@ -21,6 +21,7 @@ const arg = (name, def) => {
 };
 const CONC = Number(arg('conc', 4));
 const LIMIT = Number(arg('limit', 0)); // 0 = 全部
+const SLOTS = Number(arg('slots', 0)); // 每技能只审前 N 组（0=全部）；封面取 best-of-N
 
 function loadKeys() {
   const txt = readFileSync(DOC, 'utf8');
@@ -84,9 +85,19 @@ if (existsSync(OUT)) {
     try { const d = JSON.parse(line); if (d.score !== undefined) done.set(d.id, d); } catch {}
   }
 }
-const todo = tasks
+let todo = tasks
   .map((t) => ({ ...t, result: resultPath(t.out) }))
   .filter((t) => t.result && !done.has(t.id));
+if (SLOTS > 0) {
+  const perSkill = new Map();
+  for (const t of todo) {
+    const sid = t.id.split('--')[0];
+    const n = perSkill.get(sid) || 0;
+    if (n < SLOTS) perSkill.set(sid, n + 1);
+    else t._skip = true;
+  }
+  todo = todo.filter((t) => !t._skip);
+}
 console.log(`审核任务 ${tasks.length}，有结果 ${tasks.length - tasks.filter((t) => !resultPath(t.out)).length}，待审 ${todo.length}${LIMIT ? `（限 ${LIMIT}）` : ''}`);
 const work = LIMIT ? todo.slice(0, LIMIT) : todo;
 
