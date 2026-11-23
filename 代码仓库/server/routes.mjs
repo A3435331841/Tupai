@@ -11,6 +11,7 @@ import { createEphemeral } from './ephemeral.mjs';
 import { mockOptimize, mockGenerate } from './mock.mjs';
 import { TEMPLATES, ensureSeeded } from './seed.mjs';
 import { renderSkillMarkdown } from './skillmd.mjs';
+import { albumPageHtml as renderAlbumPage, albumStyleIds } from './album-styles.mjs';
 import { getUser } from './auth.mjs';
 import { vInt, vOneOf, vStr, vStringArray, vId, KIND_VALUES, SORT_VALUES } from './validate.mjs';
 
@@ -188,66 +189,11 @@ function showcaseMeta(s, livePairs) {
   };
 }
 
-// 自包含只读画册页（翻页概念借鉴 create-photo-flipbook-ui, MIT；图派自实现轻量版）
-// 图片使用相对路径 img/{id}：分享页本身挂在 /functions/v1/app/api/v1/share/{token}/page 下，
-// 写死 /api/v1/... 会被平台保留路径拦截导致 404（见 docs/14 F-10）。
-// 带 ?watermark=1 让服务端返回已烘焙「AI 生成 · 图派」角标的 SVG，页面内显示即合规。
-function albumPageHtml(title, ids) {
-  const pages = ids.map((id, i) => `<figure class="page" style="--i:${i}"><img src="img/${escHtml(id)}?watermark=1" alt="作品 ${i + 1}" loading="lazy"><span class="ai-badge">AI 生成</span><button class="dl" onclick="dl(${i})">保存这张</button><figcaption>${i + 1} / ${ids.length}</figcaption></figure>`).join('');
-  // 零图时不渲染翻页控件与脚本，只给空态，避免按钮点了没反应
-  const book = ids.length
-    ? `<div class="book"><div class="stack" id="stack">${pages}</div></div>
-<nav><button id="prev" disabled>上一页</button><button id="next" disabled>下一页</button></nav>`
-    : '<div class="book"><p class="empty">画册暂无作品</p></div>';
-  const script = !ids.length ? '' : `<script>
-const pages=[...document.querySelectorAll('.page')];let cur=0;
-const prevBtn=document.getElementById('prev'),nextBtn=document.getElementById('next');
-function render(){pages.forEach((p,i)=>{p.style.zIndex=pages.length-i;p.classList.toggle('flipped',i<cur);});prevBtn.disabled=cur<=0;nextBtn.disabled=cur>=pages.length-1;}
-nextBtn.onclick=()=>{if(cur<pages.length-1){cur++;render();}};
-prevBtn.onclick=()=>{if(cur>0){cur--;render();}};
-addEventListener('keydown',(e)=>{if(e.key==='ArrowRight'){if(cur<pages.length-1){cur++;render();}}else if(e.key==='ArrowLeft'){if(cur>0){cur--;render();}}});
-render();
-// 下载时在画布上合成「AI 生成 · 图派」标识，确保保存到本地的文件也带标识
-async function dl(i){
-  const target=pages[i];if(!target)return;
-  const src=target.querySelector('img').src;
-  const img=new Image();img.crossOrigin='anonymous';img.src=src;
-  try{await img.decode();}catch{window.open(src,'_blank');return;}
-  const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
-  const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
-  const fs=Math.max(14,Math.round(c.width*0.026)),pad=Math.max(12,Math.round(c.width*0.022));
-  const label='AI 生成 · 图派';
-  ctx.font='600 '+fs+'px system-ui,sans-serif';
-  const tw=ctx.measureText(label).width;
-  ctx.fillStyle='rgba(0,0,0,.55)';
-  ctx.fillRect(c.width-pad*2-tw, c.height-pad*2-fs, tw+pad*2, fs+pad);
-  ctx.fillStyle='#fff';ctx.textBaseline='middle';
-  ctx.fillText(label, c.width-pad-tw, c.height-pad-fs/2);
-  const a=document.createElement('a');a.download='tupai-'+(i+1)+'.jpg';a.href=c.toDataURL('image/jpeg',0.92);a.click();
-}
-</script>`;
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>${escHtml(title)} · 图派画册</title>
-<style>
-:root{color-scheme:light dark}body{margin:0;font-family:system-ui,sans-serif;background:#f6f3ee;color:#2a2622;display:flex;flex-direction:column;min-height:100vh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-header{padding:20px;text-align:center}h1{font-size:1.3rem;margin:0}small{color:#8a8178}
-.book{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;perspective:1600px}
-.stack{position:relative;width:min(86vw,420px);aspect-ratio:3/4;transform-style:preserve-3d}
-.page{position:absolute;inset:0;margin:0;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);overflow:hidden;transform-origin:left center;transition:transform .6s ease;backface-visibility:hidden;display:flex;flex-direction:column}
-.page img{width:100%;height:100%;object-fit:cover;flex:1}.page figcaption{padding:8px;text-align:center;font-size:.8rem;color:#8a8178}
-.ai-badge{position:absolute;left:8px;top:8px;z-index:2;border-radius:999px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;line-height:1;padding:5px 8px;letter-spacing:.02em}
-.dl{position:absolute;right:8px;bottom:34px;z-index:2;border:0;cursor:pointer;border-radius:999px;background:rgba(255,255,255,.92);color:#2a2622;font-size:11px;line-height:1;padding:6px 10px;text-decoration:none}
-.page.flipped{transform:rotateY(-180deg)}
-.empty{color:#8a8178;font-size:.95rem;text-align:center;margin:0}
-nav{display:flex;gap:12px;justify-content:center;padding:18px}button{font:inherit;padding:10px 22px;border-radius:999px;border:1px solid #d8d0c4;background:#fff;cursor:pointer}
-button:disabled{opacity:.4;cursor:default}
-footer{text-align:center;padding:14px;font-size:.75rem;color:#a89f93}
-</style></head><body>
-<header><h1>${escHtml(title)}</h1><small>图派 TuPai · AI 生成作品集 · 原图不公开</small></header>
-${book}
-<footer>结果图均为 AI 生成 · 由图派画册分享（只读链接）</footer>
-${script}</body></html>`;
+// 画册多模板渲染（docs/20）：模板实现见 album-styles.mjs，概念参考 MIT 项目但纯自实现。
+// 图片用相对路径 img/{id}?watermark=1（深层路径写死 /api/v1 会被平台拦截，见 docs/14 F-10）；
+// 下载在画布合成 AI 标识；模板切换由 URL ?style= 驱动，不触碰资产与分享校验。
+function albumPageHtml(title, ids, style) {
+  return renderAlbumPage(title, ids, style);
 }
 
 // 分享失效（过期/撤回/不存在）落地页：纯静态友好提示，不暴露 JSON
@@ -1377,7 +1323,10 @@ export function application({ db, storage, env, fetchImpl }) {
         throw e;
       }
       const ids = await liveAlbumIds(album);
-      return new Response(albumPageHtml(album.title, ids), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+      // 多模板：?style=hardcover|editorial|cards|film（非法值回退默认，见 album-styles.mjs）
+      const styleParam = new URL(request.url).searchParams.get('style') || '';
+      const style = albumStyleIds().includes(styleParam) ? styleParam : 'hardcover';
+      return new Response(albumPageHtml(album.title, ids, style), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     }
 
     // ---- 技能演示（公开只读）：社区「技能」区按画册呈现每个技能的原图→作品示例 ----
