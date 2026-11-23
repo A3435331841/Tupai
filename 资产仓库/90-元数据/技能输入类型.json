@@ -1,0 +1,1886 @@
+{
+ "说明": "技能输入类型与选图池定义：构建演示任务时必须按 input_type 匹配原图，禁止跨语义 flat 轮转。",
+ "更新": "2026-11-22",
+ "技能数": 266,
+ "类型分布": {
+  "anime": 3,
+  "city": 12,
+  "portrait": 164,
+  "architecture": 5,
+  "storyboard": 1,
+  "product": 22,
+  "interior": 3,
+  "food": 7,
+  "landscape": 22,
+  "team": 1,
+  "pet": 2,
+  "face": 2,
+  "homework": 1,
+  "logo": 2,
+  "group": 1,
+  "desk": 1,
+  "couple": 3,
+  "sketch": 4,
+  "old_photo": 6,
+  "recipe": 1,
+  "graphic": 1,
+  "comic_line": 1,
+  "plant": 1
+ },
+ "池量": {
+  "portrait": 21,
+  "group": 10,
+  "couple": 4,
+  "team": 5,
+  "face": 5,
+  "desk": 5,
+  "interior": 7,
+  "pet": 28,
+  "product": 17,
+  "food": 21,
+  "architecture": 148,
+  "landscape": 485,
+  "city": 83,
+  "art": 3,
+  "traffic": 69,
+  "plant": 48,
+  "anime": 1,
+  "sketch": 3,
+  "comic_line": 1,
+  "storyboard": 1,
+  "homework": 1,
+  "old_photo": 4,
+  "logo": 1,
+  "recipe": 1,
+  "graphic": 1
+ },
+ "类型定义": {
+  "portrait": {
+   "名称": "单人肖像",
+   "说明": "单人、面部可辨、适合人像改写的照片",
+   "文件前缀": [
+    "人像人物-001",
+    "人像人物-002",
+    "人像人物-012",
+    "人像人物-013",
+    "人像人物-014",
+    "人像人物-017",
+    "人像人物-022",
+    "人像人物-023",
+    "人像人物-028",
+    "人像人物-043",
+    "人像人物-052",
+    "人像人物-056",
+    "人像人物-057",
+    "人像人物-061",
+    "人像人物-064",
+    "人像人物-068",
+    "人像人物-069",
+    "人像人物-071",
+    "人像人物-076",
+    "人像人物-079",
+    "人像人物-080"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "group"
+   ]
+  },
+  "group": {
+   "名称": "多人合影",
+   "说明": "两人及以上、关系明确（情侣/家庭/团队）",
+   "文件前缀": [
+    "人像人物-003",
+    "人像人物-004",
+    "人像人物-006",
+    "人像人物-009",
+    "人像人物-015",
+    "人像人物-058",
+    "人像人物-070",
+    "人像人物-072",
+    "人像人物-082"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "双人常服合影"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "portrait"
+   ]
+  },
+  "couple": {
+   "名称": "情侣双人",
+   "说明": "情侣/新人正面双人，用于婚礼、雨中相拥类",
+   "文件前缀": [],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "双人常服合影",
+    "情侣合影-01",
+    "情侣合影-02",
+    "情侣合影-03"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "group"
+   ]
+  },
+  "team": {
+   "名称": "团队合影",
+   "说明": "4 人以上、正面可辨的团队，用于特警小队/群像",
+   "文件前缀": [
+    "人像人物-003",
+    "人像人物-004",
+    "人像人物-006"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "团队合影-01",
+    "团队合影-02"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "group"
+   ]
+  },
+  "face": {
+   "名称": "面部特写/自拍",
+   "说明": "正面可辨的单人面部，用于面部精修、自拍类技能",
+   "文件前缀": [
+    "正面人像-01",
+    "正面人像-02",
+    "正面人像-03",
+    "健身自拍-01",
+    "镜前自拍-01"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "portrait"
+   ]
+  },
+  "desk": {
+   "名称": "桌面场景",
+   "说明": "桌面/手工台前有人物的照片，用于桌面改造类",
+   "文件前缀": [
+    "桌面手工-01",
+    "正面人像-01",
+    "正面人像-02",
+    "正面人像-03",
+    "镜前自拍-01"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "interior"
+   ]
+  },
+  "interior": {
+   "名称": "室内房间",
+   "说明": "空房间、旧房间、居家室内，用于软装/室内渲染",
+   "文件前缀": [
+    "建筑空间-052",
+    "建筑空间-101",
+    "建筑空间-121"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [
+    "厂房",
+    "实验",
+    "车间",
+    "仓库",
+    "机房",
+    "洁净"
+   ],
+   "补充输入": [
+    "空房间-01",
+    "空房间-02",
+    "旧房间-01",
+    "旧房间-02"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "architecture"
+   ]
+  },
+  "pet": {
+   "名称": "宠物动物",
+   "说明": "猫狗马鹿等动物主体",
+   "文件前缀": [],
+   "分类": "动物宠物",
+   "标签含": [],
+   "标签不含": [
+    "水母",
+    "飞鸟",
+    "鸟群",
+    "昆虫"
+   ],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "product"
+   ]
+  },
+  "product": {
+   "名称": "产品静物",
+   "说明": "瓶罐杯、包装、器物等商品主体",
+   "文件前缀": [
+    "美食静物-004",
+    "美食静物-006",
+    "美食静物-008",
+    "美食静物-012",
+    "美食静物-019",
+    "美食静物-022",
+    "美食静物-024",
+    "美食静物-029",
+    "美食静物-040",
+    "美食静物-042",
+    "美食静物-044",
+    "美食静物-049",
+    "植物花卉-017",
+    "植物花卉-019",
+    "植物花卉-026",
+    "植物花卉-047"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "品牌香水瓶"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "food"
+   ]
+  },
+  "food": {
+   "名称": "食物饮品",
+   "说明": "菜品、甜点、水果、咖啡饮品等可食用主体",
+   "文件前缀": [
+    "美食静物-014",
+    "美食静物-021",
+    "美食静物-022",
+    "美食静物-024",
+    "美食静物-026",
+    "美食静物-028",
+    "美食静物-029",
+    "美食静物-031",
+    "美食静物-032",
+    "美食静物-034",
+    "美食静物-041",
+    "美食静物-043",
+    "美食静物-044",
+    "美食静物-046",
+    "美食静物-049",
+    "美食静物-050",
+    "植物花卉-008",
+    "植物花卉-025",
+    "植物花卉-029",
+    "植物花卉-039",
+    "植物花卉-048"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "product"
+   ]
+  },
+  "architecture": {
+   "名称": "建筑空间",
+   "说明": "建筑外观、房间、室内空间",
+   "文件前缀": [],
+   "分类": "建筑空间",
+   "标签含": [],
+   "标签不含": [
+    "卫星",
+    "航拍",
+    "地图"
+   ],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "city"
+   ]
+  },
+  "landscape": {
+   "名称": "自然风光",
+   "说明": "山川湖海、森林、日落、天空",
+   "文件前缀": [],
+   "分类": "自然风光",
+   "标签含": [],
+   "标签不含": [
+    "卫星图",
+    "遥感",
+    "卫星视角",
+    "卫星遥感",
+    "地图"
+   ],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "city"
+   ]
+  },
+  "city": {
+   "名称": "城市街景",
+   "说明": "街道、夜景、天际线、地标",
+   "文件前缀": [],
+   "分类": "城市街景",
+   "标签含": [],
+   "标签不含": [
+    "卫星",
+    "俯瞰",
+    "遥感"
+   ],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "landscape"
+   ]
+  },
+  "art": {
+   "名称": "艺术画作",
+   "说明": "绘画、插画、艺术摄影原作",
+   "文件前缀": [
+    "艺术画作-002",
+    "艺术画作-003",
+    "艺术画作-004"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "landscape"
+   ]
+  },
+  "traffic": {
+   "名称": "交通机械",
+   "说明": "车辆、飞行器、机械装备",
+   "文件前缀": [],
+   "分类": "交通机械",
+   "标签含": [],
+   "标签不含": [
+    "工作人员",
+    "工程师",
+    "实验室",
+    "洁净"
+   ],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "architecture"
+   ]
+  },
+  "plant": {
+   "名称": "植物花卉",
+   "说明": "花卉、绿植、草木特写",
+   "文件前缀": [],
+   "分类": "植物花卉",
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [],
+   "文件路径": [],
+   "备选类型": [
+    "landscape"
+   ]
+  },
+  "anime": {
+   "名称": "动漫角色图",
+   "说明": "二次元角色/卡通形象，用于真人化、写实化",
+   "文件前缀": [],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "动漫少女特写"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "art"
+   ]
+  },
+  "sketch": {
+   "名称": "手绘草图",
+   "说明": "线稿、涂鸦、菜单草图、建筑线稿",
+   "文件前缀": [],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "咖啡菜单草图",
+    "怪兽涂鸦",
+    "建筑线稿"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "art"
+   ]
+  },
+  "comic_line": {
+   "名称": "黑白漫画线稿",
+   "说明": "黑白线稿漫画，用于上色/成稿",
+   "文件前缀": [],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "黑白漫画线稿"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "sketch"
+   ]
+  },
+  "storyboard": {
+   "名称": "分镜草图",
+   "说明": "多格分镜/漫画分格草图",
+   "文件前缀": [],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "六格分镜"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "sketch"
+   ]
+  },
+  "homework": {
+   "名称": "手写作业纸",
+   "说明": "纸面题目+手写字迹",
+   "文件前缀": [],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "手写作业纸"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "sketch"
+   ]
+  },
+  "old_photo": {
+   "名称": "老照片",
+   "说明": "破损/泛黄/黑白/撕碎的旧照片",
+   "文件前缀": [],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "破损老照片",
+    "泛黄黑白老照",
+    "褪色海滩老照",
+    "撕碎风景照"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "portrait"
+   ]
+  },
+  "logo": {
+   "名称": "品牌标志",
+   "说明": "Logo/图标/设计稿",
+   "文件前缀": [
+    "品牌探索-01"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [],
+   "文件路径": [
+    "资产仓库/10-品牌资产/标志/在用/探索稿/品牌探索-01.png"
+   ],
+   "备选类型": [
+    "product"
+   ]
+  },
+  "recipe": {
+   "名称": "手写食谱",
+   "说明": "手写菜谱纸",
+   "文件前缀": [],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [
+    "手写食谱纸"
+   ],
+   "文件路径": [],
+   "备选类型": [
+    "food"
+   ]
+  },
+  "graphic": {
+   "名称": "设计稿海报",
+   "说明": "海报/设计稿/标志类平面素材",
+   "文件前缀": [
+    "品牌探索-01"
+   ],
+   "分类": null,
+   "标签含": [],
+   "标签不含": [],
+   "补充输入": [],
+   "文件路径": [
+    "资产仓库/10-品牌资产/标志/在用/探索稿/品牌探索-01.png"
+   ],
+   "备选类型": [
+    "logo"
+   ]
+  }
+ },
+ "技能": {
+  "anime-angel-garden": {
+   "input_type": "anime",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "anime-night-city": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "anime-split-tear": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "editorial-line-art": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "isometric-street-sketch": {
+   "input_type": "architecture",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "pixel-city-map": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "pop-comic-panel": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "real-to-anime": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "storyboard-to-manga": {
+   "input_type": "storyboard",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "storybook-character": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "watercolor-storybook": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "retro-neon-rain-city": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "城市夜景"
+  },
+  "apocalypse-movie-still": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "character-deconstruct": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "corkboard-polaroids": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "cyber-object-neon": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "empty-room-staging": {
+   "input_type": "interior",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "fairy-insect-ride": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "fisheye-city-selfie": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "food-to-human": {
+   "input_type": "food",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "four-seasons-panorama": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "game-squad-swat": {
+   "input_type": "team",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "giant-3d-billboard": {
+   "input_type": "pet",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "gym-flash-selfie": {
+   "input_type": "face",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "handwriting-homework": {
+   "input_type": "homework",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "interior-render-pro": {
+   "input_type": "interior",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "livestreamer-realistic": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "logo-sketch-evolution": {
+   "input_type": "logo",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "manga-portal-break": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "mascot-selfie": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "mini-face-cleaner": {
+   "input_type": "face",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "mirror-chibi-clones": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "monument-oversize-object": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "monumental-word-poster": {
+   "input_type": "group",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "origami-desk-scene": {
+   "input_type": "desk",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "rain-romance-poster": {
+   "input_type": "couple",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "sketch-to-photo": {
+   "input_type": "sketch",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "sketch-vs-scene": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "snow-heart-couple": {
+   "input_type": "couple",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "street-self-clones": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "vinyl-album-translate": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "vocab-label-cards": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "detective-evidence-board": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "复古年代"
+  },
+  "neon-eighties-3d": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "retro-talk-show": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "time-blend-street": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "复古年代"
+  },
+  "vintage-tarot-card": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "y2k-digicam-look": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "analog-golden-lifestyle": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "胶片质感"
+  },
+  "old-photo-restore": {
+   "input_type": "old_photo",
+   "依据": "类目默认",
+   "类目": "老照片修复"
+  },
+  "torn-paper-restore": {
+   "input_type": "old_photo",
+   "依据": "类目默认",
+   "类目": "老照片修复"
+  },
+  "golden-hour-wilderness": {
+   "input_type": "landscape",
+   "依据": "类目默认",
+   "类目": "旅行风光"
+  },
+  "landmark-blueprint": {
+   "input_type": "architecture",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "monochrome-city-poster": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "retro-travel-poster": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "stamp-field-notes": {
+   "input_type": "landscape",
+   "依据": "类目默认",
+   "类目": "旅行风光"
+  },
+  "tilt-shift-miniature": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "floating-food-ad": {
+   "input_type": "food",
+   "依据": "类目默认",
+   "类目": "美食饮品"
+  },
+  "food-dynamic-splash": {
+   "input_type": "food",
+   "依据": "类目默认",
+   "类目": "美食饮品"
+  },
+  "food-layer-exploded": {
+   "input_type": "food",
+   "依据": "类目默认",
+   "类目": "美食饮品"
+  },
+  "recipe-editorial": {
+   "input_type": "recipe",
+   "依据": "覆盖规则",
+   "类目": "美食饮品"
+  },
+  "sketch-to-cafe-ad": {
+   "input_type": "sketch",
+   "依据": "覆盖规则",
+   "类目": "美食饮品"
+  },
+  "clay-figure-craft": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "doodle-to-3d-monster": {
+   "input_type": "sketch",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "enamel-pin-translate": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "fluffy-logo-toy": {
+   "input_type": "logo",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "isometric-diorama": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "isometric-room-model": {
+   "input_type": "interior",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "mini-construction-crew": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "mini-giant-scene": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "backless-couture": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "candid-daily-snapshot": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "chinese-bridal": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "direct-flash-night": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "dusk-road-cinematic": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "ember-falconer": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "fashion-cover-focus": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "garden-dream-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "hard-shadow-fashion": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "monochrome-sculptural": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "neon-rain-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "new-year-hero-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "palace-snow-phoenix": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "quiet-luxury-studio": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "toon-to-real-photo": {
+   "input_type": "anime",
+   "依据": "覆盖规则",
+   "类目": "人像风格"
+  },
+  "travel-magazine-cover": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "wide-angle-cute-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "face-aesthetic-report": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "photoreal-portrait-boost": {
+   "input_type": "anime",
+   "依据": "覆盖规则",
+   "类目": "人像美化"
+  },
+  "skin-first-beauty": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "bottle-mini-world": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "ice-splash-product": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "laptop-screen-mockup": {
+   "input_type": "graphic",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "material-swap-compare": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "perfume-scene-restage": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "product-design-spec": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "product-exploded-diagram": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "street-soda-ad": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "surreal-product-organic": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "epic-godray-sky": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "fireworks-night-glam": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "hologram-ar-overlay": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "thermal-xray-scan": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "underwater-caustics": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "anatomy-study-sketch": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "crayon-travel-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "gongbi-ink-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "ink-line-art-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "layered-wood-art": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "photo-editorial-page": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "watercolor-ink-wash": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "anime-premium-pastel": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "anime-street-pop": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "character-sheet": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "clay-3d-character": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "coloring-page": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "comic-book-hero": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "comic-colorize": {
+   "input_type": "comic_line",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "expression-grid": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "low-poly": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "manga-4panel": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "mixed-media-collage": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "papercraft-storybook": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "market-night-walk": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "城市夜景"
+  },
+  "neon-rain-portrait-youmindope": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "城市夜景"
+  },
+  "night-city-dash": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "城市夜景"
+  },
+  "subway-motion-blur": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "城市夜景"
+  },
+  "wkw-taxi-mood": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "城市夜景"
+  },
+  "ar-music-cards": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "artist-painting-self": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "blueprint-schematic": {
+   "input_type": "architecture",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "four-seasons-grid": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "graded-card-slab": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "kid-version": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "object-swap-surreal": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "pen-doodle": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "phone-screen-popout": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "recolor-background": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "remove-object-clean": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "sand-sculpture": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "sketch-to-photo-imgedify": {
+   "input_type": "sketch",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "torn-profile-art": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "vintage-stamp": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "art-deco-editorial": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "retro-90s-collage": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "retro-digicam-snapshot": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "showa-town-magazine": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "复古年代"
+  },
+  "y2k-scrapbook": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "ccd-flash-candid": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "胶片质感"
+  },
+  "flash-film-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "胶片质感"
+  },
+  "iphone-flash-event": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "胶片质感"
+  },
+  "kodak-hk-teahouse": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "胶片质感"
+  },
+  "restore-4k-detail": {
+   "input_type": "old_photo",
+   "依据": "类目默认",
+   "类目": "老照片修复"
+  },
+  "restore-cine-relight": {
+   "input_type": "old_photo",
+   "依据": "类目默认",
+   "类目": "老照片修复"
+  },
+  "restore-colorize-modern": {
+   "input_type": "old_photo",
+   "依据": "类目默认",
+   "类目": "老照片修复"
+  },
+  "restore-soft-bw": {
+   "input_type": "old_photo",
+   "依据": "类目默认",
+   "类目": "老照片修复"
+  },
+  "country-road-dusk": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "greek-island-harbor": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "iceland-husky-roadtrip": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "landmark-artist-sketch": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "passport-stamp": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "tilt-shift-miniature-imgedify": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "travel-journal-collage": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "dessert-model-ad": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "美食饮品"
+  },
+  "kawaii-doodle-food": {
+   "input_type": "food",
+   "依据": "覆盖规则",
+   "类目": "美食饮品"
+  },
+  "overhead-dish-editorial": {
+   "input_type": "food",
+   "依据": "覆盖规则",
+   "类目": "美食饮品"
+  },
+  "rustic-food-magazine": {
+   "input_type": "food",
+   "依据": "覆盖规则",
+   "类目": "美食饮品"
+  },
+  "action-figure-pack": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "candy-sculpture": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "chibi-avatar-card": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "chibi-sticker-pack": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "chibi-wedding": {
+   "input_type": "couple",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "claymation": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "crayon-notebook": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "designer-toy-render": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "earbuds-case-mini": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "emotion-grid-3x3": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "figurine-workshop-1-7": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "keycap-diorama": {
+   "input_type": "architecture",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "knitted-yarn-ify": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "macro-toy-army": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "mini-me-fingers": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "papercraft-diorama": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "pixar-twin-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "snow-globe": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "snow-globe-jar": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "wicker-figurine": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "arachnid-tactical": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "boxing-bridal": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "corporate-tailored": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "egyptian-royalty": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "mist-editorial-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "record-store-owner": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "satin-night-elegance": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "skyscraper-hero": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "spartan-warrior-profile": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "typographic-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "winter-fashion-forest": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "color-analysis-card": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "korean-dewy-glam": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "luxury-glam-closeup": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "pro-photo-enhance": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "studio-headshot-pro": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "yearbook-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "baroque-still-life": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "glass-caustics-sunlight": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "milk-swirl-drink-ad": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "neon-smoothie-burst": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "noir-techcore-levitate": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "perfume-forest-stage": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "bw-noir-crowd-motion": {
+   "input_type": "city",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "bw-spotlight-drama": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "card-breakthrough": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "double-exposure": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "esports-fiery-glow": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "frosted-glass-peephole": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "rimlight-dark-profile": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "selective-color-cinema": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "architectural-watercolor": {
+   "input_type": "architecture",
+   "依据": "覆盖规则",
+   "类目": "艺术画作"
+  },
+  "baroque-relic-painting": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "bauhaus-poster": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "classical-oil-master": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "digital-oil-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "klimt-gold-pattern": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "marble-sculpture": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "painterly-hybrid": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "paper-cut-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "sumie-ink-wash": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "艺术画作"
+  },
+  "ukiyoe-edo-print": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "艺术画作"
+  },
+  "van-gogh-swirl": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "艺术画作"
+  },
+  "3d-animation-restyle": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "anime-film-restyle": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "manga-two-panel": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "pixel-8bit": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "插画动漫"
+  },
+  "vector-travel-poster": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "插画动漫"
+  },
+  "balloon-float-dream": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "创意合成"
+  },
+  "cloud-sculpture": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "double-exposure-portrait": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "frame-breakout": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "papercraft-diorama-jamezbondo": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "rpg-hero-card": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "underwater-dream-portrait": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "创意合成"
+  },
+  "film-noir-1950s": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "passport-stamp-page": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "复古年代"
+  },
+  "victorian-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "复古年代"
+  },
+  "autumn-vivid-landscape": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "mirror-glassy-landscape": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "旅行风光"
+  },
+  "chibi-3d-figure": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "fluffy-plush": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "matryoshka-family": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "趣味玩具化"
+  },
+  "succulent-planter": {
+   "input_type": "pet",
+   "依据": "覆盖规则",
+   "类目": "趣味玩具化"
+  },
+  "blockbuster-explorer": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "floral-fantasy-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "glass-reflection-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "tailored-power-suit": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "vintage-swing-dress": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像风格"
+  },
+  "dapper-gentleman-grooming": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "hollywood-vintage-glam": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "smokey-evening-look": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "人像美化"
+  },
+  "doodle-product-ad": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "soft-3d-product": {
+   "input_type": "product",
+   "依据": "覆盖规则",
+   "类目": "商品静物"
+  },
+  "dusk-silhouette": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "infrared-dreamscape": {
+   "input_type": "plant",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "light-painting-trails": {
+   "input_type": "portrait",
+   "依据": "覆盖规则",
+   "类目": "特效光影"
+  },
+  "etched-line-portrait": {
+   "input_type": "portrait",
+   "依据": "类目默认",
+   "类目": "艺术画作"
+  },
+  "ukiyoe-landscape": {
+   "input_type": "landscape",
+   "依据": "覆盖规则",
+   "类目": "艺术画作"
+  }
+ }
+}

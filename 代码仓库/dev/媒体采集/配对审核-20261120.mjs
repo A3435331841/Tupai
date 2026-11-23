@@ -1,6 +1,7 @@
 // 配对质量审核：对每技能 20 组「原图→作品」打分（0-2），输出展示顺序覆盖文件
 // 产物：.scratch-20261119/种子排序.json  { skillId: [taskId, ...] }（分数降序；种子驱动读取后决定 pairs 顺序）
 // 分数含义：2=明显同源改写（推荐封面）；1=风格化重绘但构图/主体可辨；0=基本无关（排最后）
+// 注意：--slots 与 --gate-zero 互斥（slots 只审每技能前 N 组，满足不了门禁 20 对全审完），同传报错退出 2
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,15 +14,29 @@ const INTL_BASE = 'https://apihub.agnes-ai.com/v1';
 const PER_KEY_INTERVAL_MS = 20000;
 const UA = 'TuPaiPairAudit/1.0';
 const OUT = join(SCRATCH, '配对审核.jsonl');
-const FINAL = join(SCRATCH, '种子排序.json');
 
 const arg = (name, def) => {
   const a = process.argv.find((x) => x.startsWith(`--${name}=`));
   return a ? a.split('=').slice(1).join('=') : def;
 };
+const FINAL = arg('final', join(SCRATCH, '种子排序.json'));
 const CONC = Number(arg('conc', 4));
 const LIMIT = Number(arg('limit', 0)); // 0 = 全部
-const SLOTS = Number(arg('slots', 0)); // 每技能只审前 N 组（0=全部）；封面取 best-of-N
+const SLOTS = Number(arg('slots', 0)); // 每技能只审前 N 组（0=全部）；封面取 best-of-N；与 --gate-zero 互斥
+const TASKS_FILE = arg('tasks', join(SCRATCH, '生成任务.jsonl'));
+const GATE_ZERO = process.argv.includes('--gate-zero'); // 加 --gate-zero 时：0 分对 ≥gate-min-zeros（默认 3）且占比 ≥gate-ratio（默认 30%）判不合格，或存在未审完技能 → 退出 1（个别 0 分只剔除该对）
+const GATE_ONLY = process.argv.includes('--gate-only'); // 只算门禁，不调 API、不写排序文件（复用已有配对审核.jsonl）
+const GATE_MIN_ZEROS = Number(arg('gate-min-zeros', 3)); // 至少 3 个 0 分对
+const GATE_RATIO = Number(arg('gate-ratio', 0.3)); // 且 0 分占比 ≥30% 才判不合格（避免重改造类误杀）
+const GATE_OUT = arg('gate-out', join(SCRATCH, '门禁-0分.json'));
+if (SLOTS > 0 && GATE_ZERO) {
+  console.error('❌ --slots 与 --gate-zero 互斥：slots 只审每技能前 N 组，无法满足门禁的 20 对全审完要求；请去掉 --slots 或改用 --gate-only 配完整评分文件');
+  process.exit(2);
+}
+if (!GATE_ONLY && process.argv.some((x) => x.startsWith('--tasks=')) && !process.argv.some((x) => x.startsWith('--final='))) {
+  console.error('❌ 显式指定 --tasks 时必须同时显式传 --final：避免用重跑任务集合覆盖生产 种子排序.json；若只想算门禁请加 --gate-only');
+  process.exit(2);
+}
 
 function loadKeys() {
   const txt = readFileSync(DOC, 'utf8');
@@ -70,7 +85,7 @@ const PROMPT = `两张图：第一张是原图，第二张是 AI 改写后的作
 2=主体与构图明显延续原图；1=能看出借鉴但重绘幅度大；0=与原图基本无关`;
 
 // 读任务与已有结果
-const tasks = readFileSync(join(SCRATCH, '生成任务.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+const tasks = readFileSync(TASKS_FILE, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 function resultPath(out) {
   for (const ext of ['.jpg', '.png']) {
     const p = join(SCRATCH, '生成结果', out.replace(/\.png$/i, ext));
@@ -79,10 +94,10 @@ function resultPath(out) {
   return null;
 }
 
-const done = new Map(); // taskId -> {score}
+const done = new Map(); // taskId -> {score}；score:null 的失败记录不计入（允许重审补评）
 if (existsSync(OUT)) {
   for (const line of readFileSync(OUT, 'utf8').split('\n')) {
-    try { const d = JSON.parse(line); if (d.score !== undefined) done.set(d.id, d); } catch {}
+    try { const d = JSON.parse(line); if (d.score != null) done.set(d.id, d); } catch {}
   }
 }
 let todo = tasks
@@ -99,7 +114,8 @@ if (SLOTS > 0) {
   todo = todo.filter((t) => !t._skip);
 }
 console.log(`审核任务 ${tasks.length}，有结果 ${tasks.length - tasks.filter((t) => !resultPath(t.out)).length}，待审 ${todo.length}${LIMIT ? `（限 ${LIMIT}）` : ''}`);
-const work = LIMIT ? todo.slice(0, LIMIT) : todo;
+const work = GATE_ONLY ? [] : (LIMIT ? todo.slice(0, LIMIT) : todo);
+if (GATE_ONLY) console.log('门禁模式：跳过 API 审核，仅用已有 配对审核.jsonl 计算');
 
 let idx = 0, ok = 0, fail = 0;
 const { appendFileSync } = await import('node:fs');
@@ -140,13 +156,16 @@ async function worker(wid) {
       if (!json) throw new Error('api 失败');
       const text = json?.choices?.[0]?.message?.content || '';
       const m = text.match(/\{[\s\S]*\}/);
-      const parsed = m ? JSON.parse(m[0]) : { score: 1, reason: '解析失败' };
-      appendFileSync(OUT, JSON.stringify({ id: t.id, skill: t.id.split('--')[0], score: Number(parsed.score) || 0, reason: String(parsed.reason || '').slice(0, 30) }) + '\n');
+      const parsed = m ? JSON.parse(m[0]) : null; // 解析失败不写伪分数，落 score:null 失败记录（重跑补审）
+      const rec = parsed
+        ? { id: t.id, skill: t.id.split('--')[0], score: Number(parsed.score) || 0, reason: String(parsed.reason || '').slice(0, 30) }
+        : { id: t.id, skill: t.id.split('--')[0], score: null, failed: true, reason: '解析失败' };
+      appendFileSync(OUT, JSON.stringify(rec) + '\n');
       ok++;
       if (ok % 50 === 0) console.log(`[w${wid}] ok=${ok} fail=${fail}/${idx}`);
     } catch (e) {
       fail++;
-      appendFileSync(OUT, JSON.stringify({ id: t.id, skill: t.id.split('--')[0], score: 1, reason: '审核失败取中值' }) + '\n');
+      appendFileSync(OUT, JSON.stringify({ id: t.id, skill: t.id.split('--')[0], score: null, failed: true, reason: '审核失败' }) + '\n');
       if (fail % 20 === 0) console.log(`[w${wid}] fail=${fail}: ${e.message.slice(0, 80)}`);
     }
   }
@@ -157,7 +176,7 @@ console.log(`审核完成 ok=${ok} fail=${fail}`);
 // 汇总排序
 const scores = new Map(done);
 for (const line of readFileSync(OUT, 'utf8').split('\n')) {
-  try { const d = JSON.parse(line); if (d.score !== undefined) scores.set(d.id, d); } catch {}
+  try { const d = JSON.parse(line); if (d.score != null) scores.set(d.id, d); } catch {}
 }
 const bySkill = new Map();
 for (const t of tasks) {
@@ -174,5 +193,35 @@ for (const [sid, list] of bySkill) {
   order[sid] = complete.map((x) => x.id);
   for (const x of complete) dist[x.score] = (dist[x.score] || 0) + 1;
 }
-writeFileSync(FINAL, JSON.stringify({ 说明: '每技能展示顺序（分数降序，封面取最高分对）', 技能数: Object.keys(order).length, 分数分布: dist, 顺序: order }, null, 1));
-console.log(`排序覆盖 ${Object.keys(order).length} 技能；分数分布:`, JSON.stringify(dist));
+if (GATE_ONLY) {
+  console.log('门禁模式：不写排序文件（--final 忽略）；分数分布:', JSON.stringify(dist));
+} else {
+  writeFileSync(FINAL, JSON.stringify({ 说明: '每技能展示顺序（分数降序，封面取最高分对）', 技能数: Object.keys(order).length, 分数分布: dist, 顺序: order }, null, 1));
+  console.log(`排序覆盖 ${Object.keys(order).length} 技能；分数分布:`, JSON.stringify(dist));
+}
+
+// ---------- 0 分门禁 ----------
+// 依据 2026-11-22 检查：Agnes 0 分对经人工抽查确认「主体与构图完全无关」，可信。
+// 门禁规则：0 分对 ≥3 且占比 ≥30% → 该技能画册不可用，需换匹配输入重跑（个别 0 分只剔除该对；禁止靠排序把 0 分藏到末尾）。
+const gate = { 说明: `画册 0 分门禁：须 20 对全部审完；0 分对 ≥${GATE_MIN_ZEROS} 且占比 ≥${Math.round(GATE_RATIO * 100)}% 判不合格（个别 0 分只剔除该对，不废整个技能）`, 更新: '2026-11-22', 不合格: [], 未审完: [], 合格数: 0, 不合格数: 0, 未审完数: 0 };
+for (const [sid, list] of bySkill) {
+  const complete = list.filter((x) => x.result);
+  const scored = complete.filter((x) => scores.get(x.id)?.score !== undefined);
+  if (complete.length < 20 || scored.length < 20) {
+    gate.未审完.push({ skill: sid, 有结果: complete.length, 已评分: scored.length });
+    continue;
+  }
+  const zeros = scored.filter((x) => x.score === 0);
+  const ratio = zeros.length / scored.length;
+  if (zeros.length >= GATE_MIN_ZEROS && ratio >= GATE_RATIO) {
+    gate.不合格.push({ skill: sid, "0分对数": zeros.length, "总对数": scored.length, "0分占比": Number(ratio.toFixed(2)), "0分任务": zeros.map((x) => x.id) });
+  } else gate.合格数++;
+}
+gate.不合格数 = gate.不合格.length;
+gate.未审完数 = gate.未审完.length;
+writeFileSync(GATE_OUT, JSON.stringify(gate, null, 1));
+console.log(`0 分门禁：合格 ${gate.合格数}，不合格 ${gate.不合格数}，未审完 ${gate.未审完数} → ${GATE_OUT}`);
+if (GATE_ZERO && (gate.不合格数 > 0 || gate.未审完数 > 0)) {
+  console.error('❌ 0 分门禁未通过：存在主体无关配对或审核未完成，禁止发布');
+  process.exit(1);
+}

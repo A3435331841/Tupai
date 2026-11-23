@@ -2,11 +2,11 @@
   "generated_at": "2026-11-18",
   "schema_version": "2.0",
   "note": "全面中文化迁移后重建；状态六态（在用沿用 approved）、六维标签、目录分区/清单/版本说明三处同步。字段语义见 字段规范.json。",
-  "count": 119,
+  "count": 148,
   "status_summary": {
     "archived": 49,
     "discarded": 7,
-    "approved": 57,
+    "approved": 88,
     "superseded": 4
   },
   "assets": [
@@ -3597,6 +3597,985 @@
         ]
       },
       "派生自": "资产仓库/40-图片资产/派生加工/首页主视觉.webp"
+    },
+    {
+      "id": "supp-xZiuT0bcup",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/动漫少女特写.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "6c280d0d97b87fd5238c3b24dd9ac73843de1fd93eacdfcd49fecf69a700be4c",
+      "bytes": 3566528,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "动漫少女特写",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "anime",
+        "视觉备注": "二次元少女半身特写，用于真人化/写实化技能输入",
+        "生成来源": "https://aka.doubaocdn.com/s/xZiuT0bcup",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-7LVpmcAaS8",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/怪兽涂鸦.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "a31f0eb5509e26b7f94eddcdbc80f6f17e16e711a758f0a5a8d624f62338210f",
+      "bytes": 3375780,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "怪兽涂鸦",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "sketch",
+        "视觉备注": "手绘小怪兽涂鸦，用于涂鸦变 3D / 草图变实景",
+        "生成来源": "https://aka.doubaocdn.com/s/7LVpmcAaS8",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-V7uheHEfan",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/咖啡菜单草图.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "438b5c5b5ca228aba8572d19425d0d198786324ef316e45af77fa195a019b405",
+      "bytes": 4479527,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "咖啡菜单草图",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "sketch",
+        "视觉备注": "手绘咖啡馆菜单草图，用于草图变美食海报",
+        "生成来源": "https://aka.doubaocdn.com/s/V7uheHEfan",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-7wH3SmNtco",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/六格分镜.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "9bede417cacce3b04ed2064ed7d784d88325b3b9f5de2d1c1d1dcf6611004658",
+      "bytes": 4648405,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "六格分镜",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "storyboard",
+        "视觉备注": "六格故事分镜草图，用于分镜变漫画成稿",
+        "生成来源": "https://aka.doubaocdn.com/s/7wH3SmNtco",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-kBF7rDYIbd",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/手写作业纸.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "e1f8b22b168b7245d7fae6d1fec34071c9163bc9d5cdf8a75ee388f5e6298c6d",
+      "bytes": 2956437,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "手写作业纸",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "homework",
+        "视觉备注": "纸面题目与手写字迹，用于笔迹解题板书",
+        "生成来源": "https://aka.doubaocdn.com/s/kBF7rDYIbd",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-0quqibJ7ZL",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/黑白漫画线稿.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "ffc78e407991d4f32d5b990f3b4104f082a23143d4ac8a12abccf6f150b00a29",
+      "bytes": 4820743,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "黑白漫画线稿",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "comic_line",
+        "视觉备注": "黑白漫画线稿分格，用于漫画上色",
+        "生成来源": "https://aka.doubaocdn.com/s/0quqibJ7ZL",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-XMKsaHldds",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/建筑线稿.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "50943fc66abe50f7d0f5e7a0da3b52692e7fef11fa22a4df7c38fb219f8e3e1c",
+      "bytes": 4063306,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "建筑线稿",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "sketch",
+        "视觉备注": "建筑手绘线稿，用于草图变实景/蓝图稿",
+        "生成来源": "https://aka.doubaocdn.com/s/XMKsaHldds",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-ZNKM6H5sFk",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/破损老照片.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "353ea6d0b5e90e066e2dae61788aaa77e15b18a333942f79ab3b5f8ac54ccfb7",
+      "bytes": 3485899,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "破损老照片",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "old_photo",
+        "视觉备注": "破损带划痕的人像老照片，用于修复类技能",
+        "生成来源": "https://aka.doubaocdn.com/s/ZNKM6H5sFk",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-jBkY2HCYln",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/泛黄黑白老照.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "c0931a7547fa7da7fd620ca31d7ab1591f68e8284473bca80ba78f0d3efe1be5",
+      "bytes": 3099778,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "泛黄黑白老照",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "old_photo",
+        "视觉备注": "泛黄黑白老照片，用于上色/修复",
+        "生成来源": "https://aka.doubaocdn.com/s/jBkY2HCYln",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-YyBPVL0jq0",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/褪色海滩老照.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "c940bb9fb897f4002d81a7fcbc9a0718450832f7a5128d259b4ac5b7dcddd287",
+      "bytes": 3604434,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "褪色海滩老照",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "old_photo",
+        "视觉备注": "褪色海滩风景老照片，用于修复重塑光影",
+        "生成来源": "https://aka.doubaocdn.com/s/YyBPVL0jq0",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-mjx9BtGUvB",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/撕碎风景照.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "2fbeb8925bff8f9341877850a8759431afd9a5582f373d05d382d5c7e2353a75",
+      "bytes": 3911246,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "撕碎风景照",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "old_photo",
+        "视觉备注": "撕碎的风景照片碎片，用于碎纸复原",
+        "生成来源": "https://aka.doubaocdn.com/s/mjx9BtGUvB",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-hNHUnI1rbf",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/双人常服合影.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "1887f2cba77449c7e9f113a31e0b59f48d6b297eedff139ed5d9298682b05b77",
+      "bytes": 3088637,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "双人常服合影",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "couple",
+        "视觉备注": "双人常服正面合影，用于情侣/婚礼类技能",
+        "生成来源": "https://aka.doubaocdn.com/s/hNHUnI1rbf",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-1ig2I7w2VJ",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/品牌香水瓶.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "40e5a945680f4e2f139437c654fd0bc24c7581eedb9c0e44858be74bc2370e09",
+      "bytes": 2498327,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "品牌香水瓶",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "product",
+        "视觉备注": "带「TU PAI」标签的香水瓶，用于产品静物类技能",
+        "生成来源": "https://aka.doubaocdn.com/s/1ig2I7w2VJ",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-AVyrMTfKnS",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/手写食谱纸.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "2e4f1d81561b55c90978354222f02c36223bc1ad7841f5c9e978526b696213d8",
+      "bytes": 3141967,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "手写食谱纸",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "recipe",
+        "视觉备注": "手写食谱纸，用于手写食谱排版",
+        "生成来源": "https://aka.doubaocdn.com/s/AVyrMTfKnS",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-3xYS8r6OaJ",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/情侣合影-01.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "77e39e694fef8895e26313c9c63e92bc2ca0280e68380afb621b9856049455c9",
+      "bytes": 3125669,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "情侣合影-01",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "couple",
+        "视觉备注": "年轻情侣正面合影，用于情侣/婚礼类",
+        "生成来源": "https://aka.doubaocdn.com/s/3xYS8r6OaJ",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-e9vQvf2c9x",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/情侣合影-02.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "aa33f38fc54eb69ab0bdd98e8089fd48ce8902d4292d47c4976695d97912b478",
+      "bytes": 3030018,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "情侣合影-02",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "couple",
+        "视觉备注": "中年情侣公园长椅正面合影",
+        "生成来源": "https://aka.doubaocdn.com/s/e9vQvf2c9x",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-SbYBzxv0eI",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/情侣合影-03.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "74fbeb55418f2a952013a5bf4bb348fd05c6e4737963e89fd76fabf435de0514",
+      "bytes": 2934959,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "情侣合影-03",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "couple",
+        "视觉备注": "中老年夫妻海边正面合影",
+        "生成来源": "https://aka.doubaocdn.com/s/SbYBzxv0eI",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-wGhteaUB6w",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/团队合影-01.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "f35371453ac04f34adc9cb444aef49f3ccb923539ff121ed51e3166d9e4b8afc",
+      "bytes": 3120420,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "团队合影-01",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "team",
+        "视觉备注": "六人上班族正面团队合影",
+        "生成来源": "https://aka.doubaocdn.com/s/wGhteaUB6w",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-W9vIAkmVSm",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/团队合影-02.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "641d7d67cb327dcb5fb8baf418033d896b0ffbb1f39272010514702150456d03",
+      "bytes": 3064204,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "团队合影-02",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "team",
+        "视觉备注": "五人施工团队正面合影",
+        "生成来源": "https://aka.doubaocdn.com/s/W9vIAkmVSm",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-XAElKHGhPJ",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/空房间-01.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "7231d74a495faf398779b78fe26f618c64432527e6ff29645720f20fef03c144",
+      "bytes": 2814259,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "空房间-01",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "室内"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "interior",
+        "视觉备注": "无家具空客厅，用于虚拟软装",
+        "生成来源": "https://aka.doubaocdn.com/s/XAElKHGhPJ",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-3vcSsgZtTF",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/空房间-02.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "80b8055ba289a58ecf576a9f216d876f0c3eb1326c23c3df296aa396ec8d765e",
+      "bytes": 2801873,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "空房间-02",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "室内"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "interior",
+        "视觉备注": "无家具空卧室，用于室内设计渲染",
+        "生成来源": "https://aka.doubaocdn.com/s/3vcSsgZtTF",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-HsfsTFqvMb",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/旧房间-01.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "c92e58b17916ad173b0394cd9c0a3d282b580f9317d6e04cb5a61a98148d9b7d",
+      "bytes": 3233838,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "旧房间-01",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "室内"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "interior",
+        "视觉备注": "老旧公寓客厅，用于室内改造",
+        "生成来源": "https://aka.doubaocdn.com/s/HsfsTFqvMb",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-noKVWybZQV",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/旧房间-02.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "435fbfbab28441e404a2bf4e4aafd9cd365e6acaa39ca6f9041ae98a18919086",
+      "bytes": 3196700,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "旧房间-02",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "室内"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "interior",
+        "视觉备注": "普通出租屋单间，用于室内改造",
+        "生成来源": "https://aka.doubaocdn.com/s/noKVWybZQV",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-b1JUVY6BUb",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/正面人像-01.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "1e68dd7ef7777fe7570f15ba3e2dd03d1e56f9ecededb3f721bd90bebcc744be",
+      "bytes": 2837452,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "正面人像-01",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "face",
+        "视觉备注": "亚洲年轻女性正面半身肖像，面部清晰",
+        "生成来源": "https://aka.doubaocdn.com/s/b1JUVY6BUb",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-4HULnDxIJn",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/正面人像-02.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "f4672a1004196c93ccabdb5aa6bda4a7d97debfd9e54102f1ac5663e30e113d6",
+      "bytes": 3085007,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "正面人像-02",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "face",
+        "视觉备注": "黑人男性正面半身肖像，面部清晰",
+        "生成来源": "https://aka.doubaocdn.com/s/4HULnDxIJn",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-hlqgu28LWU",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/正面人像-03.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "267c2fcc0e58e0addcf6743bc11db61105c9856316616b0e8d23dd9003fe300c",
+      "bytes": 3146743,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "正面人像-03",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "face",
+        "视觉备注": "中年女性正面半身肖像，面部清晰",
+        "生成来源": "https://aka.doubaocdn.com/s/hlqgu28LWU",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-Ub8BTCWpqq",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/健身自拍-01.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "11cbc3d1e22385dafcf4864f2fdb16b649eaf2bc3bbd35b4f9fd8d9e26824617",
+      "bytes": 2989973,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "健身自拍-01",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "face",
+        "视觉备注": "健身房手机自拍，闪光直打，面部清晰",
+        "生成来源": "https://aka.doubaocdn.com/s/Ub8BTCWpqq",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-k1ngtlsHx3",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/镜前自拍-01.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "9f147b4e0bf205b8996dc5369784544a93592926b5980f6b3702161552ff64d8",
+      "bytes": 3088985,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "镜前自拍-01",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "人像"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "face",
+        "视觉备注": "浴室镜前手机自拍，上半脸清晰",
+        "生成来源": "https://aka.doubaocdn.com/s/k1ngtlsHx3",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
+    },
+    {
+      "id": "supp-qzzmvqETsR",
+      "type": "image",
+      "path": "资产仓库/40-图片资产/AI生成/技能演示补充输入/桌面手工-01.jpg",
+      "origin": "ai-generated",
+      "license": "project-owned",
+      "sha256": "bf96352efca00ff06e62777ed0768949506564e2344b5e59a7b68875529ab846",
+      "bytes": 2986458,
+      "visibility": "public",
+      "runtime_path": null,
+      "used_by": [],
+      "名称": "桌面手工-01",
+      "分区": null,
+      "状态": "approved",
+      "标签": {
+        "用途": [
+          "演示样片"
+        ],
+        "场景": [
+          "室内"
+        ]
+      },
+      "决策": {
+        "结果": "approved",
+        "日期": "2026-11-23",
+        "决策人": "AI 主执行 Agent",
+        "理由": "修复技能演示选图路由时补齐的语义匹配输入，见 docs/18"
+      },
+      "扩展字段": {
+        "输入类型": "desk",
+        "视觉备注": "俯拍桌面手工场景，人物在纸前创作",
+        "生成来源": "https://aka.doubaocdn.com/s/qzzmvqETsR",
+        "技能补充输入清单": "资产仓库/90-元数据/技能补充输入.json"
+      }
     }
   ]
 }
