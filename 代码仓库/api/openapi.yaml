@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 图派 TuPai API
-  version: 1.2.0
+  version: 1.3.0
   description: |
     前后端分离的唯一通信契约（文档摘要见 docs/07-接口契约.md）。
     冻结规则：v1 只增不改不删；破坏性变更升 /api/v2。
@@ -9,6 +9,7 @@ info:
     登录态：Qoder 平台网关注入 x-qoder-user-context（浏览器不可伪造）；需登录端点会返回 401 login_required。
     所有结果图 URL 均为本站转存后的 URL，不暴露第三方 COS 直链。
     2026-11-18 v1.1：补齐二期资产库/画册/分享与三期社区/任务/通知/账号全部已实现端点。
+    2026-11-23 v1.3：灵感库与社区拆分（docs/19）——inspection/* 浏览、hot 定时快照、search 搜索。
 servers:
   - url: /api/v1
   - url: /functions/v1/app/api/v1
@@ -28,6 +29,9 @@ tags:
   - name: community
   - name: tasks
   - name: notifications
+  - name: inspiration
+  - name: hot
+  - name: search
 
 paths:
   /assets:
@@ -386,8 +390,7 @@ paths:
       tags: [links]
       operationId: parseLink
       summary: 扩展：尽力解析抖音单条图文链接，返回图片地址与文案
-      description: 返回的图片地址来自第三方 CDN。前端继续创作时会将取回的图片作为私有原图上传保存，当前没有专门的自动清理。
-      description: 此端点失败不影响任何 MVP 路径；视频链接/风控拦截返回 422 降级引导。
+      description: 返回的图片地址来自第三方 CDN。前端继续创作时会将取回的图片作为私有原图上传保存，当前没有专门的自动清理。 此端点失败不影响任何 MVP 路径；视频链接/风控拦截返回 422 降级引导。
       requestBody:
         required: true
         content:
@@ -1600,6 +1603,150 @@ paths:
                   skipped_pairs: { type: integer }
         "400": { $ref: "#/components/responses/BadInput" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /inspiration/overview:
+    get:
+      tags: [inspiration]
+      operationId: inspirationOverview
+      summary: 灵感库聚合概览（技能/参考/公开配方计数 + 类目分布）
+      responses:
+        "200":
+          description: 概览数据
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  counts:
+                    type: object
+                    properties:
+                      skills: { type: integer }
+                      references: { type: integer }
+                      recipes: { type: integer }
+                  categories: { type: object, additionalProperties: { type: integer } }
+  /inspiration/skills:
+    get:
+      tags: [inspiration]
+      operationId: inspirationSkills
+      summary: 官方技能列表（复用 showcase_skills，按类目/关键词筛选）
+      parameters:
+        - { name: category, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: 技能列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skills: { type: array, items: { type: object } }
+  /inspiration/references:
+    get:
+      tags: [inspiration]
+      operationId: inspirationReferences
+      summary: 图片参考列表（公开授权语料）
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: tag, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 48 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
+      responses:
+        "200":
+          description: 参考图分页
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { type: object } }
+                  total: { type: integer }
+                  next_offset: { type: [integer, "null"] }
+  /inspiration/references/{assetId}:
+    get:
+      tags: [inspiration]
+      operationId: inspirationReference
+      summary: 图片参考详情（大图 + 标签 + 同类推荐）
+      parameters:
+        - { name: assetId, in: path, required: true, schema: { type: string, pattern: "^a_[0-9a-f]{24}$" } }
+      responses:
+        "200": { description: 参考详情 + related }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /inspiration/recipes:
+    get:
+      tags: [inspiration]
+      operationId: inspirationRecipes
+      summary: 社区公开配方列表（skills 表 visibility=public）
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: 公开配方列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { type: object } }
+                  total: { type: integer }
+  /hot:
+    get:
+      tags: [hot]
+      operationId: getHot
+      summary: 热榜（只读定时快照，不在请求路径上重算）
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: ["24h", "7d"], default: "7d" } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        "200":
+          description: 热榜作品（含 rank/hot_score）；未生成快照时 works 为空、computed_at 为 null
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period: { type: string }
+                  computed_at: { type: [string, "null"], format: date-time }
+                  works: { type: array, items: { type: object } }
+  /maintenance/recompute-hot:
+    post:
+      tags: [hot]
+      operationId: recomputeHot
+      summary: 维护端点：重算热榜快照并写入 hot_rank（需 x-maintenance-token）
+      security: []
+      parameters:
+        - { name: x-maintenance-token, in: header, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: 重算完成
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  computed: { type: integer }
+                  periods: { type: array, items: { type: string } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /search:
+    get:
+      tags: [search]
+      operationId: unifiedSearch
+      summary: 社区统一搜索（帖子关键词/标签 或 用户昵称/ID）
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string, enum: [post, user], default: post } }
+      responses:
+        "200":
+          description: 搜索结果（按 type 分栏）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { type: object } }
+                  total: { type: integer }
+                  type: { type: string }
 
 components:
   securitySchemes:

@@ -10,11 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { GitFork, Heart, MessageCircle } from 'lucide-react';
+import { GitFork, Heart, MessageCircle, ChevronRight } from 'lucide-react';
 import { PageHero } from '@/components/PageHero';
 import { SectionHeading } from '@/components/SectionHeading';
 
-type Tab = 'feed' | 'showcase' | 'tasks' | 'notify' | 'mine';
+type Tab = 'feed' | 'hot' | 'tasks' | 'notify' | 'mine';
 const XINYU_LOCAL_URL = 'http://127.0.0.1:8767';
 const needLogin = (e: unknown, intent?: Parameters<typeof saveLoginIntent>[0]) => {
   if (e instanceof ApiRequestError && e.status === 401) {
@@ -30,9 +30,8 @@ const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.messag
 const tasksWithClosed = api.tasks as unknown as (includeClosed?: boolean) => Promise<{ tasks: TaskItem[] }>;
 
 function readInitialTab(): Tab {
-  if (window.location.pathname.replace(/\/+$/, '') === '/showcase') return 'showcase';
   const t = new URLSearchParams(window.location.search).get('tab');
-  return t === 'tasks' || t === 'notify' || t === 'mine' || t === 'showcase' ? t : 'feed';
+  return t === 'hot' || t === 'tasks' || t === 'notify' || t === 'mine' ? t : 'feed';
 }
 function readInitialQuery(): string {
   return new URLSearchParams(window.location.search).get('q') || '';
@@ -90,6 +89,12 @@ export default function Community({ navigate }: { navigate: (to: string) => void
   const [showcaseDetail, setShowcaseDetail] = useState<{ skill: ShowcaseSkill; pairs: { original_url: string; result_url: string; result_asset_id: string }[]; album: { share_token: string; share_page: string } | null } | null>(null);
   const [showcasePairIdx, setShowcasePairIdx] = useState(0);
   const [openingShowcase, setOpeningShowcase] = useState<string | null>(null);
+  // 热榜（定时快照，读取不重算）
+  const [hotWorks, setHotWorks] = useState<(WorkMeta & { rank: number; hot_score: number })[] | null>(null);
+  const [hotComputedAt, setHotComputedAt] = useState<string | null>(null);
+  // 用户搜索
+  const [userQuery, setUserQuery] = useState('');
+  const [userResults, setUserResults] = useState<{ id: string; name: string; avatar: string | null }[] | null>(null);
   const [reportTarget, setReportTarget] = useState<WorkMeta | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [confirmTarget, setConfirmTarget] = useState<WorkMeta | null>(null);
@@ -163,6 +168,23 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     try { const r = await api.notifications(); setNotices(r.notifications); setUnread(r.unread); }
     catch (e) { if (!needLogin(e)) setTabError(errText(e, '加载通知失败')); }
   }, []);
+  const loadHotTab = useCallback(async () => {
+    setTabError(null);
+    setHotWorks(null);
+    try {
+      const r = await api.hot({ period: '7d', limit: 20 });
+      setHotWorks(r.works);
+      setHotComputedAt(r.computed_at);
+    } catch (e) { setHotWorks([]); setTabError(errText(e, '加载热榜失败（可能尚未生成快照）')); }
+  }, []);
+  const searchUsers = useCallback(async () => {
+    const term = userQuery.trim();
+    if (!term) { setUserResults(null); return; }
+    try {
+      const r = await api.search(term, 'user');
+      setUserResults(r.items as { id: string; name: string; avatar: string | null }[]);
+    } catch (e) { toast.error(errText(e, '搜索用户失败')); }
+  }, [userQuery]);
   const loadShowcaseTab = useCallback(async () => {
     setTabError(null);
     try {
@@ -190,8 +212,8 @@ export default function Community({ navigate }: { navigate: (to: string) => void
     if (tab === 'feed') { setTabError(null); tasksWithClosed(true).then((r) => setTasks(r.tasks)).catch(() => {}); }
     if (tab === 'notify') void loadNoticesTab();
     if (tab === 'mine') void loadMineTab();
-    if (tab === 'showcase') void loadShowcaseTab();
-  }, [tab, loadTasksTab, loadNoticesTab, loadMineTab]);
+    if (tab === 'hot') void loadHotTab();
+  }, [tab, loadTasksTab, loadNoticesTab, loadMineTab, loadHotTab]);
 
   // 登录回程：恢复 401 前的评论/举报草稿（仅在已登录时消费，未登录则保留）
   useEffect(() => {
@@ -420,7 +442,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             className="flex w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none]"
             onKeyDown={(e) => {
               if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-              const order: Tab[] = ['feed', 'showcase', 'tasks', 'notify', 'mine'];
+              const order: Tab[] = ['feed', 'hot', 'tasks', 'notify', 'mine'];
               const cur = order.indexOf(tab);
               const next = order[(cur + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length];
               e.preventDefault();
@@ -428,7 +450,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
               e.currentTarget.querySelector<HTMLElement>(`[data-tab="${next}"]`)?.focus();
             }}
           >
-            {([['feed', '发现'], ['showcase', '技能演示'], ['tasks', '共创任务'], ['notify', '通知'], ['mine', '我的作品']] as [Tab, string][]).map(([v, l]) => (
+            {([['feed', '发现'], ['hot', '热榜'], ['tasks', '共创任务'], ['notify', '通知'], ['mine', '我的作品']] as [Tab, string][]).map(([v, l]) => (
               <Button
                 key={v}
                 size="sm"
@@ -464,6 +486,27 @@ export default function Community({ navigate }: { navigate: (to: string) => void
             <Button size="sm" variant={sort === 'hot' ? 'secondary' : 'outline'} onClick={() => { setSort('hot'); applyFilters({ sort: 'hot' }); }}>热门</Button>
             <Button size="sm" variant="outline" onClick={() => applyFilters()}>搜索</Button>
           </div>
+          {/* 用户搜索：搜昵称/ID，结果独立展示 */}
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-card/50 p-2">
+            <span className="text-[11px] font-semibold text-muted-foreground">找用户</span>
+            <Input aria-label="搜索用户" value={userQuery} onChange={(e) => setUserQuery(e.target.value)}
+              placeholder="搜昵称或用户 ID" className="h-8 w-48 text-xs" onKeyDown={(e) => { if (e.key === 'Enter') void searchUsers(); }} />
+            <Button size="sm" variant="ghost" onClick={() => void searchUsers()}>搜索用户</Button>
+            {userResults !== null && (
+              <span className="ml-auto text-[11px] text-muted-foreground">{userResults.length} 位</span>
+            )}
+          </div>
+          {userResults && userResults.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {userResults.map((u) => (
+                <Card key={u.id} className="flex cursor-pointer items-center gap-2 px-3 py-2" onClick={() => { setTab('feed'); setQ(u.name); applyFilters(); }}>
+                  <span className="grid size-7 place-items-center rounded-full bg-primary/15 text-xs font-bold text-primary">{u.name.slice(0, 1)}</span>
+                  <span className="text-xs font-medium">{u.name}</span>
+                </Card>
+              ))}
+            </div>
+          )}
+          {userResults && userResults.length === 0 && <p className="mb-4 text-xs text-muted-foreground">没有匹配的用户</p>}
           {feedError && (
             <Card role="alert" className="mb-4 flex flex-col items-center gap-2 border-destructive/40 p-6 text-center">
               <p className="text-sm text-destructive">{feedError}</p>
@@ -555,60 +598,37 @@ export default function Community({ navigate }: { navigate: (to: string) => void
         </>
       )}
 
-      {tab === 'showcase' && (
+      {tab === 'hot' && (
         <div className="space-y-4">
-          <SectionHeading title="技能演示" aside="每技能一本画册" />
+          <SectionHeading title="热榜" aside={hotComputedAt ? `快照更新于 ${new Date(hotComputedAt).toLocaleString('zh-CN')}` : '基于帖子热度 · 定时更新'} />
           <p className="text-xs text-muted-foreground">
-            每个技能都由真实原图与生成作品成对呈现（左原图 · 右作品，AI 生成标识随图附带）；点开可翻阅全部示例并查看只读画册。
+            按点赞、评论与转发计算热度（含时间衰减），由系统定时生成快照；点击作品可查看详情、点赞与评论。
           </p>
           {tabError && (
-            <Card role="alert" className="p-6 text-center text-sm text-muted-foreground">
-              {tabError}
-              <div className="mt-3"><Button size="sm" variant="outline" onClick={() => void loadShowcaseTab()}>重试</Button></div>
-            </Card>
+            <Card role="alert" className="p-6 text-center text-sm text-muted-foreground">{tabError}</Card>
           )}
-          {showcaseList === null && !tabError && (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-56 rounded-xl" />)}</div>
+          {hotWorks === null && !tabError && (
+            <div className="space-y-2">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>
           )}
-          {showcaseList !== null && showcaseList.length === 0 && (
-            <Card className="p-6 text-center text-sm text-muted-foreground">技能演示筹备中，敬请期待。</Card>
+          {hotWorks !== null && hotWorks.length === 0 && !tabError && (
+            <p className="py-10 text-center text-sm text-muted-foreground">热榜还是空的——等系统生成快照，或多给作品点点赞。</p>
           )}
-          {showcaseList !== null && showcaseList.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {showcaseList.map((s) => (
-                <Card
-                  key={s.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`查看技能演示：${s.title_zh}`}
-                  aria-busy={openingShowcase === s.id}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      if (!openingShowcase) void openShowcase(s.id);
-                    }
-                  }}
-                  className={`cursor-pointer gap-0 overflow-hidden p-0 transition-shadow hover:shadow-md ${openingShowcase === s.id ? 'pointer-events-none opacity-60' : ''}`}
-                  onClick={() => { if (!openingShowcase) void openShowcase(s.id); }}
-                >
-                  <div className="relative grid aspect-[4/3] grid-cols-2 bg-secondary">
-                    {s.cover ? (
-                      <>
-                        <img src={apiUrl(s.cover.original_url)} alt={`${s.title_zh} 原图示例`} loading="lazy" className="h-full w-full object-cover" />
-                        <img src={apiUrl(s.cover.result_url)} alt={`${s.title_zh} 作品示例`} loading="lazy" className="h-full w-full object-cover" />
-                      </>
-                    ) : <div className="col-span-2 size-full" />}
-                    <span className="absolute left-1.5 top-1.5 rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white">原图</span>
-                    <span className="absolute right-1.5 top-1.5 rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white">作品 · AI</span>
+          {hotWorks && hotWorks.length > 0 && (
+            <div className="space-y-2">
+              {hotWorks.map((w) => (
+                <Card key={w.id} className="flex cursor-pointer items-center gap-3 p-3 transition-transform hover:-translate-y-0.5" onClick={() => openWork(w)}>
+                  <span className={`grid size-9 shrink-0 place-items-center rounded-lg font-display text-lg font-bold ${w.rank <= 3 ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>{w.rank}</span>
+                  <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                    {w.image_url ? <img src={w.image_url} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-xl text-primary/40">✦</span>}
                   </div>
-                  <div className="p-3">
-                    <p className="truncate text-sm font-medium">{s.title_zh}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{s.desc_zh}</p>
-                    <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <Badge variant="secondary" className="text-[10px]">{s.category}</Badge>
-                      <span>{s.pair_count} 组示例</span>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{w.title || '未命名作品'}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{w.author_credit || '匿名创作者'} · 热度 {Math.round(w.hot_score)}</p>
+                    <p className="mt-1 flex gap-3 text-[11px] text-muted-foreground">
+                      <span>♥ {w.like_count ?? 0}</span><span>💬 {w.comment_count ?? 0}</span>
+                    </p>
                   </div>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </Card>
               ))}
             </div>

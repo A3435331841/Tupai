@@ -160,6 +160,47 @@ export const api = {
     request<{ skill: import('./types').ShowcaseSkill; pairs: { original_url: string; result_url: string; result_asset_id: string }[]; album: { share_token: string; share_page: string } | null }>(
       'GET', `/api/v1/showcase/skills/${encodeURIComponent(id)}`,
     ),
+
+  // ===== 灵感库与社区拆分（docs/19）=====
+  inspirationOverview: () =>
+    request<{ counts: { skills: number; references: number; recipes: number }; categories: Record<string, number> }>(
+      'GET', '/api/v1/inspiration/overview',
+    ),
+  inspirationSkills: (params: { category?: string; q?: string } = {}) => {
+    const sp = new URLSearchParams();
+    if (params.category) sp.set('category', params.category);
+    if (params.q) sp.set('q', params.q);
+    const suffix = sp.toString() ? `?${sp}` : '';
+    return request<{ skills: import('./types').ShowcaseSkill[] }>('GET', '/api/v1/inspiration/skills' + suffix);
+  },
+  inspirationReferences: (params: { q?: string; tag?: string; limit?: number; offset?: number } = {}) => {
+    const sp = new URLSearchParams();
+    if (params.q) sp.set('q', params.q);
+    if (params.tag) sp.set('tag', params.tag);
+    if (params.limit) sp.set('limit', String(params.limit));
+    if (params.offset) sp.set('offset', String(params.offset));
+    const suffix = sp.toString() ? `?${sp}` : '';
+    return request<{ items: { id: string; url: string; tags: string[]; width: number | null; height: number | null }[]; total: number; next_offset: number | null }>(
+      'GET', '/api/v1/inspiration/references' + suffix,
+    );
+  },
+  inspirationReference: (id: string) =>
+    request<{
+      reference: { id: string; url: string; tags: string[]; width: number | null; height: number | null; content_type: string | null };
+      related: { id: string; url: string; tags: string[] }[];
+    }>('GET', `/api/v1/inspiration/references/${encodeURIComponent(id)}`),
+  inspirationRecipes: (q = '') =>
+    request<{ items: { skill_id: string; title: string; prompt: string; model: string; ratio: string; cover_url: string | null; style_tags: string[]; created_at: string | null }[]; total: number }>(
+      'GET', '/api/v1/inspiration/recipes' + (q ? `?q=${encodeURIComponent(q)}` : ''),
+    ),
+  hot: (params: { period?: '24h' | '7d'; limit?: number } = {}) =>
+    request<{ period: string; computed_at: string | null; works: (import('./types').WorkMeta & { rank: number; hot_score: number })[] }>(
+      'GET', `/api/v1/hot?period=${params.period || '7d'}&limit=${params.limit || 20}`,
+    ),
+  search: (q: string, type: 'post' | 'user' = 'post') =>
+    request<{ items: unknown[]; total: number; type: string }>(
+      'GET', `/api/v1/search?q=${encodeURIComponent(q)}&type=${type}`,
+    ),
   myWorks: () => request<{ works: import('./types').WorkMeta[] }>('GET', '/api/v1/me/works'),
   userWorks: (id: string) => request<{ works: import('./types').WorkMeta[] }>('GET', `/api/v1/users/${encodeURIComponent(id)}/works`),
   exportMe: () => request<{ exported_at: string; works: unknown[]; skills: unknown[]; albums: unknown[]; assets?: unknown[]; comments?: unknown[]; likes?: unknown[]; tasks?: unknown[]; submissions?: unknown[]; notifications?: unknown[] }>('GET', '/api/v1/me/export'),

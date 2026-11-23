@@ -83,10 +83,20 @@ function HelpIcon({ className }: IconProps) {
   );
 }
 
+function CompassIcon({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle className={ico} cx="12" cy="12" r="8.6" />
+      <path className={ico} d="m14.9 9.1-1.6 4.2-4.2 1.6 1.6-4.2 4.2-1.6Z" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { route: '/', label: '首页', Icon: HomeIcon },
   { route: '/studio', label: '创作台', Icon: SparkleIcon },
   { route: '/library', label: '资产库', Icon: FolderIcon },
+  { route: '/inspiration', label: '灵感库', Icon: CompassIcon },
   { route: '/community', label: '社区', Icon: UsersIcon },
 ] as const;
 
@@ -240,7 +250,9 @@ export default function SiteHeader({ path, navigate }: { path: string; navigate:
         {/* 导航：线性图标 + 短下划线选中态 + 淡悬停暖底 */}
         <nav className="order-3 flex w-full min-w-0 items-center justify-start gap-0.5 overflow-x-auto scrollbar-none sm:justify-center md:order-none md:w-auto md:flex-1" aria-label="主导航">
           {NAV_ITEMS.map(({ route, label, Icon }) => {
-            const active = path === route || (route === '/community' && path.startsWith('/work/'));
+            const active = path === route
+              || (route === '/inspiration' && path.startsWith('/inspiration/'))
+              || (route === '/community' && (path.startsWith('/work/') || path === '/showcase'));
             return (
               <button
                 key={route}

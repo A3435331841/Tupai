@@ -132,3 +132,24 @@ CREATE TABLE IF NOT EXISTS app.showcase_skills (
   sort int NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- 灵感库与社区拆分（docs/19）：works 帖子化字段增量见 schema-migrations.sql V3。
+-- 热榜定时快照（读取不重算，由 maintenance/recompute-hot 写入）。
+CREATE TABLE IF NOT EXISTS app.hot_rank (
+  period text NOT NULL,
+  work_id text NOT NULL,
+  rank int NOT NULL,
+  hot_score real NOT NULL,
+  computed_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (period, work_id)
+);
+CREATE INDEX IF NOT EXISTS hot_rank_period_rank_idx ON app.hot_rank (period, rank);
+
+-- 用户关注（社区搜用户/主页；首版仅建表）。
+CREATE TABLE IF NOT EXISTS app.follows (
+  follower text NOT NULL,
+  followee text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (follower, followee)
+);
+CREATE INDEX IF NOT EXISTS follows_followee_idx ON app.follows (followee);

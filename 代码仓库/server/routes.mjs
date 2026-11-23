@@ -1928,6 +1928,188 @@ export function application({ db, storage, env, fetchImpl }) {
       return Response.json({ ok: true, ...out });
     }
 
+// ===== 灵感库与社区拆分（docs/19）=====
+
+    // 灵感库首页聚合：官方技能 / 图片参考 / 公开配方的数量与入口。
+    if (path === '/api/v1/inspiration/overview' && method === 'GET') {
+      const showcase = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
+      const skills = rows(await db.from('skills').select('*').limit(1000)) || [];
+      const refs = rows(await db.from('assets').select('*').eq('kind', 'reference').limit(1000)) || [];
+      const publicSkills = skills.filter((s) => (s.visibility || 'private') === 'public');
+      const categories = {};
+      for (const s of showcase) {
+        const c = s.category || '未分类';
+        categories[c] = (categories[c] || 0) + 1;
+      }
+      return Response.json({
+        counts: {
+          skills: showcase.length,
+          references: refs.filter((a) => !a.deleted_at).length,
+          recipes: publicSkills.length,
+        },
+        categories,
+      });
+    }
+
+    // 图片参考列表：来自公开授权语料/模板封面（assets.kind=reference），按标签/关键词筛选。
+    if (path === '/api/v1/inspiration/references' && method === 'GET') {
+      const url = new URL(request.url);
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const tag = url.searchParams.get('tag') || '';
+      const limit = vInt(url.searchParams.get('limit'), 'limit', { min: 1, max: 48, fallback: 24 });
+      const offset = vInt(url.searchParams.get('offset'), 'offset', { min: 0, fallback: 0 });
+      let all = (rows(await db.from('assets').select('*').eq('kind', 'reference').limit(2000)) || [])
+        .filter((a) => !a.deleted_at);
+      if (tag) all = all.filter((a) => jsonArr(a.tags).includes(tag));
+      if (q) all = all.filter((a) => jsonArr(a.tags).some((t) => String(t).toLowerCase().includes(q)));
+      const page = all.slice(offset, offset + limit);
+      const items = page.map((a) => ({
+        id: a.id,
+        url: `/api/v1/assets/${a.id}/content`,
+        tags: jsonArr(a.tags),
+        width: a.width || null,
+        height: a.height || null,
+      }));
+      return Response.json({ items, total: all.length, next_offset: offset + limit < all.length ? offset + limit : null });
+    }
+
+    // 图片参考详情：大图 + 标签 + 同类推荐（同标签的其他参考）。
+    const refMatch = path.match(/^\/api\/v1\/inspiration\/references\/(a_[0-9a-f]{24})$/);
+    if (refMatch && method === 'GET') {
+      const found = rows(await db.from('assets').select('*').eq('id', refMatch[1]).limit(1))?.[0];
+      if (!found || found.deleted_at || found.kind !== 'reference') fail('not_found', 404);
+      const tags = jsonArr(found.tags);
+      const all = rows(await db.from('assets').select('*').eq('kind', 'reference').limit(2000)) || [];
+      const related = all
+        .filter((a) => a.id !== found.id && !a.deleted_at && jsonArr(a.tags).some((t) => tags.includes(t)))
+        .slice(0, 12)
+        .map((a) => ({ id: a.id, url: `/api/v1/assets/${a.id}/content`, tags: jsonArr(a.tags) }));
+      return Response.json({
+        reference: {
+          id: found.id, url: `/api/v1/assets/${found.id}/content`, tags,
+          width: found.width || null, height: found.height || null,
+          content_type: found.content_type || null,
+        },
+        related,
+      });
+    }
+
+    // 灵感库公开配方列表：复用 skills 表，按 visibility 过滤（用户确认用现有字段）。
+    if (path === '/api/v1/inspiration/recipes' && method === 'GET') {
+      const url = new URL(request.url);
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const all = rows(await db.from('skills').select('*').limit(1000)) || [];
+      let list = all.filter((s) => (s.visibility || 'private') === 'public');
+      if (q) list = list.filter((s) => (s.title || '').toLowerCase().includes(q)
+        || jsonArr(s.style_tags).some((t) => String(t).toLowerCase().includes(q)));
+      const items = list.map((s) => ({
+        skill_id: s.skill_id,
+        title: s.title,
+        prompt: s.prompt,
+        model: s.model,
+        ratio: s.params?.aspect || '3:4',
+        cover_url: s.cover_url || null,
+        style_tags: jsonArr(s.style_tags),
+        created_at: s.created_at || null,
+      }));
+      return Response.json({ items, total: items.length });
+    }
+
+    // 灵感库技能列表：官方 showcase 技能 + 类目筛选（复用现有数据源）。
+    if (path === '/api/v1/inspiration/skills' && method === 'GET') {
+      const url = new URL(request.url);
+      const category = url.searchParams.get('category') || '';
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const list = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
+      const live = await liveShowcasePairs(list);
+      let skills = list
+        .filter((s) => (live.get(s.id) || []).length > 0)
+        .sort((a, b) => (a.sort || 0) - (b.sort || 0));
+      if (category) skills = skills.filter((s) => s.category === category);
+      if (q) skills = skills.filter((s) => (s.title_zh || '').toLowerCase().includes(q)
+        || (s.desc_zh || '').toLowerCase().includes(q)
+        || jsonArr(s.tags).some((t) => String(t).toLowerCase().includes(q)));
+      return Response.json({ skills: skills.map((s) => showcaseMeta(s, live.get(s.id))) });
+    }
+
+    // 热榜：只读定时快照（不重算）。period 固定 '7d'。
+    if (path === '/api/v1/hot' && method === 'GET') {
+      const url = new URL(request.url);
+      const period = vOneOf(url.searchParams.get('period') || '7d', 'period', ['24h', '7d']);
+      const limit = vInt(url.searchParams.get('limit'), 'limit', { min: 1, max: 50, fallback: 20 });
+      const snap = (rows(await db.from('hot_rank').select('*').eq('period', period).limit(100)) || [])
+        .sort((a, b) => a.rank - b.rank).slice(0, limit);
+      const computedAt = snap[0]?.computed_at || null;
+      const works = [];
+      for (const row of snap) {
+        const w = await loadWork(row.work_id);
+        if (w && w.status === 'published') {
+          works.push({ ...workMeta(w, await workCounts(w)), rank: row.rank, hot_score: row.hot_score });
+        }
+      }
+      return Response.json({ period, computed_at: computedAt, works });
+    }
+
+    // 定时重算热榜：维护端点，一次性写入快照。热度 = 3赞 + 2评 + 转发 − 时间衰减(72h 半衰)。
+    if (path === '/api/v1/maintenance/recompute-hot' && method === 'POST') {
+      requireMaintenance(request);
+      const all = rows(await db.from('works').select('*').eq('status', 'published').limit(2000)) || [];
+      const likes = rows(await db.from('likes').select('*').limit(20000)) || [];
+      const comments = rows(await db.from('comments').select('*').limit(20000)) || [];
+      const likeCount = new Map(), commentCount = new Map();
+      for (const l of likes) likeCount.set(l.work_id, (likeCount.get(l.work_id) || 0) + 1);
+      for (const c of comments) if (!c.hidden_by_author) commentCount.set(c.work_id, (commentCount.get(c.work_id) || 0) + 1);
+      const nowMs = Date.now();
+      const scored = all.map((w) => {
+        const ageH = w.created_at ? Math.max(0, (nowMs - new Date(w.created_at).getTime()) / 3600000) : 0;
+        const decay = Math.exp(-ageH / 72);
+        const raw = 3 * (likeCount.get(w.id) || 0) + 2 * (commentCount.get(w.id) || 0) + (w.repost_of ? 1 : 0);
+        return { id: w.id, score: Math.round(raw * decay * 1000) / 1000 };
+      }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 200);
+      const periods = ['24h', '7d'];
+      for (const period of periods) {
+        // 先清旧快照（fakeDb 与生产均支持的 delete().eq）
+        await db.from('hot_rank').delete().eq('period', period);
+        const limitN = period === '24h' ? 20 : 50;
+        const picked = scored.filter((x) => {
+          const w = all.find((ww) => ww.id === x.id);
+          if (!w?.created_at) return false;
+          const hours = (nowMs - new Date(w.created_at).getTime()) / 3600000;
+          return period === '24h' ? hours <= 24 : hours <= 168;
+        }).slice(0, limitN);
+        for (let i = 0; i < picked.length; i++) {
+          rows(await db.from('hot_rank').insert({
+            period, work_id: picked[i].id, rank: i + 1, hot_score: picked[i].score,
+            computed_at: new Date().toISOString(),
+          }).select());
+        }
+      }
+      return Response.json({ ok: true, computed: scored.length, periods });
+    }
+
+    // 社区统一搜索：帖子（关键词/标签）与用户（昵称/ID）分栏。
+    if (path === '/api/v1/search' && method === 'GET') {
+      const url = new URL(request.url);
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const type = vOneOf(url.searchParams.get('type') || 'post', 'type', ['post', 'user']);
+      if (!q) return Response.json({ items: [], total: 0, type });
+      if (type === 'user') {
+        const profiles = rows(await db.from('profiles').select('*').limit(1000)) || [];
+        const items = profiles.filter((p) => (p.display_name || p.nickname || p.name || '').toLowerCase().includes(q)
+          || (p.user_id || p.id || '').toLowerCase().includes(q))
+          .slice(0, 30)
+          .map((p) => ({ id: p.user_id || p.id, name: p.display_name || p.nickname || p.name || '', avatar: p.avatar_asset_id || null }));
+        return Response.json({ items, total: items.length, type });
+      }
+      const all = rows(await db.from('works').select('*').eq('status', 'published').order('created_at', { ascending: false }).limit(500)) || [];
+      const items = all.filter((w) => (w.title || '').toLowerCase().includes(q)
+        || (w.body || '').toLowerCase().includes(q)
+        || jsonArr(w.tags).some((t) => String(t).toLowerCase().includes(q)))
+        .slice(0, 30);
+      const works = await batchMeta(items, viewerKey(request));
+      return Response.json({ items: works, total: works.length, type });
+    }
+
     fail('not_found', 404);
   }
 
