@@ -7,6 +7,7 @@ import { buildZip } from './zip.mjs';
 import { createHash } from 'node:crypto';
 import { createKeyScheduler } from './scheduler.mjs';
 import { createAgnesProvider } from './agnes.mjs';
+import { createEphemeral } from './ephemeral.mjs';
 import { mockOptimize, mockGenerate } from './mock.mjs';
 import { TEMPLATES, ensureSeeded } from './seed.mjs';
 import { renderSkillMarkdown } from './skillmd.mjs';
@@ -129,6 +130,8 @@ function workMeta(w, extras = {}) {
     parent_work_id: w.parent_work_id || null, parent_skill_id: w.parent_skill_id || null,
     depth: w.depth || 0, author_credit: w.author_credit || null, author_id: w.owner_session,
     result_asset_id: w.result_asset_id, skill_snapshot: w.skill_snapshot || null,
+    lineage_credits: jsonArr(w.lineage_credits),
+    lineage_truncated: Boolean(w.lineage_truncated),
     ai_generated: true,
     moderation_degraded: Boolean(w.moderation_degraded),
     liked: false,
@@ -266,6 +269,8 @@ a{color:#2a2622;text-decoration:none;border-bottom:1px solid #cbbb9f;padding-bot
 export function application({ db, storage, env, fetchImpl }) {
   const scheduler = createKeyScheduler(db, env);
   const agnes = createAgnesProvider(scheduler, fetchImpl);
+  const ephemeral = createEphemeral({ db, storage, fetchImpl, env });
+  const downloadTickets = new Map();
 
   // 登录用户归属 u:<user_id>（跨设备稳定）；游客回退会话标识。SDK 仅校验格式，
   // 伪造防护依赖平台网关 ingress（剥离浏览器 x-qoder-* 并注入已验证上下文）。
@@ -348,6 +353,53 @@ export function application({ db, storage, env, fetchImpl }) {
     const found = rows(await db.from('works').select('*').eq('id', id).limit(1));
     if (!found?.length) fail('not_found', 404);
     return found[0];
+  }
+
+  async function buildLineageCredits(startWork) {
+    const credits = [];
+    const seen = new Set();
+    let current = startWork;
+    while (current) {
+      if (seen.has(current.id)) fail('invalid_input', 400, '谱系存在循环引用，已拒绝写入');
+      seen.add(current.id);
+      if (credits.length >= 6) return { credits, truncated: true };
+      credits.push({
+        work_id: current.id,
+        author_credit: current.author_credit || '匿名创作者',
+        depth: current.depth || 0,
+        withdrawn: current.status === 'withdrawn',
+      });
+      if (!current.parent_work_id) return { credits, truncated: false };
+      const found = rows(await db.from('works').select('*').eq('id', current.parent_work_id).limit(1));
+      current = found?.[0] || null;
+    }
+    return { credits, truncated: false };
+  }
+
+  async function createReviewItem({ workId, source, reason, reportCount = 0 }) {
+    const existing = rows(
+      await db.from('review_items').select('*').eq('work_id', workId).eq('source', source).limit(1),
+    )?.[0];
+    if (existing) return existing;
+    const id = newId('rv');
+    const inserted = await db.from('review_items').insert({
+      id, work_id: workId, source, status: 'queued',
+      reason: reason || null, report_count: reportCount,
+      reviewer_id: null, decided_at: null,
+    });
+    if (inserted?.error) fail('internal', 503, '复核工单创建失败，请稍后重试');
+    await db.from('review_events').insert({
+      review_id: id, action: 'created', actor_id: null,
+      from_status: null, to_status: 'queued', reason: reason || null,
+    });
+    return { id, work_id: workId, source, status: 'queued' };
+  }
+
+  function requireReviewer(request) {
+    requireMaintenance(request);
+    const reviewer = (request.headers.get('x-reviewer-id') || '').trim();
+    if (!reviewer) fail('not_found', 404);
+    return reviewer;
   }
 
   async function notify(owner, kind, workId, body) {
@@ -476,6 +528,18 @@ export function application({ db, storage, env, fetchImpl }) {
     if (job.input_asset_id) {
       const asset = await loadOwnedAsset(job.input_asset_id, sid);
       baseImage = { bytes: await assetBytes(asset), mime: asset.content_type };
+    } else if (job.input_ref_hash) {
+      let file;
+      try {
+        file = await storage.download(`temp-refs/${job.input_ref_hash}`);
+      } catch {
+        fail('ephemeral_unavailable', 422, '临时图片已失效，请重新粘贴或上传');
+      }
+      if (!file?.ok) fail('ephemeral_unavailable', 422, '临时图片已失效，请重新粘贴或上传');
+      baseImage = {
+        bytes: new Uint8Array(await file.arrayBuffer()),
+        mime: file.headers?.get?.('content-type') || 'image/jpeg',
+      };
     }
     // 只有明确的上游繁忙/超时才降级演示图；网络/解析/下载失败按失败处理，不计配额。
     const out = await agnes.generate({
@@ -489,6 +553,7 @@ export function application({ db, storage, env, fetchImpl }) {
     rows(await db.from('jobs').update({
       status: 'succeeded', result_asset_id: resultId, mock, lease_expires: null, error_json: null,
     }).eq('id', job.id));
+    await ephemeral.releaseJob(job.id);
     return { ...job, status: 'succeeded', result_asset_id: resultId, mock, _result: stored };
   }
 
@@ -779,18 +844,68 @@ export function application({ db, storage, env, fetchImpl }) {
       const asset = found[0];
       // 回收站中的资产不再提供图片字节，前端用占位图展示；恢复后才可再次读取
       if (asset.deleted_at) fail('not_found', 404, '资产已移入回收站');
+      const url = new URL(request.url);
+      const ticket = url.searchParams.get('ticket');
+      const watermarkMode = url.searchParams.get('watermark');
+      if (ticket) {
+        const entry = downloadTickets.get(ticket);
+        if (!entry || entry.assetId !== asset.id) fail('not_found', 404);
+        if (entry.used) fail('not_found', 410, '下载地址已使用，请重新获取');
+        if (Date.now() > entry.expires) fail('not_found', 410, '下载地址已过期');
+        if (asset.visibility === 'private' && ownerOf(request) !== entry.owner) fail('not_found', 403);
+        entry.used = true;
+      }
       if (asset.visibility === 'private') {
         const sid = ownerOf(request);
         if (asset.owner_session !== sid) fail('not_found', 404);
       }
       const file = await storage.download(asset.storage_key);
       if (!file.ok) fail('internal', 503, '资产读取失败');
-      return new Response(file.body, {
+      const forcedWatermark = Boolean(ticket) || watermarkMode === 'required' || watermarkMode === '1';
+      if (!forcedWatermark) {
+        return new Response(file.body, {
+          headers: {
+            'content-type': asset.content_type,
+            'cache-control': asset.visibility === 'private' ? 'private, no-store' : 'public, max-age=86400',
+            'x-content-type-options': 'nosniff',
+          },
+        });
+      }
+      if ((asset.watermark_state || 'none') === 'failed') {
+        fail('watermark_unavailable', 409, '该图片的 AI 标识生成失败，已拒绝下载');
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const { width, height } = imageSize(bytes, asset.content_type);
+      if ((asset.watermark_state || 'none') !== 'svg_wrapped') {
+        await db.from('assets').update({
+          watermark_state: 'svg_wrapped', watermark_version: 1,
+          watermarked_at: new Date().toISOString(),
+        }).eq('id', asset.id);
+      }
+      return new Response(shareWatermarkSvg(bytes, asset.content_type, width, height), {
         headers: {
-          'content-type': asset.content_type,
-          'cache-control': asset.visibility === 'private' ? 'private, no-store' : 'public, max-age=86400',
+          'content-type': 'image/svg+xml',
+          'cache-control': 'private, no-store',
+          'x-watermark-state': 'svg_wrapped',
           'x-content-type-options': 'nosniff',
         },
+      });
+    }
+
+    const downloadTicketMatch = path.match(/^\/api\/v1\/assets\/(a_[0-9a-f]{24})\/download-ticket$/);
+    if (downloadTicketMatch && method === 'POST') {
+      const sid = ownerOf(request);
+      const asset = await loadOwnedAsset(downloadTicketMatch[1], sid);
+      if (asset.kind !== 'result') fail('invalid_input', 400, '仅结果图支持下载授权');
+      const ticket = crypto.randomUUID().replace(/-/g, '');
+      const expiresAt = new Date(Date.now() + 60_000).toISOString();
+      downloadTickets.set(ticket, {
+        assetId: asset.id, owner: sid, expires: Date.now() + 60_000, used: false,
+      });
+      return Response.json({
+        ticket,
+        url: `${publicAssetUrl(asset.id)}?watermark=required&ticket=${ticket}`,
+        expires_at: expiresAt,
       });
     }
 
@@ -877,6 +992,9 @@ export function application({ db, storage, env, fetchImpl }) {
       const ratio = typeof body?.ratio === 'string' && body.ratio ? body.ratio : '3:4';
       if (!RATIOS.includes(ratio)) fail('invalid_input', 400, '画幅比例不合法');
       let inputAssetId = null;
+      let inputRefHash = null;
+      const referenceToken = typeof body?.reference_token === 'string' ? body.reference_token.trim() : '';
+      if (body?.asset_id && referenceToken) fail('reference_conflict', 400, 'asset_id 与 reference_token 只能二选一');
       if (body?.asset_id) {
         const asset = await loadOwnedAsset(String(body.asset_id), sid);
         inputAssetId = asset.id;
@@ -886,11 +1004,17 @@ export function application({ db, storage, env, fetchImpl }) {
       if (!mine.error && mine.count >= DAILY_QUOTA_PER_SESSION) fail('quota_exceeded', 429);
       const all = await db.from('jobs').select('id', { count: 'exact' }).eq('mock', false).gte('created_at', dayStart).limit(1);
       if (!all.error && all.count >= DAILY_QUOTA_GLOBAL) fail('provider_busy', 429, '今日站点生成额度已满，明天再来');
+      if (referenceToken) {
+        const consumed = await ephemeral.consume(referenceToken, sid);
+        inputRefHash = consumed.hash;
+      }
       const id = newId('j');
       rows(await db.from('jobs').insert({
         id, owner_session: sid, status: 'queued', prompt, negative_prompt: negativePrompt,
-        model, ratio, input_asset_id: inputAssetId, attempts: 0, mock: false,
+        model, ratio, input_asset_id: inputAssetId, input_ref_hash: inputRefHash,
+        attempts: 0, mock: false,
       }));
+      if (inputRefHash) await ephemeral.bindJob(inputRefHash, id);
       return Response.json({ job_id: id, status: 'queued' }, { status: 202 });
     }
 
@@ -917,6 +1041,7 @@ export function application({ db, storage, env, fetchImpl }) {
               status: 'failed', lease_expires: null, error_json: { code, message },
             }).eq('id', job.id));
             job = { ...job, status: 'failed', error_json: { code, message } };
+            await ephemeral.releaseJob(job.id);
           }
         }
       } else if (job.status === 'running' && leaseExpired && job.attempts >= MAX_ATTEMPTS) {
@@ -1051,6 +1176,14 @@ export function application({ db, storage, env, fetchImpl }) {
       const r = await db.from('skills').delete().eq('id', found[0].id).eq('owner_session', sid);
       if (r.error) fail('internal', 503, '删除配方失败');
       return Response.json({ ok: true });
+    }
+
+    if (path === '/api/v1/assets/temp-ref' && method === 'POST') {
+      const sid = ownerOf(request);
+      const body = await readJson(request);
+      const tempUrl = typeof body?.temp_url === 'string' ? body.temp_url.trim() : '';
+      if (!tempUrl) fail('invalid_input', 400, '缺少 temp_url');
+      return Response.json(await ephemeral.issue(tempUrl, sid));
     }
 
     if (path === '/api/v1/links/parse' && method === 'POST') {
@@ -1306,12 +1439,17 @@ export function application({ db, storage, env, fetchImpl }) {
       const mod = await moderateWork({ title, tags, imageBytes: bytes, imageMime: asset.content_type });
       if (!mod.ok) fail('invalid_input', 422, mod.reason);
       let depth = 0, parentWork = null, parentSkill = null;
+      let lineageCredits = [];
+      let lineageTruncated = false;
       const credit = user.name || '匿名创作者';
       if (typeof body.parent_work_id === 'string' && body.parent_work_id) {
         const pw = await loadWork(body.parent_work_id);
         if (pw.status !== 'published') fail('invalid_input', 400, '来源作品不可 fork');
         if (!pw.allow_fork) fail('invalid_input', 403, '作者已关闭 fork');
         depth = (pw.depth || 0) + 1; parentWork = pw.id; parentSkill = pw.parent_skill_id || pw.id;
+        const built = await buildLineageCredits(pw);
+        lineageCredits = built.credits;
+        lineageTruncated = built.truncated;
       }
       const id = newId('wk');
       const r = await db.from('works').insert({
@@ -1319,9 +1457,16 @@ export function application({ db, storage, env, fetchImpl }) {
         skill_snapshot: { prompt: snap.prompt.slice(0, 4000), negative_prompt: snap.negative_prompt || null, model: snap.model || 'agnes-image-2.5-flash', ratio: snap.ratio || '3:4' },
         title, tags, status: 'published', allow_fork: body.allow_fork !== false,
         parent_work_id: parentWork, parent_skill_id: parentSkill, depth, author_credit: credit,
+        lineage_credits: lineageCredits, lineage_truncated: lineageTruncated,
         moderation_degraded: Boolean(mod.degraded),
       }).select();
       if (r.error) fail('internal', 503, '发布失败，请稍后重试');
+      if (mod.degraded) {
+        await createReviewItem({
+          workId: id, source: 'moderation_degraded',
+          reason: '审核服务降级，发布需人工复核',
+        });
+      }
       if (parentWork) {
         const pw = await loadWork(parentWork);
         if (pw.owner_session !== sid) await notify(pw.owner_session, 'fork', id, `${credit} fork 了你的作品`);
@@ -1369,10 +1514,17 @@ export function application({ db, storage, env, fetchImpl }) {
 
     const workMatch = path.match(/^\/api\/v1\/works\/(wk_[0-9a-f]{24})$/);
     if (workMatch && method === 'GET') {
-      const w = await loadWork(workMatch[1]);
+      let w = await loadWork(workMatch[1]);
       const sid = viewerKey(request);
       const isOwner = Boolean(sid) && w.owner_session === sid;
       if (w.status !== 'published' && !isOwner) fail('not_found', 404);
+      if ((!Array.isArray(w.lineage_credits) || !w.lineage_credits.length) && w.parent_work_id) {
+        try {
+          const parent = await loadWork(w.parent_work_id);
+          const built = await buildLineageCredits(parent);
+          w = { ...w, lineage_credits: built.credits, lineage_truncated: built.truncated };
+        } catch { /* 历史断链时保留空谱系，不阻断详情 */ }
+      }
       return Response.json({ work: workMeta(w, { ...(await workCounts(w)), is_owner: isOwner, liked: await likedBy(w.id, sid) }) });
     }
     if (workMatch && method === 'PATCH') {
@@ -1691,6 +1843,10 @@ export function application({ db, storage, env, fetchImpl }) {
       const cnt = await db.from('reports').select('id', { count: 'exact' }).eq('work_id', w.id).limit(1);
       if ((Number(cnt.count) || 0) >= 3 && w.status === 'published') {
         await db.from('works').update({ status: 'removed' }).eq('id', w.id).select();
+        await createReviewItem({
+          workId: w.id, source: 'report_threshold', reason,
+          reportCount: Number(cnt.count) || 3,
+        });
         await notify(w.owner_session, 'removed', w.id, '作品因多次举报被下架，可申诉');
       }
       return Response.json({ ok: true });
@@ -1709,9 +1865,19 @@ export function application({ db, storage, env, fetchImpl }) {
         ok = mod.ok;
       }
       if (!ok) fail('invalid_input', 422, '申诉未通过审核');
+      const existingAppeal = rows(
+        await db.from('review_items').select('*').eq('work_id', w.id).eq('source', 'appeal').limit(1),
+      )?.[0];
+      if (existingAppeal && existingAppeal.status !== 'decided') {
+        return Response.json({ ok: true, status: w.status, review_status: existingAppeal.status });
+      }
       await db.from('works').update({ status: 'published' }).eq('id', w.id).select();
       await db.from('reports').update({ status: 'resolved' }).eq('work_id', w.id).select();
-      return Response.json({ ok: true, status: 'published' });
+      const appeal = await createReviewItem({
+        workId: w.id, source: 'appeal', reason: '作者申诉，等待人工复核',
+      });
+      await db.from('review_items').update({ status: 'in_review' }).eq('id', appeal.id);
+      return Response.json({ ok: true, status: 'published', review_status: 'in_review' });
     }
 
     if (path === '/api/v1/me/export' && method === 'GET') {
@@ -1772,6 +1938,15 @@ export function application({ db, storage, env, fetchImpl }) {
 
     if (path === '/api/v1/maintenance/cleanup' && method === 'POST') {
       requireMaintenance(request);
+      const runKey = `cleanup:${new Date().toISOString().slice(0, 10)}`;
+      const priorRun = rows(await db.from('job_runs').select('*').eq('idempotency_key', runKey).limit(1))?.[0];
+      if (priorRun?.finished_at) {
+        return Response.json({ ok: true, already_ran: true, result: priorRun.result });
+      }
+      await db.from('job_runs').insert({
+        idempotency_key: runKey, kind: 'cleanup',
+        started_at: new Date().toISOString(), finished_at: null, result: null,
+      });
       const now = Date.now();
       const assetCutoff = new Date(now - 7 * 86400_000).toISOString();
       const jobCutoff = new Date(now - 30 * 86400_000).toISOString();
@@ -1795,7 +1970,15 @@ export function application({ db, storage, env, fetchImpl }) {
         await db.from('jobs').delete().eq('id', j.id);
         jobsPurged += 1;
       }
-      return Response.json({ ok: true, assets_purged: assetsPurged, shares_expired: sharesExpired, jobs_purged: jobsPurged });
+      const tempRefsPurged = await ephemeral.cleanupExpired();
+      const summary = {
+        assets_purged: assetsPurged, shares_expired: sharesExpired,
+        jobs_purged: jobsPurged, temp_refs_purged: tempRefsPurged,
+      };
+      await db.from('job_runs').update({
+        finished_at: new Date().toISOString(), result: summary,
+      }).eq('idempotency_key', runKey);
+      return Response.json({ ok: true, ...summary });
     }
 
     // 审核降级人工复核：列出待复核作品，并支持通过/下架
@@ -1803,7 +1986,80 @@ export function application({ db, storage, env, fetchImpl }) {
       requireMaintenance(request);
       const all = rows(await db.from('works').select('*').eq('status', 'published').limit(500)) || [];
       const items = all.filter((w) => w.moderation_degraded);
+      for (const w of items) {
+        await createReviewItem({
+          workId: w.id, source: 'moderation_degraded',
+          reason: '补偿扫描：审核降级待人工复核',
+        });
+      }
       return Response.json({ works: items.map((w) => workMeta(w)) });
+    }
+
+    if (path === '/api/v1/maintenance/reviews' && method === 'GET') {
+      requireMaintenance(request);
+      const url = new URL(request.url);
+      const status = url.searchParams.get('status') || 'queued';
+      const items = rows(
+        await db.from('review_items').select('*').eq('status', status)
+          .order('created_at', { ascending: true }).limit(200),
+      ) || [];
+      return Response.json({
+        reviews: items.map((item) => ({
+          id: item.id, work_id: item.work_id, source: item.source,
+          status: item.status, reason: item.reason,
+          report_count: item.report_count, reviewer_id: item.reviewer_id,
+          created_at: item.created_at, decided_at: item.decided_at,
+        })),
+      });
+    }
+
+    const reviewClaim = path.match(/^\/api\/v1\/maintenance\/reviews\/(rv_[0-9a-f]{24})\/claim$/);
+    if (reviewClaim && method === 'POST') {
+      const reviewer = requireReviewer(request);
+      const found = rows(await db.from('review_items').select('*').eq('id', reviewClaim[1]).limit(1))?.[0];
+      if (!found) fail('not_found', 404);
+      if (found.status !== 'queued') fail('invalid_input', 409, '工单已被领取或已处置');
+      await db.from('review_items')
+        .update({ status: 'in_review', reviewer_id: reviewer })
+        .eq('id', found.id).eq('status', 'queued');
+      await db.from('review_events').insert({
+        review_id: found.id, action: 'claim', actor_id: reviewer,
+        from_status: 'queued', to_status: 'in_review', reason: null,
+      });
+      return Response.json({
+        ok: true,
+        review: { ...found, status: 'in_review', reviewer_id: reviewer },
+      });
+    }
+
+    const reviewDecide = path.match(/^\/api\/v1\/maintenance\/reviews\/(rv_[0-9a-f]{24})\/decide$/);
+    if (reviewDecide && method === 'POST') {
+      const reviewer = requireReviewer(request);
+      const body = await readJson(request);
+      const action = vOneOf(body.action, 'action', ['approve', 'remove', 'hold']);
+      const found = rows(await db.from('review_items').select('*').eq('id', reviewDecide[1]).limit(1))?.[0];
+      if (!found) fail('not_found', 404);
+      if (found.status === 'decided') fail('invalid_input', 409, '工单已处置');
+      if (action === 'remove') {
+        await db.from('works').update({ status: 'removed' }).eq('id', found.work_id);
+      } else if (action === 'approve') {
+        await db.from('works')
+          .update({ status: 'published', moderation_degraded: false })
+          .eq('id', found.work_id);
+      }
+      const toStatus = action === 'hold' ? 'in_review' : 'decided';
+      await db.from('review_items').update({
+        status: toStatus, reviewer_id: reviewer,
+        decided_at: action === 'hold' ? null : new Date().toISOString(),
+      }).eq('id', found.id);
+      await db.from('review_events').insert({
+        review_id: found.id, action, actor_id: reviewer,
+        from_status: found.status, to_status: toStatus, reason: body.reason || null,
+      });
+      return Response.json({
+        ok: true,
+        review: { ...found, status: toStatus, reviewer_id: reviewer },
+      });
     }
     const reviewMatch = path.match(/^\/api\/v1\/maintenance\/works\/(wk_[0-9a-f]{24})\/review$/);
     if (reviewMatch && method === 'POST') {
@@ -1928,7 +2184,8 @@ export function application({ db, storage, env, fetchImpl }) {
       return Response.json({ ok: true, ...out });
     }
 
-// ===== 灵感库与社区拆分（docs/19）=====
+
+    // ===== 灵感库与社区拆分（docs/19）=====
 
     // 灵感库首页聚合：官方技能 / 图片参考 / 公开配方的数量与入口。
     if (path === '/api/v1/inspiration/overview' && method === 'GET') {
