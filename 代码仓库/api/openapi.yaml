@@ -96,6 +96,35 @@ paths:
         "400": { $ref: "#/components/responses/BadInput" }
         "413": { $ref: "#/components/responses/BadInput" }
 
+  /assets/temp-ref:
+    post:
+      tags: [assets]
+      operationId: issueTempReference
+      summary: 为跨域临时图片签发一次性引用 token（服务端只存哈希，换图后即签即用）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [temp_url]
+              properties:
+                temp_url: { type: string, description: 上游临时图片 URL（http/https） }
+      responses:
+        "200":
+          description: 一次性引用 token 与过期时间
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reference_token, expires_at, ttl_seconds]
+                properties:
+                  reference_token: { type: string }
+                  expires_at: { type: string }
+                  ttl_seconds: { type: integer }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "422": { $ref: "#/components/responses/BadInput" }
+
   /assets/{id}/content:
     get:
       tags: [assets]
@@ -198,6 +227,7 @@ paths:
               schema: { $ref: "#/components/schemas/OptimizeResponse" }
         "400": { $ref: "#/components/responses/BadInput" }
         "429": { $ref: "#/components/responses/ProviderBusy" }
+        "503": { $ref: "#/components/responses/ProviderBusy" }
 
   /jobs/generate:
     post:
@@ -615,6 +645,29 @@ paths:
                 properties:
                   asset: { $ref: "#/components/schemas/AssetMeta" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /assets/{id}/download-ticket:
+    post:
+      tags: [assets]
+      operationId: issueDownloadTicket
+      summary: 为结果图签发 60 秒一次性下载授权（下载地址强制带 AI 标识水印）
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: 一次性下载票据
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ticket, url, expires_at]
+                properties:
+                  ticket: { type: string }
+                  url: { type: string, description: 带 watermark=required 与 ticket 的内容地址 }
+                  expires_at: { type: string }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/BadInput" }
 
   /albums:
     get:
@@ -1454,6 +1507,111 @@ paths:
         "400": { $ref: "#/components/responses/BadInput" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /maintenance/reviews:
+    get:
+      tags: [account]
+      operationId: listReviewItems
+      summary: 人工复核工单列表（需 x-maintenance-token；按状态过滤，默认 queued）
+      parameters:
+        - name: x-maintenance-token
+          in: header
+          required: true
+          schema: { type: string }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [queued, in_review, decided], default: queued }
+      responses:
+        "200":
+          description: 工单列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviews:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        work_id: { type: string }
+                        source: { type: string }
+                        status: { type: string }
+                        reason: { type: string }
+                        report_count: { type: integer }
+                        reviewer_id: { type: string, nullable: true }
+                        created_at: { type: string }
+                        decided_at: { type: string, nullable: true }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /maintenance/reviews/{id}/claim:
+    post:
+      tags: [account]
+      operationId: claimReviewItem
+      summary: 领取复核工单（需维护令牌 + x-reviewer-id）
+      parameters:
+        - name: x-maintenance-token
+          in: header
+          required: true
+          schema: { type: string }
+        - name: x-reviewer-id
+          in: header
+          required: true
+          schema: { type: string, description: 复核人标识，写入工单与审计事件 }
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 已领取的工单
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  review: { type: object }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/BadInput" }
+
+  /maintenance/reviews/{id}/decide:
+    post:
+      tags: [account]
+      operationId: decideReviewItem
+      summary: 处置复核工单：通过 / 下架 / 挂起（需维护令牌 + x-reviewer-id）
+      parameters:
+        - name: x-maintenance-token
+          in: header
+          required: true
+          schema: { type: string }
+        - name: x-reviewer-id
+          in: header
+          required: true
+          schema: { type: string, description: 复核人标识，写入工单与审计事件 }
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [approve, remove, hold] }
+                reason: { type: string }
+      responses:
+        "200":
+          description: 处置结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  review: { type: object }
+        "400": { $ref: "#/components/responses/BadInput" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/BadInput" }
+
   /showcase/skills:
     get:
       tags: [community]
@@ -1826,7 +1984,7 @@ components:
           properties:
             code:
               type: string
-              enum: [invalid_input, quota_exceeded, provider_busy, parse_failed, not_found, internal, login_required, invalid_user_context]
+              enum: [invalid_input, quota_exceeded, provider_busy, parse_failed, not_found, internal, login_required, invalid_user_context, ephemeral_unavailable, reference_conflict, watermark_unavailable]
             message:
               type: string
               description: 人类可读中文
@@ -1947,14 +2105,20 @@ components:
 
     GenerateRequest:
       type: object
-      required: [prompt, model]
+      required: [prompt]
       properties:
         asset_id:
           type: string
           description: 可选；缺省 = 文生图
+        reference_token:
+          type: string
+          description: 可选；跨域临时图的一次性引用 token，与 asset_id 互斥
         prompt: { type: string }
         negative_prompt: { type: string }
-        model: { type: string }
+        model:
+          type: string
+          default: agnes-image-2.5-flash
+          description: 缺省使用默认模型；非白名单模型返回 400
         ratio:
           type: string
           enum: ["1:1", "3:4", "4:3", "16:9", "9:16", "2:3", "3:2", "21:9"]

@@ -201,8 +201,11 @@ export function createEphemeral({ db, storage, fetchImpl, env }) {
     const list = rows(await db.from('temp_refs').select('*')) || [];
     let removed = 0;
     for (const row of list) {
-      if (row.state !== 'issued') continue;
       if (Date.now() <= new Date(row.expires_at).getTime()) continue;
+      // 已 consume 的行在 temp-refs/{hash} 留有用户原图副本：即使任务从未执行（不轮询/超期被清）也要回收
+      try {
+        await storage.remove([`${STORAGE_PREFIX}/${row.token_hash}`]);
+      } catch { /* 下一轮再试 */ }
       await db.from('temp_refs').delete().eq('token_hash', row.token_hash);
       removed++;
     }

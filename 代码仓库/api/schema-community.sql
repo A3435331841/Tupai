@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS app.works (
   parent_skill_id text,
   depth integer NOT NULL DEFAULT 0,
   author_credit text,
+  moderation_degraded boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS works_status_created_idx ON app.works (status, created_at DESC);

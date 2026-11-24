@@ -75,7 +75,9 @@ function templateMeta(t) {
   const meta = TEMPLATES.find((x) => x.id === t.id) || {};
   return {
     id: t.id, title: t.title, description: t.description,
-    cover_url: t.cover_asset_id ? publicAssetUrl(t.cover_asset_id) : `/api/v1/templates/${t.id}/cover`,
+    // 封面统一走模板封面代理：cover_asset_id 指向的资产常为 private（模板/演示种子），
+    // 直链 content 只对所有者可读，会对其他访客整排裂图。
+    cover_url: `/api/v1/templates/${t.id}/cover`,
     prompt: t.prompt, negative_prompt: t.negative_prompt,
     sample_prompt: meta.sample_prompt || null,
     variants: meta.variants || [],
@@ -123,6 +125,15 @@ function jsonArr(v) {
   if (Array.isArray(v)) return v;
   if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
   return [];
+}
+
+// skills 表没有 visibility 列：公开标记写在 meta_json.visibility（POST /skills 原样落库，
+// GET /skills 以 {...meta} 原样返回）。统一从这里读取，避免按不存在的列过滤。
+function skillVisibility(s) {
+  let meta = s?.meta_json;
+  if (typeof meta === 'string') { try { meta = JSON.parse(meta); } catch { meta = null; } }
+  const value = s?.visibility ?? meta?.visibility;
+  return value === 'public' ? 'public' : 'private';
 }
 
 function workMeta(w, extras = {}) {
@@ -891,7 +902,7 @@ export function application({ db, storage, env, fetchImpl }) {
         const meta = TEMPLATES.find((x) => x.id === t.id) || {};
         return {
           type: 'template', id: t.id, title: t.title, description: t.description,
-          cover_url: t.cover_asset_id ? publicAssetUrl(t.cover_asset_id) : `/api/v1/templates/${t.id}/cover`,
+          cover_url: `/api/v1/templates/${t.id}/cover`,
           prompt: t.prompt, negative_prompt: t.negative_prompt,
           sample_prompt: meta.sample_prompt || null, variants: meta.variants || [],
           default_model: t.default_model, ratio: t.ratio,
@@ -1552,11 +1563,11 @@ export function application({ db, storage, env, fetchImpl }) {
       if (w.status === 'published') return Response.json({ ok: true, status: 'published' });
       if (w.status !== 'withdrawn') fail('invalid_input', 400, '仅撤回的作品可重新发布');
       const f = rows(await db.from('assets').select('*').eq('id', w.result_asset_id).limit(1));
-      if (f?.length) {
-        const bytes = await assetBytes(f[0]);
-        const mod = await moderateWork({ title: w.title, tags: jsonArr(w.tags), imageBytes: bytes, imageMime: f[0].content_type });
-        if (!mod.ok) fail('invalid_input', 422, mod.reason);
-      }
+      // 结果图已软删时不允许恢复发布：否则作品立即可见但 /works/{id}/img 恒为 404
+      if (!f?.length || f[0].deleted_at) fail('invalid_input', 409, '作品原图已移入回收站，无法重新发布');
+      const bytes = await assetBytes(f[0]);
+      const mod = await moderateWork({ title: w.title, tags: jsonArr(w.tags), imageBytes: bytes, imageMime: f[0].content_type });
+      if (!mod.ok) fail('invalid_input', 422, mod.reason);
       const r = await db.from('works').update({ status: 'published' }).eq('id', w.id).select();
       if (r.error) fail('internal', 503);
       return Response.json({ ok: true, status: 'published' });
@@ -1807,13 +1818,11 @@ export function application({ db, storage, env, fetchImpl }) {
       if (w.owner_session !== sid) fail('not_found', 404);
       if (w.status !== 'removed') fail('invalid_input', 400, '仅被下架作品可申诉');
       const f = rows(await db.from('assets').select('*').eq('id', w.result_asset_id).limit(1));
-      let ok = true;
-      if (f?.length) {
-        const bytes = await assetBytes(f[0]);
-        const mod = await moderateWork({ title: w.title, tags: jsonArr(w.tags), imageBytes: bytes, imageMime: f[0].content_type });
-        ok = mod.ok;
-      }
-      if (!ok) fail('invalid_input', 422, '申诉未通过审核');
+      // 结果图已软删：申诉即便通过也只会得到「已发布但无图」的作品，直接拒绝
+      if (!f?.length || f[0].deleted_at) fail('invalid_input', 409, '作品原图已移入回收站，无法申诉恢复');
+      const bytes = await assetBytes(f[0]);
+      const mod = await moderateWork({ title: w.title, tags: jsonArr(w.tags), imageBytes: bytes, imageMime: f[0].content_type });
+      if (!mod.ok) fail('invalid_input', 422, '申诉未通过审核');
       const existingAppeal = rows(
         await db.from('review_items').select('*').eq('work_id', w.id).eq('source', 'appeal').limit(1),
       )?.[0];
@@ -1900,7 +1909,11 @@ export function application({ db, storage, env, fetchImpl }) {
       const assetCutoff = new Date(now - 7 * 86400_000).toISOString();
       const jobCutoff = new Date(now - 30 * 86400_000).toISOString();
       let assetsPurged = 0, sharesExpired = 0, jobsPurged = 0;
-      const assets = rows(await db.from('assets').select('*').limit(1000)) || [];
+      // 只取已软删的资产（gte 排除 NULL，避免未删资产占满 1000 条上限），按最早删除优先
+      const assets = rows(await db.from('assets').select('*')
+        .gte('deleted_at', '1970-01-01T00:00:00.000Z')
+        .order('deleted_at', { ascending: true })
+        .limit(1000)) || [];
       for (const a of assets) {
         if (!a.deleted_at || a.deleted_at > assetCutoff) continue;
         try { await storage.remove([a.storage_key]); } catch { /* 下一轮再试 */ }
@@ -1913,7 +1926,8 @@ export function application({ db, storage, env, fetchImpl }) {
         await db.from('albums').update({ visibility: 'private', share_token: null, share_expires_at: null }).eq('id', al.id);
         sharesExpired += 1;
       }
-      const jobs = rows(await db.from('jobs').select('*').limit(2000)) || [];
+      // 按创建时间升序取最老的一批，30 天前的任务不会被新任务挤出上限
+      const jobs = rows(await db.from('jobs').select('*').order('created_at', { ascending: true }).limit(2000)) || [];
       for (const j of jobs) {
         if (!j.created_at || j.created_at > jobCutoff) continue;
         await db.from('jobs').delete().eq('id', j.id);
@@ -2141,7 +2155,7 @@ export function application({ db, storage, env, fetchImpl }) {
       const showcase = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
       const skills = rows(await db.from('skills').select('*').limit(1000)) || [];
       const refs = rows(await db.from('assets').select('*').eq('kind', 'reference').limit(1000)) || [];
-      const publicSkills = skills.filter((s) => (s.visibility || 'private') === 'public');
+      const publicSkills = skills.filter((s) => skillVisibility(s) === 'public');
       const categories = {};
       for (const s of showcase) {
         const c = s.category || '未分类';
@@ -2150,7 +2164,8 @@ export function application({ db, storage, env, fetchImpl }) {
       return Response.json({
         counts: {
           skills: showcase.length,
-          references: refs.filter((a) => !a.deleted_at).length,
+          // 只统计公开可读的参考图，与列表口径一致
+          references: refs.filter((a) => !a.deleted_at && a.visibility === 'public').length,
           recipes: publicSkills.length,
         },
         categories,
@@ -2164,8 +2179,10 @@ export function application({ db, storage, env, fetchImpl }) {
       const tag = url.searchParams.get('tag') || '';
       const limit = vInt(url.searchParams.get('limit'), 'limit', { min: 1, max: 48, fallback: 24 });
       const offset = vInt(url.searchParams.get('offset'), 'offset', { min: 0, fallback: 0 });
+      // 只列公开可读的参考图：私有资产经 content 接口只对所有者开放，
+      // 公开列出既泄露他人素材元数据，也必然裂图（用户主动公开才进灵感库，docs/19）。
       let all = (rows(await db.from('assets').select('*').eq('kind', 'reference').limit(2000)) || [])
-        .filter((a) => !a.deleted_at);
+        .filter((a) => !a.deleted_at && a.visibility === 'public');
       if (tag) all = all.filter((a) => jsonArr(a.tags).includes(tag));
       if (q) all = all.filter((a) => jsonArr(a.tags).some((t) => String(t).toLowerCase().includes(q)));
       const page = all.slice(offset, offset + limit);
@@ -2183,11 +2200,11 @@ export function application({ db, storage, env, fetchImpl }) {
     const refMatch = path.match(/^\/api\/v1\/inspiration\/references\/(a_[0-9a-f]{24})$/);
     if (refMatch && method === 'GET') {
       const found = rows(await db.from('assets').select('*').eq('id', refMatch[1]).limit(1))?.[0];
-      if (!found || found.deleted_at || found.kind !== 'reference') fail('not_found', 404);
+      if (!found || found.deleted_at || found.kind !== 'reference' || found.visibility !== 'public') fail('not_found', 404);
       const tags = jsonArr(found.tags);
       const all = rows(await db.from('assets').select('*').eq('kind', 'reference').limit(2000)) || [];
       const related = all
-        .filter((a) => a.id !== found.id && !a.deleted_at && jsonArr(a.tags).some((t) => tags.includes(t)))
+        .filter((a) => a.id !== found.id && !a.deleted_at && a.visibility === 'public' && jsonArr(a.tags).some((t) => tags.includes(t)))
         .slice(0, 12)
         .map((a) => ({ id: a.id, url: `/api/v1/assets/${a.id}/content`, tags: jsonArr(a.tags) }));
       return Response.json({
@@ -2200,24 +2217,27 @@ export function application({ db, storage, env, fetchImpl }) {
       });
     }
 
-    // 灵感库公开配方列表：复用 skills 表，按 visibility 过滤（用户确认用现有字段）。
+    // 灵感库公开配方列表：复用 skills 表，公开标记读 meta_json.visibility（表内无 visibility 列）。
     if (path === '/api/v1/inspiration/recipes' && method === 'GET') {
       const url = new URL(request.url);
       const q = (url.searchParams.get('q') || '').trim().toLowerCase();
       const all = rows(await db.from('skills').select('*').limit(1000)) || [];
-      let list = all.filter((s) => (s.visibility || 'private') === 'public');
+      let list = all.filter((s) => skillVisibility(s) === 'public');
       if (q) list = list.filter((s) => (s.title || '').toLowerCase().includes(q)
-        || jsonArr(s.style_tags).some((t) => String(t).toLowerCase().includes(q)));
-      const items = list.map((s) => ({
-        skill_id: s.skill_id,
-        title: s.title,
-        prompt: s.prompt,
-        model: s.model,
-        ratio: s.params?.aspect || '3:4',
-        cover_url: s.cover_url || null,
-        style_tags: jsonArr(s.style_tags),
-        created_at: s.created_at || null,
-      }));
+        || jsonArr(s.tags).some((t) => String(t).toLowerCase().includes(q)));
+      const items = list.map((s) => {
+        const meta = s.meta_json || {};
+        return {
+          skill_id: s.id,
+          title: s.title,
+          prompt: s.prompt,
+          model: s.model,
+          ratio: meta.params?.aspect || '3:4',
+          cover_url: safeCoverUrl(meta.cover_url) || null,
+          style_tags: jsonArr(s.tags),
+          created_at: s.created_at || null,
+        };
+      });
       return Response.json({ items, total: items.length });
     }
 
@@ -2248,7 +2268,9 @@ export function application({ db, storage, env, fetchImpl }) {
       const computedAt = snap[0]?.computed_at || null;
       const works = [];
       for (const row of snap) {
-        const w = await loadWork(row.work_id);
+        // 快照可能指向已硬删的作品（如注销账号），逐条跳过；不能让一条陈旧记录把整张榜打成 404
+        const found = rows(await db.from('works').select('*').eq('id', row.work_id).limit(1));
+        const w = found?.[0];
         if (w && w.status === 'published') {
           works.push({ ...workMeta(w, await workCounts(w)), rank: row.rank, hot_score: row.hot_score });
         }

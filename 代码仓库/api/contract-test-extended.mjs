@@ -176,14 +176,17 @@ async function main() {
     check('任务提交 201', sub.status === 201 && sub.json?.ok === true);
     const detail = await req('GET', `/tasks/${taskId}`, { headers: {} });
     check('任务详情含提交作品', detail.status === 200 && detail.json?.works?.some((w) => w.id === workId));
-    const notes = await req('GET', '/notifications', { headers: HB });
+    // 通知只发给作品/任务所有者：B 的评论/点赞/fork 都应落到 A 的通知箱
+    const notes = await req('GET', '/notifications', { headers: HA });
     check('通知列表 200', notes.status === 200 && Array.isArray(notes.json?.notifications));
-    if (notes.json?.notifications?.length) {
+    const noteCount = notes.json?.notifications?.length ?? 0;
+    check('互动产生通知', noteCount > 0, `n=${noteCount}`);
+    if (noteCount > 0) {
       notificationId = notes.json.notifications[0].id;
-      const read = await req('POST', `/notifications/${notificationId}/read`, { headers: HB });
+      const read = await req('POST', `/notifications/${notificationId}/read`, { headers: HA });
       check('通知已读 200', read.status === 200 && read.json?.ok === true);
     } else {
-      check('通知已读 200', true, '该用户无通知，跳过');
+      check('通知已读 200', false, 'A 无通知，无法验证已读');
     }
     const appealBad = await req('POST', `/works/${workId}/appeal`, { headers: HA });
     check('未下架作品申诉 400', appealBad.status === 400);

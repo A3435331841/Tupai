@@ -471,7 +471,7 @@ function buildPdf(pages){const enc=new TextEncoder();const parts=[];let offset=0
   const m=ob.str.match(/\\/Im(\\d+) (\\d+) 0 R/);if(m){const idx=parseInt(m[1]);ob.str=ob.str.replace(m[2]+' 0 R',(imgStart+idx)+' 0 R');}}});
  // 重新计算 offsets（修正字符串后长度变了）
  offset=hdrBytes;body.forEach(ob=>{ob.off=offset;offset+=enc.encode(ob.str).length+(ob.bytes?ob.bytes.length:0)+enc.encode('\\nendobj\\n').length;});
- const xref=offset;const out=[head];body.forEach(ob=>{out.push(ob.str+'\\n');if(ob.bytes)out.push(ob.bytes);out.push('\\nendobj\\n');});
+ const xref=offset;const out=[head];body.forEach(ob=>{out.push(ob.str);if(ob.bytes)out.push(ob.bytes);out.push('\\nendobj\\n');});
  let xr='xref\\n0 '+(body.length+1)+'\\n0000000000 65535 f \\n';
  body.forEach(ob=>{xr+=String(ob.off).padStart(10,'0')+' 00000 n \\n';});
  xr+='trailer\\n<< /Size '+(body.length+1)+' /Root 1 0 R >>\\nstartxref\\n'+xref+'\\n%%EOF';

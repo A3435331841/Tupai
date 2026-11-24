@@ -25,6 +25,8 @@ ALTER TABLE app.jobs ADD COLUMN IF NOT EXISTS input_ref_consumed_at timestamptz;
 -- 3) 作品署名快照（逐层，最多 6 层）与截断标记；历史行为空时按指针回填。
 ALTER TABLE app.works ADD COLUMN IF NOT EXISTS lineage_credits jsonb;
 ALTER TABLE app.works ADD COLUMN IF NOT EXISTS lineage_truncated boolean NOT NULL DEFAULT false;
+-- 审核降级标记：发布时写入、人工复核通过后清除（routes.mjs 的 works insert/update）。
+ALTER TABLE app.works ADD COLUMN IF NOT EXISTS moderation_degraded boolean NOT NULL DEFAULT false;
 
 -- 4) 一次性引用映射：token 哈希为主键，过期由清理任务回收。
 CREATE TABLE IF NOT EXISTS app.temp_refs (
