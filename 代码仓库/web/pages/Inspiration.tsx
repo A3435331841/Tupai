@@ -133,7 +133,7 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
               </div>
             </PageHero>
             <SectionHeading title="原图 → 作品" aside={`${d.pairs.length} 组真实转换示例，左右翻阅`} />
-            {d.pairs.length > 0 && (
+            {d.pairs.length > 0 ? (
               <div className="mt-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <figure className="overflow-hidden rounded-xl border border-border/70 bg-card">
@@ -152,6 +152,8 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
                   <Button variant="outline" size="sm" disabled={pairIdx >= d.pairs.length - 1} onClick={() => setPairIdx((i) => i + 1)}>下一组<ArrowRight className="size-4" /></Button>
                 </div>
               </div>
+            ) : (
+              <p className="mt-3 rounded-xl border border-dashed border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground">示例图尚未上传，可先查看配方并直接套用这个技能创作。</p>
             )}
             {d.album && <div className="mt-5 text-center"><Button variant="ghost" onClick={() => window.open(apiUrl(d.album!.share_page), '_blank')}>打开完整画册 <ChevronRight className="size-4" /></Button></div>}
           </>
@@ -254,7 +256,7 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
               <button key={c} onClick={() => setCategory(c)} className={`rounded-full px-3 py-1 text-[11px] ${category === c ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>{c}</button>
             ))}
           </div>
-          <SectionHeading title={applied ? `“${applied}” 的技能` : category || '全部技能'} aside="点开查看 20 组真实原图→作品示例" />
+          <SectionHeading title={applied ? `“${applied}” 的技能` : category || '全部技能'} aside="点开查看配方与示例" />
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {skills === null ? Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-[4/3] rounded-xl" />)
               : skills.length === 0 ? <p className="col-span-full py-10 text-center text-sm text-muted-foreground">没有匹配的技能</p>
