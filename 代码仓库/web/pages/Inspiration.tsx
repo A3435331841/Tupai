@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Image as ImageIcon, Search, Sparkles, BookOpen, ChevronRight } from 'lucide-react';
 import { api, apiUrl } from '@/lib/api';
-import type { ShowcaseSkill, SkillRecord } from '@/lib/types';
+import type { ShowcaseSkill } from '@/lib/types';
+import { AssetImage } from '@/components/AssetImage';
 import { PageHero } from '@/components/PageHero';
 import { SectionHeading } from '@/components/SectionHeading';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,11 @@ import { toast } from 'sonner';
  */
 type Tab = 'skills' | 'references' | 'recipes';
 type RefItem = { id: string; url: string; tags: string[]; width: number | null; height: number | null };
+// 公开配方列表项（GET /api/v1/inspiration/recipes 返回结构）
+type RecipeItem = {
+  skill_id: string; title: string; prompt: string; model: string; ratio: string;
+  cover_url: string | null; style_tags: string[]; created_at: string | null;
+};
 
 function readRoute(): { view: 'list' | 'skill' | 'reference' | 'recipe'; id: string } {
   const p = window.location.pathname.replace(/\/+$/, '');
@@ -38,7 +44,7 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
 
   const [skills, setSkills] = useState<ShowcaseSkill[] | null>(null);
   const [refs, setRefs] = useState<RefItem[] | null>(null);
-  const [recipes, setRecipes] = useState<SkillRecord[] | null>(null);
+  const [recipes, setRecipes] = useState<RecipeItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // 详情态数据
@@ -80,9 +86,9 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
   }, [applied]);
   const loadRecipes = useCallback(() => {
     setRecipes(null);
-    api.skills().then((r) => setRecipes(r.skills.filter((s) => (s as unknown as { visibility?: string }).visibility === 'public')))
-      .catch(() => setRecipes([]));
-  }, []);
+    // 社区公开配方走公开接口；api.skills() 只返回当前会话自己的配方
+    api.inspirationRecipes(applied).then((r) => setRecipes(r.items)).catch(() => setRecipes([]));
+  }, [applied]);
 
   useEffect(() => {
     if (route.view !== 'list') return;
@@ -90,6 +96,12 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
     else if (tab === 'references') loadRefs();
     else if (tab === 'recipes') loadRecipes();
   }, [route.view, tab, loadSkills, loadRefs, loadRecipes]);
+
+  // 配方详情：直接访问 /inspiration/recipe/:id 或从列表点进（App 按 path 重挂载）也要把数据拉回来
+  useEffect(() => {
+    if (route.view !== 'recipe' || recipes !== null) return;
+    loadRecipes();
+  }, [route.view, recipes, loadRecipes]);
 
   function goDetails(view: 'skill' | 'reference' | 'recipe', id: string) {
     navigate(`/inspiration/${view}/${encodeURIComponent(id)}`);
@@ -128,8 +140,9 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
                     <img src={apiUrl(d.pairs[pairIdx].original_url)} alt="原图示例" className="aspect-[4/3] w-full object-cover" />
                     <figcaption className="p-2 text-center text-xs text-muted-foreground">原图（公开授权语料）</figcaption>
                   </figure>
-                  <figure className="overflow-hidden rounded-xl border border-primary/30 bg-card">
+                  <figure className="relative overflow-hidden rounded-xl border border-primary/30 bg-card">
                     <img src={apiUrl(d.pairs[pairIdx].result_url)} alt="作品示例" className="aspect-[4/3] w-full object-cover" />
+                    <span className="absolute left-2 top-2 rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white">AI 生成</span>
                     <figcaption className="p-2 text-center text-xs text-primary">AI 作品 · 带生成标识</figcaption>
                   </figure>
                 </div>
@@ -162,14 +175,14 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
                 {d.reference.tags.map((t) => <span key={t} className="rounded-full bg-secondary px-2 py-0.5">#{t}</span>)}
               </div>
             </PageHero>
-            <img src={apiUrl(d.reference.url)} alt="图片参考大图" className="mx-auto max-h-[70vh] rounded-2xl border border-border/70 bg-card object-contain" />
+            <AssetImage path={d.reference.url} alt="图片参考大图" className="mx-auto max-h-[70vh] rounded-2xl border border-border/70 bg-card object-contain" />
             {d.related.length > 0 && (
               <>
                 <SectionHeading title="同类参考" aside="标签相近的参考图" />
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {d.related.map((r) => (
                     <button key={r.id} onClick={() => goDetails('reference', r.id)} className="overflow-hidden rounded-xl border border-border/70 bg-card text-left transition-transform hover:-translate-y-0.5">
-                      <img src={apiUrl(r.url)} alt="" className="aspect-square w-full object-cover" />
+                      <AssetImage path={r.url} alt="" className="aspect-square w-full object-cover" />
                       <span className="block truncate p-2 text-[11px] text-muted-foreground">{r.tags.slice(0, 2).map((t) => `#${t}`).join(' ')}</span>
                     </button>
                   ))}
@@ -192,7 +205,7 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
           <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">配方不存在或已取消公开。</p>
         ) : (
           <>
-            <PageHero kicker="社区公开配方" title={r.title} description={(r as unknown as { notes?: string }).notes || '来自社区创作者的公开配方'}
+            <PageHero kicker="社区公开配方" title={r.title} description={r.style_tags?.length ? r.style_tags.map((t) => `#${t}`).join(' ') : '来自社区创作者的公开配方'}
               aside={<Button onClick={() => navigate(`/studio?skill=${encodeURIComponent(r.skill_id)}`)}>用这个配方创作 <ArrowRight className="size-4" /></Button>}>
               <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-lg bg-secondary/50 p-3 text-[11px] leading-5">{r.prompt}</pre>
             </PageHero>
@@ -247,8 +260,8 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
               : skills.length === 0 ? <p className="col-span-full py-10 text-center text-sm text-muted-foreground">没有匹配的技能</p>
               : skills.map((s) => (
                 <button key={s.id} onClick={() => goDetails('skill', s.id)} className="group overflow-hidden rounded-xl border border-border/70 bg-card text-left transition-all hover:-translate-y-0.5 hover:shadow-lg">
-                  <span className="block aspect-[4/3] overflow-hidden bg-secondary">
-                    {s.cover?.result_url ? <img src={apiUrl(s.cover.result_url)} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-2xl text-primary/50">✦</span>}
+                  <span className="relative block aspect-[4/3] overflow-hidden bg-secondary">
+                    {s.cover?.result_url ? <><img src={apiUrl(s.cover.result_url)} alt="" className="size-full object-cover" /><span className="absolute left-2 top-2 rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white">AI</span></> : <span className="grid size-full place-items-center text-2xl text-primary/50">✦</span>}
                   </span>
                   <span className="block p-2.5">
                     <span className="block truncate text-sm font-semibold">{s.title_zh}</span>
@@ -269,7 +282,7 @@ export default function Inspiration({ navigate }: { navigate: (to: string) => vo
               : refs.length === 0 ? <p className="col-span-full py-10 text-center text-sm text-muted-foreground">暂无参考图（本地未注入语料）</p>
               : refs.map((r) => (
                 <button key={r.id} onClick={() => goDetails('reference', r.id)} className="overflow-hidden rounded-lg border border-border/70 bg-card text-left transition-transform hover:-translate-y-0.5">
-                  <img src={apiUrl(r.url)} alt="" className="aspect-square w-full object-cover" />
+                  <AssetImage path={r.url} alt="" className="aspect-square w-full object-cover" />
                   <span className="block truncate p-1.5 text-[10px] text-muted-foreground">{r.tags.slice(0, 2).map((t) => `#${t}`).join(' ') || '参考'}</span>
                 </button>
               ))}

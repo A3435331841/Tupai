@@ -167,6 +167,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   const [skillOpen, setSkillOpen] = useState(false);
   const [skillTitle, setSkillTitle] = useState('');
   const [skillNotes, setSkillNotes] = useState('');
+  const [skillPublic, setSkillPublic] = useState(false);
   const [savedSkill, setSavedSkill] = useState<string | null>(null);
   const [mySkillsOpen, setMySkillsOpen] = useState(false);
   const [mySkills, setMySkills] = useState<SkillRecord[] | null>(null);
@@ -302,11 +303,32 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     const tplId = q.get('template');
     const assetParam = q.get('asset');
     const forkParam = q.get('fork');
-    if (!demo && !tplId && !assetParam && !forkParam) return;
+    const skillParam = q.get('skill');
+    if (!demo && !tplId && !assetParam && !forkParam && !skillParam) return;
     (async () => {
+      if (skillParam && !demo && !tplId && !assetParam && !forkParam) {
+        // 灵感库「用这个配方创作」：公开配方走 /inspiration/recipes，不依赖私有 skills 接口
+        try {
+          const r = await api.inspirationRecipes();
+          const found = r.items.find((x) => x.skill_id === skillParam);
+          if (!found) { toast.error('配方不存在或已取消公开'); return; }
+          setDemoSeeded(false);
+          setPrompt(found.prompt);
+          setNegative('');
+          setModel(normalizeModel(found.model));
+          if (RATIOS.includes(found.ratio)) setRatio(found.ratio);
+          setCurrentSummary(`用配方：${found.title}`);
+          setPromptDirty(true);
+          setOptimize({ candidates: [], recommendations: [], mode: 'txt2img' });
+          setStage('ready');
+          toast('配方已载入，上传底图或直接派单给小绘');
+        } catch (e) { toast.error(e instanceof ApiRequestError ? e.message : '配方加载失败'); }
+        return;
+      }
       if (forkParam && !demo && !tplId && !assetParam) {
         try {
           const f = await api.forkWork(forkParam);
+          setDemoSeeded(false);
           setPrompt(f.skill_snapshot.prompt);
           setNegative(f.skill_snapshot.negative_prompt || '');
           setModel(normalizeModel(f.skill_snapshot.model));
@@ -324,6 +346,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         try {
           const blob = await fetchAssetBlob(`/api/v1/assets/${assetParam}/content`);
           const f = new File([blob], 'library-asset.jpg', { type: blob.type || 'image/jpeg' });
+          setDemoSeeded(false);
           setTab('image'); setFile(f); setAssetId(assetParam);
           setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(f); });
           toast('底图已从资产库就位，点「自动优化提示词」开始');
@@ -549,8 +572,14 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       writeLastJob(done);
       refreshQuota();
     } catch (e) {
+      if (epoch !== runEpoch.current) return;
+      // 网络/接口异常时保留原 job：错误条给「继续等待」而不是新建任务「重试」，避免重复扣当日配额
       setJobError(errText(e));
       setStage('ready');
+      setPendingJobId(jobId);
+      const waiting = { ...meta, status: 'running' as const };
+      setLastJob(waiting);
+      writeLastJob(waiting);
     }
   }
 
@@ -656,6 +685,13 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
     setLastJob(null);
   }
 
+  // 移除底图：回到纯文字入口（保留提示词），避免上传后无法撤回
+  function removeBaseImage() {
+    adoptFile(null);
+    setDemoSeeded(false);
+    toast('底图已移除，可以重新上传或直接输入一句话描述');
+  }
+
   async function importLink() {
     if (!linkUrl.trim()) { toast.error('请粘贴抖音图文分享链接'); return; }
     setLinkBusy(true);
@@ -736,6 +772,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
         template_id: appliedTemplate?.id,
         params: { aspect: ratio, size: '1K' },
         notes: skillNotes.trim() || undefined,
+        visibility: skillPublic ? 'public' : 'private',
         style_tags: tags,
         cover_url: job?.result?.asset_id ? `/api/v1/assets/${job.result.asset_id}/content` : undefined,
         created_at: new Date().toISOString(),
@@ -767,7 +804,13 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
 
   async function importSkillFile(f: File) {
     try {
-      const parsed = JSON.parse(await f.text());
+      const raw: unknown = JSON.parse(await f.text());
+      const parsedRaw = raw && typeof raw === 'object' ? raw as Record<string, unknown> : null;
+      if (!parsedRaw) throw new Error('invalid skill');
+      // 服务端对白名单外的 model 直接 422：导入前先归一化为本地默认模型，再提交
+      const rawModel = typeof parsedRaw.model === 'string' ? parsedRaw.model : undefined;
+      const modelIgnored = Boolean(rawModel && models.length > 0 && normalizeModel(rawModel) !== rawModel);
+      const parsed = modelIgnored ? { ...parsedRaw, model: normalizeModel(rawModel) } : parsedRaw;
       const s = await api.importSkill(parsed);
       const nextModel = normalizeModel(s.model);
       setPrompt(s.prompt);
@@ -784,7 +827,7 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
       setStage('ready');
       setSkillTitle(s.title || '');
       setJobError(null);
-      if (nextModel !== s.model) toast.warning('配方中的模型不可用，已切换为默认模型');
+      if (modelIgnored || nextModel !== s.model) toast.warning('配方中的模型不可用，已切换为默认模型');
       toast.success(`配方「${s.title}」已导入，上传自己的底图即可生成`);
     } catch (e) {
       toast.error(e instanceof ApiRequestError ? e.message : '导入失败：不是合法的 tupai-skill JSON');
@@ -907,6 +950,13 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
   // 只设置前端展示状态，不落库；用户一上传自己的图/发话即接管真实流程。
   const seededRef = useRef(false);
   useEffect(() => {
+    // 深链（demo/template/asset/fork）由上面的 URL effect 独占写入状态：
+    // 首屏演示 seed 若并发抢写，会把用户底图配上示例提示词，或给 fork 带入示例街景图。
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') || params.get('template') || params.get('asset') || params.get('fork') || params.get('skill')) {
+      seededRef.current = true;
+      return;
+    }
     // 本地还有上次任务时不要 seed，让 entry 态展示「查看 / 恢复」卡
     if (seededRef.current || templates.length === 0 || stage !== 'entry' || file || readLastJob()) return;
     seededRef.current = true;
@@ -1226,6 +1276,21 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             </div>
           )}
 
+          {/* 底图已就位：生成前也能看到用的是哪张图，并可随时移除（隐私场景尤其重要） */}
+          {stage !== 'result' && (preview || assetId) && (
+            <div className="mx-1 flex shrink-0 items-center gap-3 rounded-xl border border-[#E5E5E3] bg-white px-3 py-2">
+              {preview
+                ? <img src={preview} alt="底图预览" className="size-12 shrink-0 rounded-lg object-cover" />
+                : <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-[#F4F4F2] text-[10px] text-[#9A9A98]">底图</span>}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12px] font-semibold">底图已就位{file?.name ? ` · ${file.name}` : ''}</span>
+                <span className="block truncate text-[11px] text-[#9A9A98]">{prompt.trim() ? '可直接派单给小绘，也可以先改提示词' : '下一步：点「自动优化提示词」'}</span>
+              </span>
+              <button type="button" className="shrink-0 text-[11px] text-[#8A6D3B] underline disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={removeBaseImage} disabled={stage === 'generating'}>移除底图</button>
+            </div>
+          )}
+
           {/* 消息流：直接铺白底，Bot 消息为整宽浅灰圆角卡；桌面端是唯一滚动区，移动端随页面自然滚动 */}
           <div className="flex flex-col gap-4 px-1 py-2 scrollbar-thin lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {threadTurns.map((t) => {
@@ -1347,7 +1412,12 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
                 <div className="flex flex-wrap items-center gap-3">
                   {preview && resultUrl ? (
                     <div className="w-36 shrink-0 overflow-hidden rounded-lg border border-border"><CompareSlider before={preview} after={resultUrl} beforeLabel="原图" afterLabel="AI 生成结果" /></div>
-                  ) : resultUrl ? <img src={resultUrl} alt="AI 生成结果" className="h-24 rounded-lg border border-border" /> : null}
+                  ) : resultUrl ? (
+                    <div className="relative shrink-0 overflow-hidden rounded-lg border border-border">
+                      <img src={resultUrl} alt="AI 生成结果" className="h-24 object-cover" />
+                      <span className="absolute left-1 top-1 rounded bg-black/45 px-1 py-0.5 text-[9px] text-white">AI 生成</span>
+                    </div>
+                  ) : null}
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold">小绘已交付 · {job.result.mock ? '演示占位图' : 'AI 生成成品'}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">模型：{model} · 画幅：{ratio} · 原图不公开</p>
@@ -1372,13 +1442,21 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
             <div ref={chatEndRef} />
           </div>
 
-          {/* 派单行动 row（主脑 / 小绘视角） */}
-          {(!inBotThread || focusKey === '小绘') && (prompt.trim() || stage === 'generating') && (
-            <div className="flex shrink-0 justify-center">
-              <button type="button" className="se-btn-dark px-6 py-2 text-[13px]" onClick={dispatchToArtist}
-                disabled={stage === 'generating' || paused || Boolean(quota && quota.remaining <= 0)}>
-                {stage === 'generating' ? '出图…' : '派单给小绘'}
-              </button>
+          {/* 派单行动 row（主脑 / 小绘视角）：有底图或有描述就能看到下一步入口 */}
+          {(!inBotThread || focusKey === '小绘') && (prompt.trim() || hasImage || text.trim() || stage === 'generating') && (
+            <div className="flex shrink-0 flex-wrap items-center justify-center gap-2">
+              {!prompt.trim() && (hasImage || text.trim()) && stage !== 'generating' && (
+                <button type="button" className="se-pill px-5 py-2 text-[13px] font-semibold text-[#1A1A1A] transition hover:bg-[#F4F4F2]"
+                  onClick={() => void startOptimize(false)} disabled={busy}>
+                  {busy ? '优化中…' : '自动优化提示词'}
+                </button>
+              )}
+              {(prompt.trim() || stage === 'generating') && (
+                <button type="button" className="se-btn-dark px-6 py-2 text-[13px]" onClick={dispatchToArtist}
+                  disabled={stage === 'generating' || paused || Boolean(quota && quota.remaining <= 0)}>
+                  {stage === 'generating' ? '出图…' : '派单给小绘'}
+                </button>
+              )}
             </div>
           )}
 
@@ -1544,6 +1622,10 @@ export default function Studio({ navigate }: { navigate: (to: string) => void })
               <Input id="skill-title" value={skillTitle} onChange={(e) => setSkillTitle(e.target.value.slice(0, 100))} className="mt-1" placeholder="例如：夜景提亮·我的聚餐照" /></div>
             <div><Label htmlFor="skill-notes" className="text-xs">备注（可选）</Label>
               <Textarea id="skill-notes" value={skillNotes} onChange={(e) => setSkillNotes(e.target.value.slice(0, 300))} rows={2} className="mt-1" placeholder="适合什么场景、注意什么" /></div>
+            <label htmlFor="skill-public" className="flex items-start gap-2 rounded-lg border border-[#E5E5E3] bg-[#FDFCFA] p-2.5 text-[11px] leading-4 text-[#5C4A35]">
+              <input id="skill-public" type="checkbox" className="mt-0.5 size-3.5 accent-[#8A6D3B]" checked={skillPublic} onChange={(e) => setSkillPublic(e.target.checked)} />
+              <span>公开到灵感库（其他人可浏览并一键套用；提示词与模型会公开，原图不会）</span>
+            </label>
             {!savedSkill ? <Button className="w-full" disabled={busy} onClick={saveSkill}>保存配方</Button> : (
               <div className="grid gap-2">
                 <Button variant="outline" onClick={exportJson}>导出配方 JSON（tupai-skill-v1）</Button>

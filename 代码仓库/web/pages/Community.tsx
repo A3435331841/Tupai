@@ -499,7 +499,7 @@ export default function Community({ navigate }: { navigate: (to: string) => void
           {userResults && userResults.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-2">
               {userResults.map((u) => (
-                <Card key={u.id} className="flex cursor-pointer items-center gap-2 px-3 py-2" onClick={() => { setTab('feed'); setQ(u.name); applyFilters(); }}>
+                <Card key={u.id} className="flex cursor-pointer items-center gap-2 px-3 py-2" onClick={() => { setTab('feed'); setQ(u.name); applyFilters({ q: u.name }); }}>
                   <span className="grid size-7 place-items-center rounded-full bg-primary/15 text-xs font-bold text-primary">{u.name.slice(0, 1)}</span>
                   <span className="text-xs font-medium">{u.name}</span>
                 </Card>
@@ -618,8 +618,8 @@ export default function Community({ navigate }: { navigate: (to: string) => void
               {hotWorks.map((w) => (
                 <Card key={w.id} className="flex cursor-pointer items-center gap-3 p-3 transition-transform hover:-translate-y-0.5" onClick={() => openWork(w)}>
                   <span className={`grid size-9 shrink-0 place-items-center rounded-lg font-display text-lg font-bold ${w.rank <= 3 ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>{w.rank}</span>
-                  <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                    {w.image_url ? <img src={w.image_url} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-xl text-primary/40">✦</span>}
+                  <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                    {w.image_url ? <><img src={apiUrl(w.image_url)} alt="" className="size-full object-cover" /><span className="absolute left-1 top-1 rounded bg-black/45 px-1 py-0.5 text-[8px] text-white">AI</span></> : <span className="grid size-full place-items-center text-xl text-primary/40">✦</span>}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{w.title || '未命名作品'}</p>

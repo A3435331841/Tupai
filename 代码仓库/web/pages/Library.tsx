@@ -115,9 +115,53 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
       void refreshKeepScroll();
     } catch (e) { toast.error(errText(e, '打标失败')); }
   }
+  // AI 结果图下载前用 canvas 合成「AI 生成 · 图派 TuPai」角标（与创作台同一合规口径），原图/参考图不受影响
+  async function composeAiMark(blob: Blob): Promise<Blob> {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('decode failed'));
+        img.src = url;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no canvas');
+      ctx.drawImage(img, 0, 0);
+      const label = 'AI 生成 · 图派 TuPai';
+      const fs = Math.max(14, Math.round(canvas.width / 32));
+      ctx.font = `${fs}px sans-serif`;
+      const w = ctx.measureText(label).width + fs * 1.2;
+      const h = fs * 2;
+      const x = canvas.width - w - fs;
+      const y = canvas.height - h - fs;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, fs / 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x + fs * 0.6, y + h / 2);
+      const out = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
+      if (!out) throw new Error('encode failed');
+      return out;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
   async function download(a: AssetMeta) {
     try {
       const blob = await fetchAssetBlob(a.content_url);
+      if (a.ai_generated) {
+        const marked = await composeAiMark(blob);
+        downloadBlob(marked, `tupai-${a.kind}-${a.id.slice(-6)}-ai.png`);
+        toast.success('已下载（含 AI 生成标识）');
+        return;
+      }
       downloadBlob(blob, `tupai-${a.kind}-${a.id.slice(-6)}.${(a.content_type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')}`);
     } catch { toast.error('下载失败，请稍后重试'); }
   }
@@ -293,7 +337,7 @@ export default function Library({ navigate }: { navigate: (to: string) => void }
               <div className="flex flex-wrap gap-1">{preview.tags.map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}</div>
               <p className="text-xs text-muted-foreground">{preview.width}×{preview.height} · {(preview.bytes / 1024).toFixed(0)} KB · {preview.content_type}</p>
               <DialogFooter>
-                <Button variant="outline" onClick={() => void download(preview)}>下载原图</Button>
+                <Button variant="outline" onClick={() => void download(preview)}>{preview.ai_generated ? '下载成品（含 AI 标识）' : '下载原图'}</Button>
                 {!preview.deleted_at && <Button onClick={() => { setPreview(null); navigate(`/studio?asset=${preview.id}`); }}>再创作</Button>}
               </DialogFooter>
             </>

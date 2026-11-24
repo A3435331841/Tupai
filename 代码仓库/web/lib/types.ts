@@ -70,6 +70,8 @@ export interface TupaiSkill {
   cover_url?: string;
   created_at?: string;
   skill_id?: string;
+  /** 公开到灵感库：public 时进入 /api/v1/inspiration/recipes（缺省 private）。 */
+  visibility?: 'private' | 'public';
 }
 
 export type SkillRecord = TupaiSkill & { skill_id: string };
