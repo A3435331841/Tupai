@@ -9,7 +9,7 @@ import { createKeyScheduler } from './scheduler.mjs';
 import { createAgnesProvider } from './agnes.mjs';
 import { createEphemeral } from './ephemeral.mjs';
 import { mockOptimize, mockGenerate } from './mock.mjs';
-import { TEMPLATES, ensureSeeded } from './seed.mjs';
+import { TEMPLATES, ensureSeeded, ensureShowcaseSeeded } from './seed.mjs';
 import { renderSkillMarkdown } from './skillmd.mjs';
 import { albumPageHtml as renderAlbumPage, albumStyleIds } from './album-styles.mjs';
 import { getUser } from './auth.mjs';
@@ -229,6 +229,27 @@ export function application({ db, storage, env, fetchImpl }) {
   const ephemeral = createEphemeral({ db, storage, fetchImpl, env });
   const downloadTickets = new Map();
 
+  async function selectAll(table, configure = (q) => q, { columns = '*', orderBy = 'id', ascending = true, pageSize = 500 } = {}) {
+    const all = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const page = rows(await configure(db.from(table).select(columns))
+        .order(orderBy, { ascending })
+        .range(offset, offset + pageSize - 1)) || [];
+      all.push(...page);
+      if (page.length < pageSize) break;
+    }
+    return all;
+  }
+
+  async function selectByValues(table, column, values, columns = '*', chunkSize = 100) {
+    const unique = [...new Set((values || []).filter(Boolean))];
+    const all = [];
+    for (let i = 0; i < unique.length; i += chunkSize) {
+      all.push(...await selectAll(table, (q) => q.in(column, unique.slice(i, i + chunkSize)), { columns }));
+    }
+    return all;
+  }
+
   // 登录用户归属 u:<user_id>（跨设备稳定）；游客回退会话标识。SDK 仅校验格式，
   // 伪造防护依赖平台网关 ingress（剥离浏览器 x-qoder-* 并注入已验证上下文）。
   function currentUser(request) {
@@ -267,22 +288,22 @@ export function application({ db, storage, env, fetchImpl }) {
     return album;
   }
 
-  // 分享页只展示仍存活（未软删、kind==='result'）的条目：一次查询过滤，保持画册原顺序
+  // 分享页只展示仍存活（未软删、kind==='result'）的条目：分批过滤，保持画册原顺序
   async function liveAlbumIds(album) {
     const ids = albumItems(album).filter(Boolean);
     if (!ids.length) return [];
-    const alive = rows(await db.from('assets').select('id, kind, deleted_at').in('id', ids)) || [];
+    const alive = await selectByValues('assets', 'id', ids, 'id, kind, deleted_at', 200);
     const keep = new Set(alive.filter((a) => a.kind === 'result' && !a.deleted_at).map((a) => a.id));
     return ids.filter((id) => keep.has(id));
   }
 
-  // 演示对存活过滤：一次查询全部 pair 资产，只保留原图与结果都未软删的 pair
+  // 演示对存活过滤：分批查询全部 pair 资产，只保留原图与结果都未软删的 pair
   async function liveShowcasePairs(skills) {
     const allIds = new Set();
     for (const s of skills) for (const p of showcasePairs(s)) { allIds.add(p.original_id); allIds.add(p.result_id); }
     const alive = new Set();
     if (allIds.size) {
-      const list = rows(await db.from('assets').select('id, kind, deleted_at').in('id', [...allIds])) || [];
+      const list = await selectByValues('assets', 'id', [...allIds], 'id, kind, deleted_at', 200);
       for (const a of list) if (!a.deleted_at) alive.add(a.id);
     }
     const out = new Map();
@@ -401,21 +422,21 @@ export function application({ db, storage, env, fetchImpl }) {
   async function batchMeta(works, viewer) {
     if (!works.length) return [];
     const ids = works.map((w) => w.id);
-    const [likeRes, commentRes, forkRes, mineRes] = await Promise.all([
-      db.from('likes').select('*').in('work_id', ids).limit(5000),
-      db.from('comments').select('*').in('work_id', ids).eq('hidden_by_author', false).limit(5000),
-      db.from('works').select('*').in('parent_work_id', ids).limit(5000),
-      viewer ? db.from('likes').select('*').in('work_id', ids).eq('owner_session', viewer).limit(5000) : Promise.resolve({ data: [] }),
+    const [likeRows, commentRows, forkRows, mineRows] = await Promise.all([
+      selectAll('likes', (q) => q.in('work_id', ids), { columns: 'work_id, owner_session' }),
+      selectAll('comments', (q) => q.in('work_id', ids).eq('hidden_by_author', false), { columns: 'work_id' }),
+      selectAll('works', (q) => q.in('parent_work_id', ids), { columns: 'parent_work_id' }),
+      viewer ? selectAll('likes', (q) => q.in('work_id', ids).eq('owner_session', viewer), { columns: 'work_id' }) : [],
     ]);
     const tally = (list, key) => {
       const m = new Map();
       for (const r of list || []) m.set(r[key], (m.get(r[key]) || 0) + 1);
       return m;
     };
-    const likes = tally(rows(likeRes), 'work_id');
-    const comments = tally(rows(commentRes), 'work_id');
-    const forks = tally(rows(forkRes), 'parent_work_id');
-    const mine = new Set((rows(mineRes) || []).map((r) => r.work_id));
+    const likes = tally(likeRows, 'work_id');
+    const comments = tally(commentRows, 'work_id');
+    const forks = tally(forkRows, 'parent_work_id');
+    const mine = new Set(mineRows.map((r) => r.work_id));
     return works.map((w) => workMeta(w, {
       like_count: likes.get(w.id) || 0,
       comment_count: comments.get(w.id) || 0,
@@ -1342,21 +1363,21 @@ export function application({ db, storage, env, fetchImpl }) {
 
     // ---- 技能演示（公开只读）：社区「技能」区按画册呈现每个技能的原图→作品示例 ----
     if (path === '/api/v1/showcase/skills' && method === 'GET') {
+      await ensureShowcaseSeeded(db);
       const list = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
       const live = await liveShowcasePairs(list);
       const skills = list
-        .filter((s) => (live.get(s.id) || []).length > 0)
         .sort((a, b) => (a.sort || 0) - (b.sort || 0))
         .map((s) => showcaseMeta(s, live.get(s.id)));
       return Response.json({ skills });
     }
     const showcaseSkillMatch = path.match(/^\/api\/v1\/showcase\/skills\/([a-z0-9][a-z0-9-]{0,63})$/);
     if (showcaseSkillMatch && method === 'GET') {
+      await ensureShowcaseSeeded(db);
       const found = rows(await db.from('showcase_skills').select('*').eq('id', showcaseSkillMatch[1]).limit(1));
       if (!found?.length) fail('not_found', 404);
       const s = found[0];
       const livePairs = (await liveShowcasePairs([s])).get(s.id) || [];
-      if (!livePairs.length) fail('not_found', 404);
       const album = s.album_id ? rows(await db.from('albums').select('*').eq('id', s.album_id).limit(1))?.[0] : null;
       return Response.json({
         skill: showcaseMeta(s, livePairs),
@@ -1461,8 +1482,8 @@ export function application({ db, storage, env, fetchImpl }) {
         || jsonArr(w.tags).some((t) => String(t).toLowerCase().includes(q))
         || String(w.skill_snapshot?.prompt || '').toLowerCase().includes(q));
       if (sort === 'hot') {
-        // 一次取回点赞做内存计数，按热度排序，避免逐作品查询
-        const allLikes = rows(await db.from('likes').select('*').limit(20000)) || [];
+        // 仅拉取本页候选作品的点赞，按热度排序，避免逐作品查询
+        const allLikes = await selectByValues('likes', 'work_id', filtered.map((w) => w.id), 'work_id');
         const heat = new Map();
         for (const l of allLikes) heat.set(l.work_id, (heat.get(l.work_id) || 0) + 1);
         filtered.sort((a, b) => (heat.get(b.id) || 0) - (heat.get(a.id) || 0));
@@ -1672,10 +1693,10 @@ export function application({ db, storage, env, fetchImpl }) {
         ? rows(await db.from('tasks').select('*').order('created_at', { ascending: false }).limit(50)) || []
         : rows(await db.from('tasks').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(50)) || [];
       const list = includeClosed ? raw.filter((t) => t.status === 'open' || t.owner_session === viewer) : raw;
-      // 一次取回本页任务的投稿，避免逐任务 count 的 N+1
+      // 分批取回本页任务的投稿，避免逐任务 count 的 N+1
       const taskIds = list.map((t) => t.id);
       const allSubs = taskIds.length
-        ? rows(await db.from('submissions').select('id, task_id').in('task_id', taskIds).limit(2000)) || []
+        ? await selectByValues('submissions', 'task_id', taskIds, 'id, task_id')
         : [];
       const submCount = new Map();
       for (const s of allSubs) submCount.set(s.task_id, (submCount.get(s.task_id) || 0) + 1);
@@ -1840,15 +1861,11 @@ export function application({ db, storage, env, fetchImpl }) {
 
     if (path === '/api/v1/me/export' && method === 'GET') {
       const sid = ownerOf(request);
-      const works = rows(await db.from('works').select('*').eq('owner_session', sid).limit(500)) || [];
-      const skills = rows(await db.from('skills').select('*').eq('owner_session', sid).limit(500)) || [];
-      const albums = rows(await db.from('albums').select('*').eq('owner_session', sid).limit(200)) || [];
-      const assets = rows(await db.from('assets').select('*').eq('owner_session', sid).limit(2000)) || [];
-      const comments = rows(await db.from('comments').select('*').eq('owner_session', sid).limit(1000)) || [];
-      const likes = rows(await db.from('likes').select('*').eq('owner_session', sid).limit(2000)) || [];
-      const tasks = rows(await db.from('tasks').select('*').eq('owner_session', sid).limit(200)) || [];
-      const submissions = rows(await db.from('submissions').select('*').eq('owner_session', sid).limit(1000)) || [];
-      const notifications = rows(await db.from('notifications').select('*').eq('owner_session', sid).limit(1000)) || [];
+      const owned = (table) => selectAll(table, (q) => q.eq('owner_session', sid));
+      const [works, skills, albums, assets, comments, likes, tasks, submissions, notifications] = await Promise.all([
+        owned('works'), owned('skills'), owned('albums'), owned('assets'), owned('comments'),
+        owned('likes'), owned('tasks'), owned('submissions'), owned('notifications'),
+      ]);
       const profile = rows(await db.from('profiles').select('*').eq('user_id', sid).limit(1))?.[0] || null;
       return Response.json({
         exported_at: new Date().toISOString(),
@@ -1866,7 +1883,7 @@ export function application({ db, storage, env, fetchImpl }) {
     }
     if (path === '/api/v1/me' && method === 'DELETE') {
       const sid = ownerOf(request);
-      const works = rows(await db.from('works').select('*').eq('owner_session', sid).limit(1000)) || [];
+      const works = await selectAll('works', (q) => q.eq('owner_session', sid));
       for (const w of works) {
         await db.from('comments').delete().eq('work_id', w.id);
         await db.from('likes').delete().eq('work_id', w.id);
@@ -1885,7 +1902,7 @@ export function application({ db, storage, env, fetchImpl }) {
       await db.from('albums').delete().eq('owner_session', sid);
       await db.from('skills').delete().eq('owner_session', sid);
       await db.from('jobs').delete().eq('owner_session', sid);
-      const assets = rows(await db.from('assets').select('*').eq('owner_session', sid).limit(2000)) || [];
+      const assets = await selectAll('assets', (q) => q.eq('owner_session', sid));
       let storageFailed = 0;
       for (const a of assets) { try { await storage.remove([a.storage_key]); } catch { storageFailed += 1; } }
       await db.from('assets').delete().eq('owner_session', sid);
@@ -1927,7 +1944,7 @@ export function application({ db, storage, env, fetchImpl }) {
         sharesExpired += 1;
       }
       // 按创建时间升序取最老的一批，30 天前的任务不会被新任务挤出上限
-      const jobs = rows(await db.from('jobs').select('*').order('created_at', { ascending: true }).limit(2000)) || [];
+      const jobs = rows(await db.from('jobs').select('*').order('created_at', { ascending: true }).range(0, 999)) || [];
       for (const j of jobs) {
         if (!j.created_at || j.created_at > jobCutoff) continue;
         await db.from('jobs').delete().eq('id', j.id);
@@ -2152,6 +2169,7 @@ export function application({ db, storage, env, fetchImpl }) {
 
     // 灵感库首页聚合：官方技能 / 图片参考 / 公开配方的数量与入口。
     if (path === '/api/v1/inspiration/overview' && method === 'GET') {
+      await ensureShowcaseSeeded(db);
       const showcase = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
       const skills = rows(await db.from('skills').select('*').limit(1000)) || [];
       const refs = rows(await db.from('assets').select('*').eq('kind', 'reference').limit(1000)) || [];
@@ -2181,7 +2199,7 @@ export function application({ db, storage, env, fetchImpl }) {
       const offset = vInt(url.searchParams.get('offset'), 'offset', { min: 0, fallback: 0 });
       // 只列公开可读的参考图：私有资产经 content 接口只对所有者开放，
       // 公开列出既泄露他人素材元数据，也必然裂图（用户主动公开才进灵感库，docs/19）。
-      let all = (rows(await db.from('assets').select('*').eq('kind', 'reference').limit(2000)) || [])
+      let all = (rows(await db.from('assets').select('*').eq('kind', 'reference').limit(1000)) || [])
         .filter((a) => !a.deleted_at && a.visibility === 'public');
       if (tag) all = all.filter((a) => jsonArr(a.tags).includes(tag));
       if (q) all = all.filter((a) => jsonArr(a.tags).some((t) => String(t).toLowerCase().includes(q)));
@@ -2202,7 +2220,7 @@ export function application({ db, storage, env, fetchImpl }) {
       const found = rows(await db.from('assets').select('*').eq('id', refMatch[1]).limit(1))?.[0];
       if (!found || found.deleted_at || found.kind !== 'reference' || found.visibility !== 'public') fail('not_found', 404);
       const tags = jsonArr(found.tags);
-      const all = rows(await db.from('assets').select('*').eq('kind', 'reference').limit(2000)) || [];
+      const all = rows(await db.from('assets').select('*').eq('kind', 'reference').limit(1000)) || [];
       const related = all
         .filter((a) => a.id !== found.id && !a.deleted_at && a.visibility === 'public' && jsonArr(a.tags).some((t) => tags.includes(t)))
         .slice(0, 12)
@@ -2243,13 +2261,13 @@ export function application({ db, storage, env, fetchImpl }) {
 
     // 灵感库技能列表：官方 showcase 技能 + 类目筛选（复用现有数据源）。
     if (path === '/api/v1/inspiration/skills' && method === 'GET') {
+      await ensureShowcaseSeeded(db);
       const url = new URL(request.url);
       const category = url.searchParams.get('category') || '';
       const q = (url.searchParams.get('q') || '').trim().toLowerCase();
       const list = rows(await db.from('showcase_skills').select('*').limit(500)) || [];
       const live = await liveShowcasePairs(list);
       let skills = list
-        .filter((s) => (live.get(s.id) || []).length > 0)
         .sort((a, b) => (a.sort || 0) - (b.sort || 0));
       if (category) skills = skills.filter((s) => s.category === category);
       if (q) skills = skills.filter((s) => (s.title_zh || '').toLowerCase().includes(q)
@@ -2281,9 +2299,11 @@ export function application({ db, storage, env, fetchImpl }) {
     // 定时重算热榜：维护端点，一次性写入快照。热度 = 3赞 + 2评 + 转发 − 时间衰减(72h 半衰)。
     if (path === '/api/v1/maintenance/recompute-hot' && method === 'POST') {
       requireMaintenance(request);
-      const all = rows(await db.from('works').select('*').eq('status', 'published').limit(2000)) || [];
-      const likes = rows(await db.from('likes').select('*').limit(20000)) || [];
-      const comments = rows(await db.from('comments').select('*').limit(20000)) || [];
+      const [all, likes, comments] = await Promise.all([
+        selectAll('works', (q) => q.eq('status', 'published')),
+        selectAll('likes', undefined, { columns: 'work_id' }),
+        selectAll('comments', undefined, { columns: 'work_id, hidden_by_author' }),
+      ]);
       const likeCount = new Map(), commentCount = new Map();
       for (const l of likes) likeCount.set(l.work_id, (likeCount.get(l.work_id) || 0) + 1);
       for (const c of comments) if (!c.hidden_by_author) commentCount.set(c.work_id, (commentCount.get(c.work_id) || 0) + 1);

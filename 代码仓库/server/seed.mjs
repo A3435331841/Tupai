@@ -1,3 +1,6 @@
+import { rows } from './util.mjs';
+import showcaseSeed from './showcase-seed.json' with { type: 'json' };
+
 // First-batch templates (融合版, finalized 2026-11-17). Prompts are TuPai originals;
 // visual grammar distilled from open-image-prompts style cards (CC-BY-4.0 metadata layer).
 export const TEMPLATES = [
@@ -67,6 +70,43 @@ export const TEMPLATES = [
   },
 ];
 
+const showcaseSeedTasks = new WeakMap();
+
+async function seedShowcase(db) {
+  const counted = await db.from('showcase_skills').select('id', { count: 'exact' }).limit(1);
+  rows(counted);
+  if (Number(counted.count) < showcaseSeed.length) {
+    const existing = new Set((rows(await db.from('showcase_skills').select('id').limit(500)) || []).map((s) => s.id));
+    const missing = showcaseSeed.filter((s) => !existing.has(s.id));
+    for (let i = 0; i < missing.length; i += 20) {
+      const results = await Promise.all(missing.slice(i, i + 20).map((s) =>
+        db.from('showcase_skills').insertIfAbsent({ ...s, pairs: [], album_id: null }, { onConflict: 'id' })));
+      for (const result of results) rows(result);
+    }
+  }
+
+  const existingTemplates = new Set((rows(await db.from('templates').select('id').order('id').range(0, 999)) || []).map((t) => t.id));
+  const missingTemplates = showcaseSeed.filter((s) => !existingTemplates.has(s.id));
+  for (let i = 0; i < missingTemplates.length; i += 20) {
+    const results = await Promise.all(missingTemplates.slice(i, i + 20).map((s) =>
+      db.from('templates').insert({
+        id: s.id, title: s.title_zh, description: s.desc_zh, cover_asset_id: null,
+        prompt: s.prompt, negative_prompt: s.negative_prompt, default_model: s.model,
+        ratio: s.ratio, tags: s.tags, features: '', sort: 1000 + s.sort,
+      }).select()));
+    for (const result of results) rows(result);
+  }
+}
+
+export function ensureShowcaseSeeded(db) {
+  let task = showcaseSeedTasks.get(db);
+  if (!task) {
+    task = seedShowcase(db).catch((error) => { showcaseSeedTasks.delete(db); throw error; });
+    showcaseSeedTasks.set(db, task);
+  }
+  return task;
+}
+
 export async function ensureSeeded(db) {
   // 逐 id 检查存在性（曾用总行数 >= 模板数提前返回：技能演示批量种子会先于首模板写入，
   // 导致总数达标而首模板缺失、文生图/变体字段丢失——契约测试已覆盖此回归）
@@ -79,4 +119,5 @@ export async function ensureSeeded(db) {
       ratio: t.ratio, tags: t.tags, features: t.features, sort: t.sort,
     }, { onConflict: 'id' });
   }
+  await ensureShowcaseSeeded(db);
 }

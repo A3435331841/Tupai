@@ -1,7 +1,7 @@
 // 技能演示种子/展示链路冒烟测试：种入 1 技能 + 2 对示例 → 列表/详情/展示图/画册分享页 校验
 // 需先启动本地后端：cd 代码仓库 && deno run --allow-net=127.0.0.1:8000 --allow-read dev/function-local.ts
-const BASE = 'http://127.0.0.1:8000/functions/v1/app';
-const TOKEN = 'local-test-token';
+const BASE = (process.env.BASE || 'http://127.0.0.1:8000/functions/v1/app').replace(/\/$/, '');
+const TOKEN = process.env.MAINTENANCE_TOKEN || 'local-test-token';
 const H = { 'x-maintenance-token': TOKEN, 'content-type': 'application/json' };
 
 let pass = 0, failCount = 0;

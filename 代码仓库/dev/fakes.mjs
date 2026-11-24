@@ -1,5 +1,5 @@
 // Credential-free local fakes for dev/function-local.ts. In-memory, single-process.
-export function fakeDb() {
+export function fakeDb({ maxLimit = 1000 } = {}) {
   const tables = new Map();
   const table = (name) => {
     if (!tables.has(name)) tables.set(name, []);
@@ -7,7 +7,7 @@ export function fakeDb() {
   };
   function query(name) {
     const filters = [];
-    let orderCol = null, orderAsc = true, limitN = null, offsetN = 0, wantCount = false;
+    let orderCol = null, orderAsc = true, limitN = null, offsetN = 0, wantCount = false, limitError = false;
     const api = {
       select(_cols, opts) { if (opts?.count === 'exact') wantCount = true; return api; },
       eq(col, val) { filters.push((r) => r[col] === val); return api; },
@@ -15,13 +15,16 @@ export function fakeDb() {
       is(col, val) { filters.push((r) => (val === null ? r[col] == null : r[col] === val)); return api; },
       gte(col, val) { filters.push((r) => r[col] != null && r[col] >= val); return api; },
       order(col, opts) { orderCol = col; orderAsc = opts?.ascending !== false; return api; },
-      limit(n) { limitN = n; return api; },
-      range(from, to) { offsetN = from; limitN = to - from + 1; return api; },
+      limit(n) { if (n > maxLimit) limitError = true; limitN = n; return api; },
+      range(from, to) { const n = to - from + 1; if (n > maxLimit) limitError = true; offsetN = from; limitN = n; return api; },
       insert(row) {
-        const rowsIn = Array.isArray(row) ? row : [row];
-        const inserted = rowsIn.map((r) => ({ created_at: new Date().toISOString(), ...r }));
-        table(name).push(...inserted);
-        const result = { data: inserted, error: null };
+        if (Array.isArray(row)) {
+          const result = { data: null, error: { message: 'insert expects a single object' } };
+          return { select() { return Promise.resolve(result); }, then(resolve) { resolve(result); } };
+        }
+        const inserted = { created_at: new Date().toISOString(), ...row };
+        table(name).push(inserted);
+        const result = { data: [inserted], error: null };
         return { select() { return Promise.resolve(result); }, then(resolve) { resolve(result); } };
       },
       insertIfAbsent(row, opts) {
@@ -55,6 +58,7 @@ export function fakeDb() {
         };
       },
       then(resolve) {
+        if (limitError) { resolve({ data: null, error: { message: 'limit exceeds database maximum' } }); return; }
         let matched = table(name).filter((r) => filters.every((f) => f(r)));
         const count = matched.length;
         if (orderCol) matched = [...matched].sort((a, b) => (a[orderCol] > b[orderCol] ? 1 : -1) * (orderAsc ? 1 : -1));
