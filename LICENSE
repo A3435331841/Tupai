@@ -23,7 +23,7 @@ SOFTWARE.
 ---
 
 Third-party materials included in this repository retain their own licenses:
-- 资产仓库/skills-source/open-image-prompts/: see its LICENSE and DATA_LICENSE.md
+- 资产仓库/20-技能资产/第三方/open-image-prompts/: see its LICENSE and DATA_LICENSE.md
   (style-card metadata CC-BY-4.0; prompts used in 图派 templates were rewritten).
 - 代码仓库/web/public/samples/demo-night.jpg: Unsplash License
   (https://unsplash.com/license), source recorded in 资产仓库/95-私有资产/本地测试底图/MANIFEST.md.

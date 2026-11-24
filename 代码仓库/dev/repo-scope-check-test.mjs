@@ -22,23 +22,23 @@ try {
   copyFileSync(guardSource, path.join(fixture, '代码仓库/dev/repo-scope-check.mjs'));
   const image = Buffer.from('image fixture with no personal data');
   const digest = createHash('sha256').update(image).digest('hex');
-  const source = '资产仓库/media/generated/原图.png';
+  const source = '资产仓库/40-图片资产/AI生成/在用/原图.png';
   const runtime = '代码仓库/web/public/demo.png';
-  const legacy = '资产仓库/designs/pages/home/v01/assets/历史.png';
+  const legacy = '资产仓库/50-页面设计/首页/留档/v01/assets/历史.png';
   const legacyBytes = Buffer.from('legacy image fixture');
   const legacyHash = createHash('sha256').update(legacyBytes).digest('hex');
   put('README.md', '# fixture\n');
   put(source, image);
   put(runtime, image);
   put(legacy, legacyBytes);
-  put('资产仓库/manifests/运行时映射.json', JSON.stringify({ count: 1, runtime: [{ runtime_path: runtime, source_path: source, sha256: digest }] }));
-  put('资产仓库/manifests/资产清单.json', JSON.stringify({ count: 2, assets: [{ path: source, sha256: digest }, { path: legacy, sha256: legacyHash }] }));
+  put('资产仓库/90-元数据/运行时映射.json', JSON.stringify({ count: 1, runtime: [{ runtime_path: runtime, source_path: source, sha256: digest }] }));
+  put('资产仓库/90-元数据/资产总清单.json', JSON.stringify({ count: 2, assets: [{ path: source, sha256: digest }, { path: legacy, sha256: legacyHash }] }));
   git('add', '--', 'README.md', '代码仓库', '资产仓库');
   git('commit', '--quiet', '-m', 'fixture');
   let result = guard();
   check('历史过程文件与映射通过', result.status === 0, result.stdout + result.stderr);
 
-  const dup = '资产仓库/media/generated/重复.png';
+  const dup = '资产仓库/40-图片资产/AI生成/在用/重复.png';
   put(dup, image); git('add', '--', dup); put(dup, 'working tree is different');
   result = guard();
   check('检查暂存的重复图片而不是工作区版本', result.status !== 0 && result.stdout.includes('新增重复图片'), result.stdout + result.stderr);
@@ -50,7 +50,7 @@ try {
   check('禁止文件阻断', result.status !== 0 && result.stdout.includes('禁止提交'), result.stdout + result.stderr);
   git('rm', '--cached', '--quiet', '--', forbidden); rmSync(path.join(fixture, forbidden));
 
-  const processFile = '资产仓库/designs/pages/home/v02/assets/过程.png';
+  const processFile = '资产仓库/50-页面设计/首页/草稿/过程.png';
   put(processFile, 'new process file'); git('add', '--', processFile);
   result = guard();
   check('新增原型副本阻断', result.status !== 0 && result.stdout.includes('新增文件应仅留本地'), result.stdout + result.stderr);

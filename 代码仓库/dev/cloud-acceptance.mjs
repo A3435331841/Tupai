@@ -80,8 +80,8 @@ ok(cross.status === 404, '跨会话取结果 404', `status=${cross.status}`);
 // 5 封面懒生成：5 模板逐个触发并确认回填
 const tpl0 = await json(await req('GET', '/templates'));
 const ids = tpl0.templates.map((t) => t.id);
-ok(ids.length === 5, '模板 5 个', `n=${ids.length}`);
-for (const id of ids) {
+ok(ids.length >= 5, '模板至少 5 个（seed-showcase 会追加技能模板）', `n=${ids.length}`) ;
+for (const id of ids.slice(0, 5)) {
   let coverMime = '';
   for (let attempt = 0; attempt < 2; attempt++) {
     const c = await req('GET', `/templates/${id}/cover`, { sid: OTHER, timeout: 90000 });
@@ -93,7 +93,15 @@ for (const id of ids) {
   ok(!coverMime.includes('svg'), `封面 ${id} 真实图`, `mime=${coverMime}`);
   const tpl = await json(await req('GET', '/templates'));
   const row = tpl.templates.find((t) => t.id === id);
-  ok(row && !row.cover_url.endsWith('/cover'), `封面 ${id} 已回填 cover_asset_id`, row?.cover_url);
+  // 封面契约（2026-11-24 修订）：cover_url 恒为公开代理 /api/v1/templates/{id}/cover，
+  // 回填 cover_asset_id 的可观测结果是匿名（无会话，等价页面 <img src>）也能取到真实图。
+  const coverPath = row?.cover_url || `/api/v1/templates/${id}/cover`;
+  ok(row?.cover_url === `/api/v1/templates/${id}/cover`, `封面 ${id} cover_url 为公开代理`, row?.cover_url);
+  const anonCover = await fetch(`${BASE}/functions/v1/app${coverPath}`, { signal: AbortSignal.timeout(90000) });
+  const anonMime = anonCover.headers.get('content-type') || '';
+  await anonCover.arrayBuffer();
+  ok(anonCover.status === 200 && /^image\//.test(anonMime) && !anonMime.includes('svg'),
+    `封面 ${id} 已回填且匿名可读`, `status=${anonCover.status} mime=${anonMime}`);
   console.log(`  … cover ${id} ${secs()}s`);
 }
 

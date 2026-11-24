@@ -10,25 +10,32 @@ agnes key.txt
 docs/references/agnes-api.md
 
 # Personal data, local history and tool state
-资产仓库/test-images/
-资产仓库/media/private/
+资产仓库/95-私有资产/
 早期规划/
 .workbuddy/
 .workbuddy-ai/
 .qoder/
+.zcode/
+.trae/
+.scratch-20261119/
 .idea/
 .vscode/
+/.screenshots/
 代码仓库/web/screenshots/
 
 # New process materials; existing tracked source files remain tracked.
-资产仓库/designs/**/assets/
-资产仓库/designs/**/archive/
-资产仓库/designs/archive/
-资产仓库/designs/**/explorations/
-资产仓库/designs/**/预览-*.png
-资产仓库/media/generated/brand-explorations/
-资产仓库/brand/explorations/
-资产仓库/templates/*/samples/
+# Paths follow docs/13 Chinese directory names (old designs/media/brand/templates are gone).
+资产仓库/50-页面设计/**/assets/
+资产仓库/50-页面设计/**/留档/
+资产仓库/50-页面设计/**/历史/
+资产仓库/50-页面设计/**/草稿/
+资产仓库/50-页面设计/**/预览-*.png
+资产仓库/10-品牌资产/**/explorations/
+资产仓库/60-模板资产/*/samples/
+资产仓库/40-图片资产/真实授权/**/*.jpg
+资产仓库/40-图片资产/真实授权/**/*.jpeg
+资产仓库/40-图片资产/真实授权/**/*.png
+资产仓库/99-归档/
 *.psd
 *.ai
 *.zip

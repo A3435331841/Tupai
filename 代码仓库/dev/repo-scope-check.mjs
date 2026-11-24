@@ -45,15 +45,16 @@ const forbidden = [
   [/(^|\/)(id_rsa|id_ed25519)$/i, 'SSH 私钥'],
   [/\.(log|tsbuildinfo)$/i, '日志或增量缓存'],
 ];
+// 新增过程材料仅留本地：按 docs/13 现行中文目录匹配（旧英文目录已不存在）。
 const localOnlyNew = [
-  [/^资产仓库\/designs\/.*\/assets\//, '原型素材副本'],
-  [/^资产仓库\/designs\/archive\//, '设计过程归档'],
-  [/^资产仓库\/designs\/pages\/.*\/archive\//, '页面历史参考'],
-  [/^资产仓库\/designs\/pages\/.*\/explorations\//, '设计探索'],
-  [/^资产仓库\/designs\/pages\/.*\/预览-[^/]+\.(png|jpe?g|webp)$/i, '批量过程预览'],
-  [/^资产仓库\/media\/generated\/brand-explorations\//, '品牌探索原图'],
-  [/^资产仓库\/brand\/explorations\//, '品牌探索'],
-  [/^资产仓库\/templates\/[^/]+\/samples\//, '模板回归样片'],
+  [/^资产仓库\/50-页面设计\/.*\/assets\//, '原型素材副本'],
+  [/^资产仓库\/50-页面设计\/.*\/(留档|历史|放弃)\//, '设计过程归档'],
+  [/^资产仓库\/50-页面设计\/.*\/(explorations|草稿)\//, '设计探索'],
+  [/^资产仓库\/50-页面设计\/.*\/预览-[^/]+\.(png|jpe?g|webp)$/i, '批量过程预览'],
+  [/^资产仓库\/10-品牌资产\/.*\/(explorations|探索)\//, '品牌探索'],
+  [/^资产仓库\/40-图片资产\/.*\/(explorations|探索)\//, '图片探索原图'],
+  [/^资产仓库\/60-模板资产\/[^/]+\/samples\//, '模板回归样片'],
+  [/^资产仓库\/95-私有资产\//, '私有资产'],
   [/\.(psd|ai|zip|mp4)$/i, '大型过程文件'],
 ];
 const imageExt = new Set(['.webp', '.png', '.jpg', '.jpeg', '.svg']);
@@ -143,8 +144,12 @@ if (assets) {
       errors.push(`资产清单哈希不符: ${item.path}`);
     }
     // 引用字段不得残留迁移前旧目录（brand/designs/media/...），防止溯源链断裂
+    // 同时覆盖现行英文键（used_by/runtime_path 等）与历史中文键，避免字段改名后漏检。
     const OLD_DIR = /^资产仓库\/(brand|designs|media|manifests|skills|test-images|archive)\//;
-    for (const field of ['重复自', '派生自', '被引用于', '运行时路径', '提示词路径', '取代', '被取代于']) {
+    for (const field of [
+      '重复自', '派生自', '被引用于', '运行时路径', '提示词路径', '取代', '被取代于',
+      'used_by', 'runtime_path', 'duplicate_of', 'derived_from', 'superseded_by',
+    ]) {
       const v = item[field];
       if (v == null) continue;
       for (const ref of (Array.isArray(v) ? v : [v])) {
